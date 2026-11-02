@@ -19,7 +19,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {
-  font: 13px/1.5 -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+  font: 13px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
   background: var(--bg);
   color: var(--text);
   padding: 16px 18px 10px;

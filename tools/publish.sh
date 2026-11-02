@@ -72,15 +72,29 @@ RELEASE_NOTES="$NOTES" \
 
 rm -rf release/神奇宝贝.app
 
+# ---------- 5.5 Windows 版（可选，SKIP_WIN=1 跳过） ----------
+WINZIP=""
+if [ -z "${SKIP_WIN:-}" ]; then
+  echo ""
+  echo "▶ 构建 Windows 版…"
+  if NODE="$NODE" bash tools/build-win.sh 2>&1 | tail -2; then
+    WINZIP="release/pokepet-${NEW_VER}-win-x64.zip"
+  else
+    echo "⚠️  Windows 构建失败，继续只发 Mac 版"
+  fi
+fi
+
 # ---------- 6. 上传 GitHub Release（有 gh 且已登录时才做） ----------
 ZIP="release/pokepet-${NEW_VER}.zip"
+ASSETS=("$ZIP" "release/update.json")
+[ -n "$WINZIP" ] && [ -f "$WINZIP" ] && ASSETS+=("$WINZIP")
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && [ -n "${GH_RELEASE:-}" ]; then
   echo ""
   echo "▶ 上传到 GitHub Release v${NEW_VER}…"
-  gh release create "v$NEW_VER" "$ZIP" "release/update.json" \
+  gh release create "v$NEW_VER" "${ASSETS[@]}" \
     --title "v$NEW_VER" --notes "${NOTES:-v$NEW_VER}" || \
-    gh release upload "v$NEW_VER" "$ZIP" "release/update.json" --clobber
-  echo "✅ 已上传"
+    gh release upload "v$NEW_VER" "${ASSETS[@]}" --clobber
+  echo "✅ 已上传：${#ASSETS[@]} 个文件"
 fi
 
 # ---------- 7. 收尾提示 ----------
@@ -92,7 +106,8 @@ echo ""
 echo "接下来："
 if [ -n "$MANIFEST" ]; then
   echo "   1) 把 zip 和 update.json 传到 $BASE"
-  echo "   2) 朋友打开托盘 →「检查更新 ⟳」就会升到 v${NEW_VER}"
+  echo "   2) Mac 用户托盘 →「检查更新 ⟳」就会升到 v${NEW_VER}
+   3) Windows 用户从下载页拿 win-x64.zip"
 else
   echo "   1) 把 zip 发给朋友，他们重新装一次"
   echo "   2) 或者先配更新源，以后就能自动更新"

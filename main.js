@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, ipcMain } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -13,9 +13,12 @@ process.on('uncaughtException', err => {
 });
 
 app.setName('togepi-pet');
+const IS_MAC = process.platform === 'darwin';
+const IS_WIN = process.platform === 'win32';
+if (IS_WIN) app.setAppUserModelId('com.zyh.togepipet');  // Windows 任务栏/通知归组
 // 开发时把 userData 放进项目目录（便携）；打包成自包含 app 时放系统标准位置
 // （否则会往已签名的 bundle 里写文件，破坏签名，也可能没权限）
-const IN_BUNDLE = __dirname.includes('.app/Contents/Resources/');
+const IN_BUNDLE = app.isPackaged;
 app.setPath('userData', IN_BUNDLE
   ? path.join(app.getPath('appData'), '神奇宝贝')
   : path.join(__dirname, 'userdata'));
@@ -523,7 +526,7 @@ function createWindow() {
     }
   });
   win.setAlwaysOnTop(true, 'floating');
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
+  if (IS_MAC) win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   // 把渲染进程日志转发到终端，便于排查
   win.webContents.on('console-message', (...args) => {
@@ -557,7 +560,8 @@ function createWindow() {
 // ---------- 托盘 ----------
 function createTray() {
   // 彩色精灵球图标（比模板图更醒目）
-  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayPokeball.png'));
+  const iconPath = path.join(__dirname, 'assets', IS_WIN ? 'tray.png' : 'trayPokeball.png');
+  const icon = nativeImage.createFromPath(iconPath);
   console.log('[main] tray icon 空?', icon.isEmpty(), JSON.stringify(icon.getSize()));
   tray = new Tray(icon);
   tray.setToolTip('神奇宝贝桌宠');
@@ -705,12 +709,20 @@ async function checkUpdate(manual = true) {
 }
 
 function installUpdate(manifestUrl) {
+  // Windows 上没法替换正在运行的 exe，直接把人送到下载页
+  if (IS_WIN) {
+    shell.openExternal('https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/latest');
+    bubble('新版已在浏览器打开，下载后解压覆盖', 6000);
+    return;
+  }
   const { spawn } = require('child_process');
   const script = path.join(__dirname, 'tools', 'update.sh');
-  if (!fs.existsSync(script)) { bubble('缺少更新脚本', 2400); return; }
-  console.log('[update] 启动更新:', manifestUrl);
-  spawn('/bin/bash', [script, manifestUrl], { detached: true, stdio: 'ignore' }).unref();
-  setTimeout(() => { saveState(); app.quit(); }, 1500);
+  try {
+    spawn('/bin/bash', [script, manifestUrl], { detached: true, stdio: 'ignore' }).unref();
+  } catch (e) {
+    console.error('[update] 启动更新脚本失败', e.message);
+    bubble('更新失败，请手动下载', 3000);
+  }
 }
 
 // ---------- 故事卡 ----------
@@ -754,7 +766,7 @@ function showLore(dex = speciesDex, autoCloseMs = 9000) {
       }
     });
     loreWin.setAlwaysOnTop(true, 'floating');
-    loreWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
+    if (IS_MAC) loreWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
     loreWin.loadFile(path.join(__dirname, 'renderer', 'lore.html'));
     loreWin.webContents.on('did-finish-load', () => {
       if (loreWin && !loreWin.isDestroyed()) loreWin.webContents.send('lore:data', loreDataFor(dex));

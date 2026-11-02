@@ -64,7 +64,7 @@ body[data-state="fall"] #shadow {
   border: 2px solid #333;
   border-radius: 10px;
   padding: 4px 10px;
-  font: 600 13px/1.4 -apple-system, "PingFang SC", system-ui, sans-serif;
+  font: 600 13px/1.4 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   color: #333;
   text-align: center;
   max-width: 140px;

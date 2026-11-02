@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>神奇宝贝桌宠 · 把宝可梦养在桌面上</title>
+<meta name="description" content="1025 只宝可梦桌面宠物，会走会飞，能摸能扔。免费开源，支持 macOS 与 Windows。">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(160deg, #ffe9ef 0%, #eaf1fe 55%, #e8f6f0 100%);
+    font: 16px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: #201a18;
+    display: flex; align-items: center; justify-content: center;
+    padding: 40px 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: 100%; max-width: 720px; text-align: center; }
+  .tag {
+    display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: .04em;
+    color: #a67a8a; background: #fff6; padding: 6px 14px; border-radius: 999px; margin-bottom: 22px;
+  }
+  h1 { font-size: clamp(34px, 7vw, 52px); line-height: 1.18; letter-spacing: -.02em; }
+  .sub { color: #6e6360; font-size: clamp(15px, 2.4vw, 18px); margin-top: 16px; }
+  .pets { display: flex; justify-content: center; gap: 10px; margin: 26px 0 8px; flex-wrap: wrap; }
+  .pets img { height: 74px; image-rendering: pixelated; }
+
+  .card {
+    background: #fff; border-radius: 24px; padding: 32px;
+    box-shadow: 0 18px 50px rgba(70, 50, 60, .12);
+    margin-top: 26px; text-align: left;
+  }
+  .detected {
+    font-size: 14px; color: #8a7f7c; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #35b26a; }
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 20px; border-radius: 16px; border: 0;
+    background: #e23a3a; color: #fff; font: inherit; font-size: 19px; font-weight: 700;
+    text-decoration: none; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease;
+    box-shadow: 0 10px 24px rgba(226, 58, 58, .28);
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(226, 58, 58, .34); }
+  .btn:active { transform: translateY(0); }
+  .btn[disabled] { background: #d8d2d0; box-shadow: none; cursor: default; transform: none; }
+  .btn small { font-weight: 500; opacity: .8; font-size: 14px; }
+
+  .alt { margin-top: 16px; font-size: 14px; color: #7c716e; }
+  .alt a { color: #3876d6; text-decoration: none; }
+  .alt a:hover { text-decoration: underline; }
+
+  .note {
+    margin-top: 22px; padding: 16px 18px; background: #fdf7ec; border-radius: 14px;
+    font-size: 13.5px; color: #7a6a52; line-height: 1.7;
+  }
+  .note b { color: #5a4a32; }
+  .note code { background: #00000008; padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
+
+  .feats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 26px; text-align: left; }
+  .feat { font-size: 14px; color: #5f5552; }
+  .feat b { display: block; font-size: 15px; color: #2a2320; margin-bottom: 2px; }
+
+  footer { margin-top: 34px; font-size: 13px; color: #9a8f8c; }
+  footer a { color: #8a7f7c; }
+  .ver { font-size: 13px; color: #a09592; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tag">macOS / Windows · 免费开源</div>
+  <h1>把宝可梦<br>养在桌面上</h1>
+  <p class="sub">1025 只全国图鉴 · 会走会飞 · 能摸能扔<br>还会跟着你的鼠标跑</p>
+
+  <div class="pets">
+    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/25.gif" alt="">
+    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/6.gif" alt="">
+    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/133.gif" alt="">
+    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/150.gif" alt="">
+    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/448.gif" alt="">
+  </div>
+
+  <div class="card">
+    <div class="detected"><span class="dot"></span><span id="detect">正在识别你的系统…</span></div>
+
+    <a class="btn" id="main-btn" href="#" rel="noopener">下载 <small id="main-size"></small></a>
+
+    <div class="alt" id="alt">
+      另一个版本：<a id="alt-link" href="#">查看全部下载</a>
+    </div>
+
+    <div class="note" id="note">
+      <b>装好之后：</b><span id="note-body">Mac 版右键 → 打开；Windows 版解压后双击 exe。装好以后能自动更新。</span>
+    </div>
+
+    <div class="feats">
+      <div class="feat"><b>会走会飞</b>贴着你的窗口来回走，会飞的能升空</div>
+      <div class="feat"><b>能摸能扔</b>摸头压扁冒爱心，抓起来扔出去会弹</div>
+      <div class="feat"><b>收进精灵球</b>晃三晃，再点一下「噗」地出来</div>
+      <div class="feat"><b>1025 只随便挑</b>按属性、世代搜，点进化链就能换</div>
+    </div>
+  </div>
+
+  <div class="ver" id="ver"></div>
+  <footer>
+    <a href="https://github.com/Zyh-Quotation/994-Desktop-Pet" target="_blank" rel="noopener">GitHub 仓库</a>
+    ·
+    <a href="https://github.com/Zyh-Quotation/994-Desktop-Pet/releases" target="_blank" rel="noopener">所有版本</a>
+    ·
+    仅支持 Apple 芯片（M1 及以后）与 Windows 10/11 64 位
+  </footer>
+</div>
+
+<script>
+const REPO = 'Zyh-Quotation/994-Desktop-Pet';
+const RELEASES = `https://github.com/${REPO}/releases`;
+
+const $ = id => document.getElementById(id);
+
+function detectOS() {
+  const ua = navigator.userAgent;
+  if (/Windows NT/i.test(ua)) return 'win';
+  if (/Macintosh|Mac OS X/i.test(ua)) return 'mac';
+  if (/Android|iPhone|iPad|Linux/i.test(ua)) return 'other';
+  return 'other';
+}
+
+const OS = detectOS();
+const NAME = { win: 'Windows', mac: 'macOS', other: '其他系统' };
+$('detect').textContent = OS === 'other'
+  ? '没识别出系统，请手动选择'
+  : `已识别：${NAME[OS]} · 将下载对应版本`;
+
+const fmt = n => n > 1e9 ? (n / 1073741824).toFixed(2) + ' GB'
+  : n > 1e6 ? Math.round(n / 1048576) + ' MB' : (n / 1024).toFixed(0) + ' KB';
+
+let assets = { win: null, mac: null };
+
+async function loadRelease() {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    for (const a of j.assets || []) {
+      if (/-win-x64\.zip$/i.test(a.name)) assets.win = a;
+      else if (/^pokepet-[\d.]+\.zip$/i.test(a.name)) assets.mac = a;
+    }
+    $('ver').textContent = `最新版 v${j.tag_name.replace(/^v/, '')} · ${
+      [assets.mac, assets.win].filter(Boolean).map(a => fmt(a.size)).join(' / ')}`;
+    apply();
+  } catch (e) {
+    $('ver').textContent = '读取版本信息失败，可直接去 Releases 页面下载';
+    $('main-btn').href = RELEASES;
+    $('main-btn').textContent = '打开下载页';
+  }
+}
+
+function apply() {
+  const primary = assets[OS];
+  const secondary = OS === 'win' ? assets.mac : assets.win;
+  const btn = $('main-btn');
+
+  if (primary) {
+    btn.href = primary.browser_download_url;
+    btn.innerHTML = `下载 ${NAME[OS]} 版 <small>${fmt(primary.size)}</small>`;
+  } else if (assets.win || assets.mac) {
+    const fallback = assets.win || assets.mac;
+    btn.href = fallback.browser_download_url;
+    btn.innerHTML = `下载 <small>${fmt(fallback.size)}</small>`;
+  } else {
+    btn.href = RELEASES;
+    btn.textContent = '打开下载页';
+  }
+
+  if (secondary) {
+    $('alt-link').textContent = `下载${NAME[OS === 'win' ? 'mac' : 'win']}版（${fmt(secondary.size)}）`;
+    $('alt-link').href = secondary.browser_download_url;
+  } else {
+    $('alt-link').href = RELEASES;
+    $('alt-link').textContent = '查看全部下载';
+  }
+
+  $('note-body').innerHTML = OS === 'win'
+    ? '解压后双击 <code>TogepiPet.exe</code> 就行。放在固定文件夹里，别直接放桌面。'
+    : '解开 zip，把「神奇宝贝.app」拖进「应用程序」，<b>首次打开要右键 → 打开</b>（没买苹果签名，系统会拦一下）。';
+}
+
+loadRelease();
+</script>
+</body>
+</html>
