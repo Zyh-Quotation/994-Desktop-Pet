@@ -1,0 +1,211 @@
+:root {
+  --petH: 96px;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 朝左时整只水平镜像；transform-origin 默认居中，位置不会偏移 */
+body[data-dir="left"] {
+  --flip: -1;
+}
+
+#sprite {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%) scaleX(var(--flip, 1));
+  height: var(--petH);
+  image-rendering: pixelated;
+  opacity: 0;
+  cursor: grab;
+}
+#sprite.ready {
+  opacity: 1;
+}
+body[data-state="drag"] #sprite {
+  cursor: grabbing;
+}
+
+#shadow {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  width: calc(var(--petH) * 0.75);
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.28), transparent 70%);
+  transition: opacity 0.25s, transform 0.25s;
+  /* 飞得越高，影子越小越淡 */
+  transform: translateX(-50%) scale(calc((1 - var(--alt, 0) * 0.5) * var(--shadow-k, 1)));
+  opacity: calc((1 - var(--alt, 0) * 0.7) * var(--shadow-a, 1));
+}
+body[data-state="drag"] #shadow,
+body[data-state="fall"] #shadow {
+  --shadow-a: 0.15;
+  --shadow-k: 0.6;
+}
+
+#bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--petH) + 16px);
+  transform: translateX(-50%) scale(0.6);
+  background: #fff;
+  border: 2px solid #333;
+  border-radius: 10px;
+  padding: 4px 10px;
+  font: 600 13px/1.4 -apple-system, "PingFang SC", system-ui, sans-serif;
+  color: #333;
+  text-align: center;
+  max-width: 140px;
+  opacity: 0;
+  transition: opacity 0.18s, transform 0.18s;
+  pointer-events: none;
+  white-space: normal;
+}
+#bubble.show {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+#bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -6px;
+  border: 6px solid transparent;
+  border-top-color: #333;
+}
+
+/* 走路：一颠一颠 */
+@keyframes hop {
+  0%, 100% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0); }
+  50% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(-10px); }
+}
+body[data-state="walk"] #sprite {
+  animation: hop 0.38s infinite;
+}
+
+/* 被抓住：挣扎 */
+@keyframes wiggle {
+  0%, 100% { transform: translateX(-50%) scaleX(var(--flip, 1)) rotate(-10deg); }
+  50% { transform: translateX(-50%) scaleX(var(--flip, 1)) rotate(10deg); }
+}
+body[data-state="drag"] #sprite {
+  animation: wiggle 0.25s infinite;
+}
+
+/* 飞行：朝行进方向轻微倾斜 */
+body[data-state="fly"] #sprite {
+  transform: translateX(-50%) scaleX(var(--flip, 1)) rotate(6deg);
+}
+
+/* 精灵球 */
+#ball {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  width: calc(var(--petH) * 0.74);
+  height: calc(var(--petH) * 0.74);
+  transform: translateX(-50%);
+  border-radius: 50%;
+  display: none;
+  cursor: grab;
+  background: linear-gradient(#ee1515 0 45%, #1d1d1f 45% 55%, #f7f7f7 55% 100%);
+  box-shadow: inset -5px -7px 12px rgba(0, 0, 0, .2), 0 6px 14px rgba(0, 0, 0, .28);
+}
+#ball::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 26%; height: 26%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #f7f7f7;
+  border: 2.5px solid #1d1d1f;
+  box-shadow: inset 0 0 0 1.5px #e8e8e8;
+}
+body[data-state="ball"] #ball { display: block; animation: ballWobble .55s ease-in-out 3; }
+body[data-state="ball"] #sprite { display: none; }
+body[data-state="ball"] #shadow { --shadow-a: .55; --shadow-k: .8; }
+@keyframes ballWobble {
+  0%, 100% { transform: translateX(-50%) rotate(0); }
+  25% { transform: translateX(-50%) rotate(-16deg); }
+  75% { transform: translateX(-50%) rotate(16deg); }
+}
+
+/* 被摸头：压一下又弹回来 */
+@keyframes squish {
+  0%, 100% { transform: translateX(-50%) scaleX(var(--flip, 1)) scaleY(1); }
+  45% { transform: translateX(-50%) scaleX(var(--flip, 1)) scaleY(.87) scaleX(calc(var(--flip, 1) * 1.08)); }
+}
+#sprite.petting { animation: squish .3s ease; }
+
+/* 睡觉：变暗 */
+body[data-state="sleep"] #sprite {
+  filter: brightness(0.7) saturate(0.8);
+}
+
+/* 下落：微倾 */
+body[data-state="fall"] #sprite {
+  transform: translateX(-50%) scaleX(var(--flip, 1)) rotate(-6deg);
+}
+
+/* 开心：连跳三下 */
+body[data-state="happy"] #sprite {
+  animation: hop 0.25s 4;
+}
+
+/* 吃饭：小跳 */
+body[data-state="eat"] #sprite {
+  animation: hop 0.3s 6;
+}
+
+/* 生气：抖动 */
+@keyframes shake {
+  0%, 100% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateX(-3px); }
+  50% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateX(3px); }
+}
+body[data-state="angry"] #sprite {
+  animation: shake 0.2s 10;
+}
+
+/* ---------- 待机小动作 ---------- */
+@keyframes actYawn {
+  0%, 100% { transform: translateX(-50%) scaleX(var(--flip, 1)) scaleY(1); }
+  35%, 65% { transform: translateX(-50%) scaleX(var(--flip, 1)) scaleY(1.12) scaleX(calc(var(--flip, 1) * 0.95)); }
+}
+#sprite.act-yawn { animation: actYawn 1.1s ease-in-out; }
+
+@keyframes actScratch {
+  0%, 100% { transform: translateX(-50%) scaleX(var(--flip, 1)) rotate(0); }
+  20% { transform: translateX(-50%) scaleX(var(--flip, 1)) rotate(-7deg); }
+  40% { transform: translateX(-50%) scaleX(var(--flip, 1)) rotate(6deg); }
+  60% { transform: translateX(-50%) scaleX(var(--flip, 1)) rotate(-5deg); }
+  80% { transform: translateX(-50%) scaleX(var(--flip, 1)) rotate(3deg); }
+}
+#sprite.act-scratch { animation: actScratch 0.8s ease-in-out; }
+
+@keyframes actLook {
+  0%, 100% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateX(0); }
+  30% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateX(-4px) rotate(-2deg); }
+  70% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateX(4px) rotate(2deg); }
+}
+#sprite.act-look { animation: actLook 1.2s ease-in-out; }
+
+@keyframes actPounce {
+  0%, 100% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0); }
+  40% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(-14px) scaleY(1.05); }
+  70% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) scaleY(0.92); }
+}
+#sprite.act-pounce { animation: actPounce 0.7s ease-out; }

@@ -1,0 +1,367 @@
+const listEl = document.getElementById('list');
+const chipsEl = document.getElementById('chips');
+const countEl = document.getElementById('count');
+const login = document.getElementById('login');
+const sizesEl = document.getElementById('sizes');
+const searchEl = document.getElementById('search');
+const genEl = document.getElementById('gen');
+const hintEl = document.getElementById('hint');
+const diceEl = document.getElementById('dice');
+const sound = document.getElementById('sound');
+
+const TYPE_COLOR = {
+  草: '#78C850', 火: '#F08030', 水: '#6890F0', 电: '#F8D030',
+  一般: '#A8A878', 超能力: '#F85888', 幽灵: '#705898', 格斗: '#C03028',
+  恶: '#705848', 虫: '#A8B820', 飞行: '#A890F0', 岩石: '#B8A038',
+  地面: '#E0C068', 冰: '#98D8D8', 龙: '#7038F8', 钢: '#B8B8D0',
+  毒: '#A040A0', 妖精: '#EE99AC'
+};
+const ALL_COLOR = '#e63b3b';
+const LEGEND_COLOR = '#d4a017';
+const GEN_LABEL = ['', '第一代', '第二代', '第三代', '第四代', '第五代', '第六代', '第七代', '第八代', '第九代'];
+
+function tint(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+let conf = null;
+let current = 175;
+let filter = '全部';
+let query = '';
+let genFilter = 0;
+let built = false;
+const lineEls = [];
+const spByDex = new Map();
+
+function markSizes(key) {
+  sizesEl.querySelectorAll('.size-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+}
+
+function spriteUrl(dex) {
+  return conf.spriteBase + dex + '.gif';
+}
+
+function pad3(n) {
+  return String(n).padStart(3, '0');
+}
+
+function makeCard(sp) {
+  const b = document.createElement('button');
+  b.className = 'card' + (sp.dex === current ? ' active' : '');
+  b.dataset.dex = String(sp.dex);
+  b.title = `${sp.name} · No.${pad3(sp.dex)}`;
+
+  const img = document.createElement('img');
+  img.src = spriteUrl(sp.dex);
+  img.alt = sp.name;
+  img.loading = 'lazy';
+  img.decoding = 'async';
+
+  const name = document.createElement('span');
+  name.className = 'card-name';
+  name.textContent = sp.name;
+
+  const types = document.createElement('span');
+  types.className = 'card-types';
+  types.textContent = sp.types.join('·');
+
+  b.append(img, name, types);
+  b.onclick = async () => {
+    await window.cfg.setSpecies(sp.dex);
+    current = sp.dex;
+    for (const line of lineEls) {
+      for (const c of line.cards) c.el.classList.toggle('active', c.sp.dex === current);
+    }
+  };
+  return b;
+}
+
+// 把某只设为当前，并在列表里定位、闪一下
+function focusSpecies(dex) {
+  current = dex;
+  let el = null;
+  for (const line of lineEls) {
+    for (const c of line.cards) {
+      c.el.classList.toggle('active', c.sp.dex === current);
+      if (c.sp.dex === dex) el = c.el;
+    }
+  }
+  if (!el) return;
+  if (el.classList.contains('hide')) {
+    filter = '全部'; query = ''; genFilter = 0;
+    searchEl.value = ''; genEl.value = '0';
+    buildChips();
+    applyFilter();
+  }
+  el.scrollIntoView({ block: 'center' });
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+}
+
+function buildChips() {
+  const order = ['一般', '火', '水', '电', '草', '冰', '格斗', '毒', '地面', '飞行',
+    '超能力', '虫', '岩石', '幽灵', '龙', '恶', '钢', '妖精'];
+  const present = new Set(conf.species.flatMap(s => s.types || []));
+  const types = ['全部', '传说', ...order.filter(t => present.has(t))];
+  chipsEl.innerHTML = '';
+  for (const t of types) {
+    const color = t === '传说' ? LEGEND_COLOR : (TYPE_COLOR[t] || ALL_COLOR);
+    const c = document.createElement('button');
+    c.className = 'chip' + (t === filter ? ' active' : '');
+    c.textContent = t;
+    c.dataset.type = t;
+    c.style.setProperty('--chip', color);
+    c.style.setProperty('--chip-tint', tint(color, .13));
+    c.style.setProperty('--chip-border', tint(color, .38));
+    c.onclick = () => {
+      filter = t;
+      chipsEl.querySelectorAll('.chip').forEach(x => x.classList.toggle('active', x.dataset.type === t));
+      applyFilter();
+      listEl.scrollTop = 0;
+    };
+    chipsEl.append(c);
+  }
+}
+
+function buildGens() {
+  genEl.innerHTML = '';
+  const all = document.createElement('option');
+  all.value = '0';
+  all.textContent = '全部世代';
+  genEl.append(all);
+  for (let g = 1; g <= 9; g++) {
+    const o = document.createElement('option');
+    o.value = String(g);
+    o.textContent = GEN_LABEL[g] || `第${g}代`;
+    genEl.append(o);
+  }
+}
+
+function buildLines() {
+  for (const chain of conf.chains) {
+    const box = document.createElement('div');
+    box.className = 'line';
+    box.style.setProperty('--tcolor', TYPE_COLOR[chain.type] || '#888888');
+
+    const hd = document.createElement('div');
+    hd.className = 'line-hd';
+    const tag = document.createElement('span');
+    tag.className = 'line-type';
+    tag.textContent = chain.type || '?';
+    hd.append(tag);
+    if (!chain.hows.length) {
+      const note = document.createElement('span');
+      note.className = 'line-note';
+      note.textContent = '无进化';
+      hd.append(note);
+    }
+    box.append(hd);
+
+    const body = document.createElement('div');
+    body.className = 'line-body';
+    const cards = [];
+    const stageEls = [];
+    const arrowEls = [];
+
+    chain.stages.forEach((stage, i) => {
+      const st = document.createElement('div');
+      st.className = 'stage';
+      for (const dex of stage) {
+        const sp = spByDex.get(dex);
+        if (!sp) continue;
+        const el = makeCard(sp);
+        st.append(el);
+        cards.push({ sp, el, stage: i });
+      }
+      body.append(st);
+      stageEls.push(st);
+
+      if (i < chain.stages.length - 1) {
+        const ar = document.createElement('div');
+        ar.className = 'arrow';
+        ar.textContent = '→';
+        if (chain.hows[i]) {
+          const em = document.createElement('em');
+          em.textContent = chain.hows[i];
+          ar.append(em);
+        }
+        body.append(ar);
+        arrowEls.push(ar);
+      }
+    });
+
+    box.append(body);
+
+    // 只有一只、且没有进化 → 小卡片排布，避免一行一只浪费空间
+    const onlyOne = chain.stages.length === 1 && chain.stages[0].length === 1;
+    if (onlyOne) box.classList.add('single');
+
+    listEl.append(box);
+    lineEls.push({ type: chain.type, el: box, cards, stages: stageEls, arrows: arrowEls });
+  }
+}
+
+function buildLegendGrid() {
+  const legends = conf.species.filter(s => s.legend);
+  if (!legends.length) return;
+
+  const box = document.createElement('div');
+  box.className = 'line legend-line';
+  box.style.setProperty('--tcolor', LEGEND_COLOR);
+
+  const hd = document.createElement('div');
+  hd.className = 'line-hd';
+  const badge = document.createElement('span');
+  badge.className = 'line-badge';
+  badge.textContent = '传说';
+  const note = document.createElement('span');
+  note.className = 'line-note';
+  note.textContent = `${legends.length} 只 · 含幻兽`;
+  hd.append(badge, note);
+  box.append(hd);
+
+  const body = document.createElement('div');
+  body.className = 'legend-grid';
+  const cards = [];
+  for (const sp of legends) {
+    const el = makeCard(sp);
+    body.append(el);
+    cards.push({ sp, el });
+  }
+  box.append(body);
+  listEl.append(box);
+  lineEls.push({ type: '传说', special: 'legend', el: box, cards });
+}
+
+function build() {
+  spByDex.clear();
+  for (const sp of conf.species) spByDex.set(sp.dex, sp);
+
+  buildChips();
+  buildGens();
+  listEl.innerHTML = '';
+  lineEls.length = 0;
+  buildLines();
+  buildLegendGrid();
+  built = true;
+}
+
+function matches(sp) {
+  if (!query) return true;
+  return sp.name.includes(query) ||
+    String(sp.dex).includes(query) ||
+    (sp.types || []).some(t => t.includes(query));
+}
+
+function cardVisible(line, sp) {
+  if (genFilter && sp.gen !== genFilter) return false;
+  if (!matches(sp)) return false;
+  if (line.special === 'legend') return filter === '传说';
+  if (filter === '传说') return false;
+  return filter === '全部' || line.type === filter;
+}
+
+function applyFilter() {
+  let shown = 0;
+
+  for (const line of lineEls) {
+    let hits = 0;
+    const perStage = line.stages ? new Array(line.stages.length).fill(0) : null;
+
+    for (const c of line.cards) {
+      const visible = cardVisible(line, c.sp);
+      c.el.classList.toggle('hide', !visible);
+      if (visible) {
+        hits++;
+        if (perStage && c.stage != null) perStage[c.stage]++;
+      }
+    }
+
+    if (perStage) {
+      line.stages.forEach((st, i) => st.classList.toggle('hide', perStage[i] === 0));
+      line.arrows.forEach((ar, i) => {
+        const a = perStage[i] === 0;
+        const b = perStage[i + 1] === 0;
+        ar.classList.toggle('hide', a || b);
+      });
+    }
+
+    line.el.classList.toggle('hide', hits === 0);
+    shown += hits;
+  }
+
+  countEl.textContent = query ? `找到 ${shown} 只` : `共 ${shown} 只`;
+  hintEl.textContent = shown === 0
+    ? '没有匹配的宝可梦：换个关键词，或点「全部」取消属性/世代筛选'
+    : '点任意一只即可切换';
+}
+
+async function init() {
+  conf = await window.cfg.get();
+  current = conf.current;
+
+  login.checked = !!conf.loginAtStart;
+  sound.checked = conf.soundOn !== false;
+  markSizes(conf.sizeKey);
+  build();
+  applyFilter();
+
+  const active = listEl.querySelector('.card.active');
+  if (active) active.scrollIntoView({ block: 'center' });
+}
+
+searchEl.addEventListener('input', () => {
+  query = searchEl.value.trim();
+  if (!built) return;
+  applyFilter();
+  listEl.scrollTop = 0;
+});
+
+searchEl.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    searchEl.value = '';
+    query = '';
+    applyFilter();
+  }
+});
+
+diceEl.addEventListener('click', async () => {
+  diceEl.disabled = true;
+  try {
+    const r = await window.cfg.random();
+    focusSpecies(r.current);
+  } finally {
+    diceEl.disabled = false;
+  }
+});
+
+genEl.addEventListener('change', () => {
+  genFilter = Number(genEl.value) || 0;
+  if (!built) return;
+  applyFilter();
+  listEl.scrollTop = 0;
+});
+
+login.addEventListener('change', async () => {
+  const r = await window.cfg.setLogin(login.checked);
+  login.checked = !!r.loginAtStart;
+});
+
+sizesEl.addEventListener('click', async e => {
+  const btn = e.target.closest('.size-btn');
+  if (!btn) return;
+  await window.cfg.setSize(btn.dataset.key);
+  markSizes(btn.dataset.key);
+});
+
+sound.onchange = async () => {
+  await window.cfg.setSound(sound.checked);
+};
+
+document.getElementById('close').onclick = () => window.cfg.close();
+
+init().catch(err => {
+  console.error('[settings] init 失败:', err && (err.stack || err.message || err));
+});

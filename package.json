@@ -1,0 +1,13 @@
+{
+  "name": "togepi-pet",
+  "version": "0.2.1",
+  "description": "波克比桌宠 - Electron desktop pet",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^38.8.6"
+  }
+}

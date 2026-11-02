@@ -1,0 +1,19 @@
+# 运行时
+node_modules/
+userdata/
+release/
+*.log
+
+# 大体积素材（用 tools/fetch-*.js 重新拉）
+assets/pokemon/
+assets/cries/
+
+# 调试截图
+/capture.png
+/settings-capture.png
+/lore-capture.png
+/ball-capture.png
+/filter-demo.png
+
+# 系统
+.DS_Store
