@@ -206,7 +206,8 @@ RELEASE_URL="https://你的地址/pokepet-0.2.0.zip" \
 ### 本项目的发布地址
 
 - 仓库：https://github.com/Zyh-Quotation/994-Desktop-Pet
-- 下载：https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/latest
+- 下载页（自动识别 Mac / Windows）：https://zyh-quotation.github.io/994-Desktop-Pet/
+- 全部版本：https://github.com/Zyh-Quotation/994-Desktop-Pet/releases
 - 更新清单：https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/latest/download/update.json
 
 发布只需：
@@ -231,3 +232,21 @@ GH_RELEASE=1 ./tools/publish.sh patch "说明"
 | 修 bug、调文案、换素材 | patch | 0.2.1 → 0.2.2 |
 | 加新功能 | minor | 0.2.1 → 0.3.0 |
 | 大改版、不兼容旧存档 | major | 0.3.4 → 1.0.0 |
+
+
+## Windows 版
+
+```bash
+NODE=/path/to/node bash tools/build-win.sh
+# → release/pokepet-<版本>-win-x64.zip（免安装，解压双击 TogepiPet.exe）
+```
+
+- 打的是 **win32-x64 便携版**，Electron 版本跟 Mac 一致
+- 目录和 exe 一律用 ASCII 名（中文名在 zip 里会变成乱码）
+- Windows 上不能替换正在运行的 exe，所以「检查更新」会打开下载页，手动覆盖
+- 发布时 `tools/publish.sh` 会自动带上 Windows 包（设 `SKIP_WIN=1` 可跳过）
+
+## 下载页
+
+`docs/index.html` 是 GitHub Pages 首页，读 GitHub API 拿最新 Release 的资产，
+按 UA 判断系统后把对应文件塞进主按钮。改完 push 就会自动发布。
