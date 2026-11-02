@@ -1,252 +1,135 @@
-# 🥚 波克比桌宠
+# 神奇宝贝桌宠
 
-一只会在你 Mac 桌面上自己散步的波克比。Electron 实现，仅自用。
+把宝可梦养在桌面上。1025 只全国图鉴，会走会飞，能摸能扔，饿了会抱怨。
 
-> **源码位置**：`~/Applications/桌宠`
-> **应用本体**：`~/Applications/神奇宝贝.app`（标准 macOS 应用包，双击即用，可拖进 Dock）
-> **快捷入口**：桌面上的 **神奇宝贝.app**
+Electron 写的，免费开源，**macOS / Windows 都能装**。
 
-## 为什么不在桌面上？
+**[⬇️ 下载（自动识别你的系统）](https://zyh-quotation.github.io/994-Desktop-Pet/)** ·
+[所有版本](https://github.com/Zyh-Quotation/994-Desktop-Pet/releases) ·
+[更新日志](https://github.com/Zyh-Quotation/994-Desktop-Pet/releases)
 
-macOS 的 **TCC 桌面保护**：通过双击（LaunchServices）启动的程序没有「桌面文件夹」访问权限，
-会连自己的程序文件都读不了 → 桌宠无法启动。把程序放进 `~/Applications` 后完全绕开这个问题，
-桌面只留一个启动器和「桌宠」文件夹替身（软链接，双击可浏览项目文件）。
+---
 
-## 启动方式
+## 它是什么
 
-| 方式 | 说明 |
+不是会动的贴纸，是一个有状态的宠物：饱食度、心情、作息都在跑，关掉再打开还在。
+
+窗口即宠物 —— 一个紧贴精灵的透明置顶窗口，空白处点击穿透，不影响你操作桌面上的任何东西。
+
+| | |
 |---|---|
-| 双击桌面 **神奇宝贝.app** | 推荐。会启动 `~/Applications/神奇宝贝.app` |
-| 双击 `~/Applications/神奇宝贝.app` | 最直接，也可拖到 Dock 固定 |
-| 双击 `桌宠/双击启动.command` | 打开终端，适合调试 |
-| 终端 `cd ~/Applications/桌宠 && npm start` | 开发用 |
-
-- 启动后宠物出现在屏幕底边中间，开始散步
-- **菜单栏右上角有红白精灵球图标**，点开是功能菜单
-- **Dock 里有「波克比」图标**，右键也有同样的菜单
-- **在宠物身上点右键**也能弹出菜单
-
-> ⚠️ 菜单栏托盘图标必须通过 `.app` 应用包正常启动才会出现（早期的 shell 脚本直接 exec
-> Electron 裸可执行文件的启动方式，在 macOS 26 上拿不到菜单栏状态项）。
+| ![](promo/01-封面.png) | ![](promo/02-玩法.png) |
+| ![](promo/03-图鉴.png) | ![](promo/04-故事卡.png) |
 
 ## 怎么玩
 
 | 操作 | 反应 |
 |---|---|
-| 轻点一下 | 冒爱心 ❤️，心情 +3 |
+| 轻点一下 | 冒爱心，心情 +3 |
+| 在它身上来回蹭 | 摸头：压扁弹回、冒爱心、持续涨心情 |
 | 1.5 秒内连点三下 | 生气，转身背对你 |
-| 按住拖动 | 抓起来，会挣扎 |
-| 拖着快速甩出后松手 | 重力坠落、弹跳，摔狠了会生气 |
-| 在宠物身上点右键 | 弹出功能菜单（喂食/玩耍/打盹/大小/设置/退出） |
-| 菜单栏精灵球 → 喂食 🍞 | 饱食度 +35 |
-| 菜单栏精灵球 → 玩耍 🎾 | 心情 +25 |
-| 菜单栏精灵球 → 打盹 😴 | 强制睡觉，睡觉回心情 |
-| 向左 / 向右 | 精灵会朝移动方向镜像翻转，往左走就是朝左的样子 |
-| 摸头 | 在它身上来回滑动，会压一下弹回来、冒爱心、涨心情 |
-| 精灵球 ⚪ | 菜单里「收进球」→ 变成精灵球晃三下；点一下或再点菜单就放出来 |
-| 跟随鼠标 | 偶尔（90 秒最多一次）会跟着你的指针小跑一段 |
-| 跨屏走动 | 多显示器时能走到相邻屏幕继续散步（单屏无感） |
-| 时间联动 | 深夜更容易打盹，早上/中午/晚上有不同的问候 |
-| 天气联动 | 每 30 分钟查一次天气：下雨下雪就懒得出门，托盘菜单显示当前天气 |
-| 故事卡 📖 | 换宝可梦时在旁边弹出卡片：分类、身高体重、栖息地、图鉴文字、喜好 |
-| 叫声 🔊 | 点击 / 喂食 / 生气 / 换宝可梦时播真实叫声，托盘和设置页都能关 |
-| 待机小动作 | 发呆时会打哈欠、抓痒、东张西望、扑一下影子 |
-| 飞行影子 | 飞得越高影子越小越淡，落地恢复 |
-| 飞行属性的宝可梦 | 会自己起飞，在半空悬停、漂移，再降落；抓起来扔也一样 |
-| 菜单栏精灵球 → 飞一飞 🕊️ | 会飞的宝可梦才显示，点一下立刻起飞 |
-| 菜单栏精灵球 → 随机一只 🎲 | 从 1025 只里随机换一只，不会抽到当前这只 |
-| 设置页搜索框右侧 🎲 | 同样随机，列表自动滚到那一只并高亮闪一下 |
+| 按住拖动 → 甩出去 | 抓起来挣扎、重力坠落、撞屏幕边缘弹三下，摔狠了会生气 |
+| 托盘 → 收进球 | 变成精灵球晃三晃，点一下「噗」地出来 |
+| 托盘 → 飞一飞 | 会飞的宝可梦升到半空漂一圈，落地有缓冲 |
+| 托盘 → 喂食 / 玩耍 / 打盹 | 饱食度 +35 / 心情 +25 / 强制睡觉 |
+| 托盘 → 随机一只 | 从 1025 只里随机换，不会抽到当前这只 |
 
-## 设置
+自己会做的事：散步（往左走就朝左看）、偶尔跟着鼠标跑、跨屏走到另一块显示器、
+深夜打盹、下雨懒得动、饿了冒话、发呆时打哈欠抓痒、飞行时影子随高度缩小变淡。
 
-菜单栏精灵球（或右键宠物 / 右键 Dock 图标）→ **设置…**
+## 图鉴
 
-- **全国图鉴 001–1025**：九世代全部 1025 只宝可梦，按 540 条进化链展示
-- **按属性挑选**：18 种属性（草 / 火 / 水 / 电 / 一般 / 超能力 / 幽灵 / 格斗 / 恶 / 虫 /
-  飞行 / 岩石 / 地面 / 冰 / 龙 / 钢 / 毒 / 妖精），筛选按钮按属性标准配色
-- **按世代挑选**：搜索框右侧下拉可切换第一代～第九代
-- **传说宝可梦**：单独的「传说」分类，共 94 只（含幻兽），从超梦、急冻鸟三圣鸟、洛奇亚、
-  烈空坐、固拉多、盖欧卡、帝牙卢卡、阿尔宙斯，到第九代的故勒顿、密勒顿、桃歹戈等，
-  以金色徽章标注、网格排布
-- **搜索**：顶部搜索框支持按名字、图鉴编号、属性查找（如 `皮卡丘`、`25`、`火`），
-  不符合的卡片直接隐藏，只保留匹配结果，输入即时过滤，`Esc` 清空
-- **进化链**：每只都按进化链展示，箭头旁标注进化条件（如 `Lv.16`、`雷之石`、`通信`、`亲密度`），
-  点任意一只即可直接切换；分支进化（伊布 8 种、无畏小子 3 种、虫宝包等）都会展开成一排
-- **无进化的单只**（传说、化石、部分新宝可梦）以并排小卡展示，不占整行
-- 当前宝可梦会红框高亮，打开设置页时自动滚动到它所在的那条线
-- **开机自动启动**：通过系统登录项注册（macOS 的 SMAppService），首次开启后可在
-  系统设置 → 通用 → 登录项 中查看/管理
-- **宠物大小**：小 64 / 中 96 / 大 128 px
+设置页里按 **属性（18 种）/ 世代（一～九）/ 名字 / 编号** 搜索，按 540 条进化链展示，
+点进化链上任意一只就能换。换的时候旁边弹一张故事卡：分类、身高体重、栖息地、图鉴原文、喜好。
 
-## 养成状态
+- 1025 只全收录，其中 **94 只传说与幻兽**，金色徽章标注
+- 每只都有 **异色版本**，每次启动有 **1/128** 概率刷出
+- 1025 条图鉴原文 + 真实叫声（默认关闭）
 
-- **饱食度 / 心情** 随时间下降，持久保存（`userdata/pet-state.json`）
-- 饿了 / 无聊了会冒气泡抗议，托盘菜单随时能看到数值
-- 饿到 15 以下会"饿得没力气"，总是打瞌睡
+## 装哪个
 
-## 彩蛋
-
-每次启动有 **1/128** 概率刷出 ✨异色版本（1025 只都有异色图）。
-
-## 托盘菜单
-
-点菜单栏的红白精灵球（或右键 Dock 图标 / 右键宠物）：
-
-喂食 / 玩耍 / 打盹 / 大小（64 / 96 / 128px）/ 设置… / 退出
-
-## 技术结构
-
-```
-main.js              主进程：窗口管理、托盘、状态机、物理（每 33ms 一帧）、设置/登录项
-preload.js           安全桥：宠物窗口与主进程通信
-settings-preload.js  安全桥：设置窗口与主进程通信
-renderer/            显示层：宠物窗口（精灵 GIF、气泡、鼠标事件）+ 设置页面
-assets/              素材：托盘图标
-assets/pokemon/      1025 只宝可梦的普通/异色精灵图（2050 张，约 113MB）
-data/pokedex.json    图鉴数据：中文名、属性、世代、进化链（由 PokeAPI 数据集生成）
-userdata/            养成存档、运行日志、Electron 运行时数据
-```
-
-架构是"窗口即宠物"：一个紧贴精灵的透明置顶窗口，空白区域自动点击穿透，
-不影响你操作桌面上的任何东西。
-
-## 排查
-
-- **运行日志**：`~/Applications/桌宠/userdata/app.log`（主进程 + 渲染进程消息都会写入）
-- **窗口自截图**：每次精灵加载后（含切换宝可梦）会把宠物窗口画面存到
-  `~/Applications/桌宠/capture.png`；设置页截图在 `settings-capture.png`
-- 养成存档：`~/Applications/桌宠/userdata/pet-state.json`
-
-## 素材来源
-
-PokeAPI sprites 仓库（任天堂/Game Freak 版权素材，仅供个人桌面自用，勿商用）。
-第 1–5 世代用 PokeAPI 的黑白动画 GIF，第 6–9 世代用 Pokémon Showdown 的动画图（缺失时回退静态图）。
-图鉴数据由 `tools/build-pokedex.js` 从 PokeAPI 的 CSV 数据集生成（中文名 / 属性 / 世代 / 进化链），
-精灵图由 `tools/fetch-sprites.js` 批量下载。
-
-## 后续路线图（想好了再加）
-
-- [x] 多宝可梦切换（全国图鉴 001–1025，按属性 / 世代 / 传说筛选，按进化链浏览）
-- [x] 传说宝可梦（94 只，含幻兽）
-- [x] 开机自启
-- [ ] 叫声音效
-- [ ] 更多互动：投掷精灵球、睡觉位置记忆、多宠同屏
-- [ ] 图鉴形态差异（地区形态 / 超级进化 / 太晶形态）
-
-
-## 签名与自动更新
-
-### 签名
-
-开发时 `~/Applications/神奇宝贝.app/Contents/Resources/app` 是指向本目录的软链接（改代码即时生效），
-但**指向 bundle 外的软链接没法通过签名校验**，所以发布得先组装成自包含结构：
-
-```bash
-./tools/build-app.sh        # 组装 release/神奇宝贝.app 并 ad-hoc 签名（本机可用，无需证书）
-./tools/build-app.sh        # 输出里有 "valid on disk" 才算成功
-
-# 有开发者证书时（分发给别人、过 Gatekeeper 必须）：
-DEVID="Developer ID Application: 你的名字 (TEAMID)" ./tools/build-app.sh
-```
-
-### 打包与更新
-
-```bash
-./tools/build-app.sh                                  # 1. 组装 + 签名
-node tools/make-release.js                            # 2. 生成 release/pokepet-<版本>.zip + update.json
-RELEASE_URL="https://你的地址/pokepet-0.2.0.zip" \
-  RELEASE_NOTES="..." node tools/make-release.js      #    指定真实下载地址
-```
-
-把 zip 和 update.json 传到任意静态空间（GitHub Release / 对象存储 / 自己的服务器），
-再把 `update.json` 的地址填进 `update-config.json`：
-
-```json
-{ "manifest": "https://你的地址/update.json" }
-```
-
-之后：托盘「检查更新 ⟳」、或启动 8 秒后 / 每 6 小时自动检查；有新版会下载、校验 sha256、
-替换 app、保留存档、自动重启。命令行也可以手动跑：
-
-```bash
-./tools/update.sh https://你的地址/update.json
-```
-
-### 注意
-
-- **没配 `update-config.json` 就不会联网检查**（默认是空的，安全）
-- 更新会用「自包含版本」替换整个 `.app`，替换后 `Resources/app` 不再是指向本目录的软链接，
-  改代码不会再生效；想继续开发就手动恢复软链接或重新安装
-- ad-hoc 签名的 app 在自己机器上没问题，别人下载仍会被 Gatekeeper 拦（需要 Developer ID + 公证）
-
-
-## 发布新版本（一条命令）
-
-改了代码或换了素材之后：
-
-```bash
-./tools/publish.sh patch "修了 xxx"     # 0.2.1 → 0.2.2，小改动
-./tools/publish.sh minor "新增 xxx"     # 0.2.1 → 0.3.0，加了功能
-./tools/publish.sh 1.0.0 "正式版"       # 指定版本号
-```
-
-它会自动：升版本号 → 组装自包含 app → 签名 → 打包 zip → 生成 update.json → 打印下一步。
-
-**想让朋友能自动更新**，先配一次更新源（地址指向你放 update.json 的地方）：
-
-```bash
-./tools/set-update-source.sh https://你的地址/神奇宝贝/
-```
-
-之后每次 `publish.sh` 打包出来的 app 都会带着这个地址，朋友托盘点「检查更新 ⟳」
-就会比对版本、下载、校验、替换、重启（存档保留）。
-
-不配也能用，只是朋友得手动下新包替换。
-
-### 本项目的发布地址
-
-- 仓库：https://github.com/Zyh-Quotation/994-Desktop-Pet
-- 下载页（自动识别 Mac / Windows）：https://zyh-quotation.github.io/994-Desktop-Pet/
-- 全部版本：https://github.com/Zyh-Quotation/994-Desktop-Pet/releases
-- 更新清单：https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/latest/download/update.json
-
-发布只需：
-
-```bash
-GH_RELEASE=1 ./tools/publish.sh patch "说明"
-```
-
-### 有 GitHub 仓库时
-
-```bash
-gh auth login                     # 登录一次
-GH_RELEASE=1 ./tools/publish.sh patch "说明"
-```
-
-会自动 `gh release create v0.2.2` 并把 zip + update.json 传上去。
-
-### 版本号规则
-
-| 改了啥 | 升哪一位 | 例子 |
+| 系统 | 文件 | 怎么装 |
 |---|---|---|
-| 修 bug、调文案、换素材 | patch | 0.2.1 → 0.2.2 |
-| 加新功能 | minor | 0.2.1 → 0.3.0 |
-| 大改版、不兼容旧存档 | major | 0.3.4 → 1.0.0 |
+| macOS（M1 及以后） | `pokepet-x.y.z.zip` | 解开，把「神奇宝贝.app」拖进「应用程序」。**首次打开要右键 → 打开** |
+| Windows 10/11 64 位 | `pokepet-x.y.z-win-x64.zip` | 解压到固定文件夹，双击 `TogepiPet.exe` |
 
+- Mac 版没买苹果开发者签名（ad-hoc 签名），所以系统会拦一次，右键 → 打开即可
+- **Intel Mac 跑不了**，只编译了 arm64
+- 安装包体积大（Mac 约 200MB / Win 约 227MB），因为 1025 只精灵图和叫声都在里面
 
-## Windows 版
+装好之后：托盘点「检查更新 ⟳」，或启动 8 秒后自动查、之后每 6 小时一次。
+Mac 版会原地升级并保留存档；Windows 版会打开下载页，手动覆盖。
+
+## 开发
 
 ```bash
-NODE=/path/to/node bash tools/build-win.sh
-# → release/pokepet-<版本>-win-x64.zip（免安装，解压双击 TogepiPet.exe）
+npm install
+npm start                 # 开发模式，改动即时生效
 ```
 
-- 打的是 **win32-x64 便携版**，Electron 版本跟 Mac 一致
-- 目录和 exe 一律用 ASCII 名（中文名在 zip 里会变成乱码）
-- Windows 上不能替换正在运行的 exe，所以「检查更新」会打开下载页，手动覆盖
-- 发布时 `tools/publish.sh` 会自动带上 Windows 包（设 `SKIP_WIN=1` 可跳过）
+### 发版（一条命令）
 
-## 下载页
+```bash
+GH_RELEASE=1 ./tools/publish.sh patch "修了 xxx"    # 0.2.6 → 0.2.7
+GH_RELEASE=1 ./tools/publish.sh minor "新增 xxx"    # → 0.3.0
+SKIP_WIN=1 GH_RELEASE=1 ./tools/publish.sh patch "只发 Mac"
+```
 
-`docs/index.html` 是 GitHub Pages 首页，读 GitHub API 拿最新 Release 的资产，
-按 UA 判断系统后把对应文件塞进主按钮。改完 push 就会自动发布。
+它会自动：升版本 → 组装自包含 app → ad-hoc 签名 → 打包 → 构建 Windows 包 →
+生成 update.json → 建 Release 并上传三个资产。
+
+| 改了啥 | 升哪一位 |
+|---|---|
+| 修 bug、调文案、换素材 | patch |
+| 加新功能 | minor |
+| 大改版、不兼容旧存档 | major |
+
+### 单独打包
+
+```bash
+./tools/build-app.sh      # Mac：组装 release/神奇宝贝.app 并签名
+bash tools/build-win.sh   # Windows：release/pokepet-<版本>-win-x64.zip
+```
+
+### 目录
+
+```
+main.js              主进程：窗口、托盘、状态机、物理（33ms 一帧）、更新
+preload.js           宠物窗口的安全桥
+settings-preload.js  设置窗口的安全桥
+renderer/            显示层：宠物窗口 + 设置页 + 故事卡
+data/pokedex.json    1025 只：中文名、属性、世代、进化链
+data/lore.json       1025 条：分类、栖息地、图鉴原文、身高体重
+assets/pokemon/      2050 张精灵图（普通 + 异色，121MB，不进仓库）
+assets/cries/        1025 条叫声（16MB，不进仓库）
+docs/                GitHub Pages 下载页
+tools/               打包、发版、素材抓取脚本
+promo/               宣传图和文案
+```
+
+素材不进 git。新机器拉下来后补一次：
+
+```bash
+node tools/fetch-sprites.js     # 下载精灵图
+node tools/fetch-cries.js       # 下载叫声
+npm install                     # Electron
+```
+
+## 技术笔记
+
+- **点击穿透**：`setIgnoreMouseEvents(true, { forward: true })` + 渲染层命中测试，
+  指针在精灵上时关掉穿透，移到外面再打开
+- **物理**：主进程 33ms tick，重力 1900，抛掷继承拖动速度，撞屏幕边缘按系数反弹
+- **飞行**：用 `--alt` 变量驱动精灵上浮、影子缩小变淡，不是换一张图
+- **朝向**：`scaleX(-1)` 镜像
+- **多屏**：判断宠物落在哪块屏，走到边界时切到相邻屏继续
+- **天气**：wttr.in 每 30 分钟拉一次，失败就静默跳过
+- **更新清单**：`releases/latest/download/update.json`，含版本、sha256、下载地址；
+  请求加时间戳绕开 CDN 一分钟缓存
+
+## 素材与版权
+
+精灵图和叫声来自 [PokeAPI](https://github.com/PokeAPI)，宝可梦版权属于任天堂 / Game Freak / Creatures。
+**仅供个人使用，请勿商用。**
+
+图鉴数据由 `tools/build-pokedex.js` 从 PokeAPI 数据集生成，故事文本由 `tools/build-lore.js` 生成。

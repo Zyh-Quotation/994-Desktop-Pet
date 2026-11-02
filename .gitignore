@@ -1,19 +1,19 @@
-# 运行时
+# 依赖与运行时
 node_modules/
 userdata/
-release/
 *.log
 
-# 大体积素材（用 tools/fetch-*.js 重新拉）
+# 构建产物（可复现，不入库）
+release/
+.pokepet-cache/
+
+# 大体积素材，用 tools/fetch-*.js 补
 assets/pokemon/
 assets/cries/
 
-# 调试截图
-/capture.png
-/settings-capture.png
-/lore-capture.png
-/ball-capture.png
-/filter-demo.png
+# 宣传中间产物
+promo/shot-*.png
+promo/page-*.png
 
 # 系统
 .DS_Store
