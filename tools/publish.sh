@@ -76,7 +76,7 @@ rm -rf release/神奇宝贝.app
 ZIP="release/pokepet-${NEW_VER}.zip"
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && [ -n "${GH_RELEASE:-}" ]; then
   echo ""
-  echo "▶ 上传到 GitHub Release v$NEW_VER…"
+  echo "▶ 上传到 GitHub Release v${NEW_VER}…"
   gh release create "v$NEW_VER" "$ZIP" "release/update.json" \
     --title "v$NEW_VER" --notes "${NOTES:-v$NEW_VER}" || \
     gh release upload "v$NEW_VER" "$ZIP" "release/update.json" --clobber
@@ -86,13 +86,13 @@ fi
 # ---------- 7. 收尾提示 ----------
 echo ""
 echo "────────────────────────────────────"
-echo "✅ v$NEW_VER 已打包：$ZIP"
+echo "✅ v${NEW_VER} 已打包：$ZIP"
 [ -n "$MANIFEST" ] && echo "   清单：release/update.json"
 echo ""
 echo "接下来："
 if [ -n "$MANIFEST" ]; then
   echo "   1) 把 zip 和 update.json 传到 $BASE"
-  echo "   2) 朋友打开托盘 →「检查更新 ⟳」就会升到 v$NEW_VER"
+  echo "   2) 朋友打开托盘 →「检查更新 ⟳」就会升到 v${NEW_VER}"
 else
   echo "   1) 把 zip 发给朋友，他们重新装一次"
   echo "   2) 或者先配更新源，以后就能自动更新"
