@@ -681,7 +681,9 @@ async function checkUpdate(manual = true) {
   if (updateBusy) return { ok: false, reason: 'busy' };
   updateBusy = true;
   try {
-    const { body } = await httpGetText(conf.manifest, 10000);
+    const sep = conf.manifest.includes('?') ? '&' : '?';
+    const url = `${conf.manifest}${sep}t=${Date.now()}`;
+    const { body } = await httpGetText(url, 10000);
     const m = JSON.parse(body);
     const cur = app.getVersion();
     const newer = cmpVer(m.version, cur) > 0;
