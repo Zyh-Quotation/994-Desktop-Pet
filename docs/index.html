@@ -75,11 +75,11 @@
   <p class="sub">1025 只全国图鉴 · 会走会飞 · 能摸能扔<br>还会跟着你的鼠标跑</p>
 
   <div class="pets">
-    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/25.gif" alt="">
-    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/6.gif" alt="">
-    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/133.gif" alt="">
-    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/150.gif" alt="">
-    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/448.gif" alt="">
+    <img src="sprites/25.gif" alt="">
+    <img src="sprites/6.gif" alt="">
+    <img src="sprites/133.gif" alt="">
+    <img src="sprites/150.gif" alt="">
+    <img src="sprites/448.gif" alt="">
   </div>
 
   <div class="card">
@@ -175,7 +175,7 @@ function apply() {
   }
 
   if (secondary) {
-    $('alt-link').textContent = `下载${NAME[OS === 'win' ? 'mac' : 'win']}版（${fmt(secondary.size)}）`;
+    $('alt-link').textContent = `下载 ${NAME[OS === 'win' ? 'mac' : 'win']} 版（${fmt(secondary.size)}）`;
     $('alt-link').href = secondary.browser_download_url;
   } else {
     $('alt-link').href = RELEASES;
