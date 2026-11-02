@@ -31,7 +31,7 @@ app.setPath('userData', IN_BUNDLE
     try {
       const line = new Date().toISOString() + ' [' + level + '] ' +
         args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ') + '\n';
-      fs.appendFileSync(path.join(__dirname, 'userdata', 'app.log'), line);
+      fs.appendFileSync(path.join(app.getPath('userData'), 'app.log'), line);
     } catch (_) { /* 日志失败不影响运行 */ }
   };
   console.log = (...a) => { origLog(...a); write('info', a); };
@@ -39,10 +39,73 @@ app.setPath('userData', IN_BUNDLE
 })();
 
 console.log('[debug] main.js 模块加载开始');
+
+// ---------- 单实例 ----------
+// 教训：Electron 在 requestSingleInstanceLock() 返回 false 的进程里，
+// app.whenReady() 有可能永远不 resolve（实测会挂住）。所以这一段只在模块加载期
+// 做同步判断，绝不依赖 ready 事件。
+// 另外自己用 ps 扫一遍真实进程：只有真的还有一只在跑才算"第二只"，
+// 否则清掉上次崩溃/强退留下的陈旧锁文件继续启动（避免误判成"闪退"）。
+const PID_FILE = path.join(app.getPath('userData'), 'instance.pid');
+const LOCK_FILES = ['SingletonLock', 'SingletonSocket', 'SingletonCookie']
+  .map(f => path.join(app.getPath('userData'), f));
+
+function pidFileOwner() {
+  try {
+    const pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10);
+    return pid && pid !== process.pid ? pid : 0;
+  } catch (_) { return 0; }
+}
+
+function scanOtherInstances() {
+  // Windows 上 ps 不可用，退回只看 pid 文件
+  if (process.platform === 'win32') return [];
+  try {
+    const out = require('child_process').execSync('ps -axo pid=,command=', {
+      encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore']
+    });
+    const hits = [];
+    for (const line of out.split('\n')) {
+      const m = line.trim().match(/^(\d+)\s+(.*)$/);
+      if (!m) continue;
+      const pid = parseInt(m[1], 10);
+      if (pid === process.pid) continue;
+      const cmd = m[2];
+      // 本应用的两种可执行文件名，AppTranslocation 路径也包含这一段
+      if (/\/MacOS\/(Electron|TogepiPet)$/.test(cmd) && /神奇宝贝|togepi/i.test(cmd)) hits.push(pid);
+    }
+    return hits;
+  } catch (_) { return []; }
+}
+
+const scanned = scanOtherInstances();
+const pidOwner = pidFileOwner();
+const OTHERS = [...new Set([...scanned, ...(pidOwner ? [pidOwner] : [])])]
+  .filter(pid => { try { process.kill(pid, 0); return true; } catch (_) { return false; } });
+
+if (OTHERS.length === 0) {
+  // 没有活着的实例：把可能残留的锁文件清掉，否则 Electron 会误以为已有一只
+  for (const f of LOCK_FILES) {
+    try { fs.rmSync(f, { recursive: true, force: true }); } catch (_) {}
+  }
+}
+
 const locked = app.requestSingleInstanceLock();
-console.log('[debug] 单实例锁:', locked);
-if (!locked) {
+console.log('[debug] 单实例锁:', locked, '| 其它实例 pid:', OTHERS.join(',') || '无');
+
+if (OTHERS.length > 0 || !locked) {
+  // 真的还有一只（或锁就是拿不到）：立刻退出，不碰 ready，也不建托盘。
+  // 界面上的反馈由已有那只负责——它会收到 second-instance，冒个泡蹦一下。
+  console.log('[main] 已有实例在运行' +
+    (OTHERS.length ? '（pid ' + OTHERS.join(',') + '）' : '（锁被占用）') + '，本进程退出');
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'app.log'),
+    new Date().toISOString() + ' [info] [main] 第二实例退出，已有实例：' +
+    (OTHERS.join(',') || '未知') + '\n'); } catch (_) {}
   app.quit();
+} else {
+  try { fs.writeFileSync(PID_FILE, String(process.pid)); } catch (e) {
+    console.error('[main] 写 pid 文件失败:', e && e.message);
+  }
 }
 
 // ---------- 常量 ----------
@@ -998,9 +1061,24 @@ ipcMain.handle('cfg:setSize', (_e, k) => { setSize(k); return { sizeKey }; });
 ipcMain.on('cfg:close', () => { if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close(); });
 
 // ---------- 生命周期 ----------
-app.on('second-instance', () => { if (win) win.show(); });
+app.on('second-instance', () => {
+  // 有人又双击了一次：把宠物叫出来动一下，别让人以为没反应
+  console.log('[main] 收到 second-instance，叫醒宠物');
+  if (!win || win.isDestroyed()) return;
+  win.show();
+  win.moveTop();
+  bubble('我在这儿呢～', 3000);
+  altTarget = 46;                            // 蹦一下
+  setTimeout(() => { altTarget = 0; }, 700);
+});
 app.on('window-all-closed', () => { /* 保持在托盘运行 */ });
-app.on('before-quit', saveState);
+app.on('before-quit', () => {
+  saveState();
+  try {
+    const pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10);
+    if (pid === process.pid) fs.unlinkSync(PID_FILE);   // 只删自己写的
+  } catch (_) {}
+});
 
 app.whenReady().then(() => {
   console.log('[debug] whenReady 已触发', JSON.stringify(process.argv));
