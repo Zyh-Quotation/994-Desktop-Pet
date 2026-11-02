@@ -209,3 +209,319 @@ body[data-state="angry"] #sprite {
   70% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) scaleY(0.92); }
 }
 #sprite.act-pounce { animation: actPounce 0.7s ease-out; }
+
+/* ==================== 专属动作 ==================== */
+/* 粒子层：盖在精灵上面，不吃鼠标事件 */
+#fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+/* 中心光环：放招时从脚下/身上炸开 */
+#fx .aura {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--petH) * 0.34 + 6px);
+  width: calc(var(--petH) * 1.5);
+  height: calc(var(--petH) * 1.5);
+  margin-left: calc(var(--petH) * -0.75);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--c) 0%, transparent 62%);
+  opacity: 0;
+  animation: auraBurst .62s ease-out forwards;
+}
+@keyframes auraBurst {
+  0%   { opacity: .95; transform: scale(.4); }
+  45%  { opacity: .55; }
+  100% { opacity: 0; transform: scale(1.45); }
+}
+#fx .ring {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--petH) * 0.34 + 6px);
+  width: calc(var(--petH) * 0.7);
+  height: calc(var(--petH) * 0.7);
+  margin-left: calc(var(--petH) * -0.35);
+  border-radius: 50%;
+  border: 3px solid var(--c);
+  opacity: 0;
+  animation: ringOut .7s ease-out forwards;
+}
+@keyframes ringOut {
+  0%   { opacity: .9; transform: scale(.5); }
+  100% { opacity: 0; transform: scale(2.6); }
+}
+
+/* 粒子通用 */
+#fx .p {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--petH) * 0.4 + 6px);
+  width: var(--sz, 8px);
+  height: var(--sz, 8px);
+  background: var(--c);
+  /* 浅色桌面上浅色粒子会看不见：暗描边保证形状清楚 */
+  filter: drop-shadow(0 0 2px rgba(20, 12, 20, .75));
+  opacity: 0;
+  animation-duration: var(--dur, .8s);
+  animation-delay: var(--d, 0s);
+  animation-timing-function: cubic-bezier(.2, .7, .3, 1);
+  animation-fill-mode: forwards;
+}
+
+/* ---- 电：折线闪电 ---- */
+#fx .p-spark {
+  background: var(--c);
+  clip-path: polygon(48% 0, 100% 0, 62% 42%, 92% 42%, 30% 100%, 46% 56%, 8% 56%);
+  animation-name: sparkFly;
+  filter: drop-shadow(0 0 4px var(--c));
+}
+@keyframes sparkFly {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.3) rotate(var(--rot, 0deg)); }
+  18%  { opacity: 1; transform: translate(-50%, -8px) scale(1) rotate(var(--rot, 0deg)); }
+  45%  { opacity: .9; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(.6) rotate(calc(var(--rot, 0deg) + 40deg)); }
+}
+
+/* ---- 火：上窜火苗 ---- */
+#fx .p-ember {
+  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+  animation-name: emberRise;
+  box-shadow: 0 0 10px var(--c);
+}
+@keyframes emberRise {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.5); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(.15); }
+}
+
+/* ---- 水：空心气泡 ---- */
+#fx .p-bubble {
+  background: transparent;
+  border: 2px solid var(--c);
+  box-shadow: inset 0 0 4px var(--c), 0 0 6px var(--c);
+  animation-name: bubbleRise;
+}
+@keyframes bubbleRise {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.4); }
+  25%  { opacity: .95; }
+  70%  { opacity: .8; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(1.15); }
+}
+
+/* ---- 草：打旋的叶片 ---- */
+#fx .p-leaf {
+  border-radius: 0 70% 0 70%;
+  animation-name: leafSpin;
+}
+@keyframes leafSpin {
+  0%   { opacity: 0; transform: translate(-50%, 0) rotate(0deg) scale(.6); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) rotate(var(--rot, 240deg)) scale(.9); }
+}
+
+/* ---- 冰：菱形冰晶 ---- */
+#fx .p-crystal {
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  animation-name: crystalFly;
+  filter: drop-shadow(0 0 5px var(--c));
+}
+@keyframes crystalFly {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.3) rotate(0deg); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(1) rotate(var(--rot, 180deg)); }
+}
+
+/* ---- 格斗：冲击环 ---- */
+#fx .p-shock {
+  background: transparent;
+  border: 2px solid var(--c);
+  animation-name: shockRing;
+}
+@keyframes shockRing {
+  0%   { opacity: .9; transform: translate(-50%, 0) scale(.2); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(3.2); }
+}
+
+/* ---- 毒：黏糊糊的泡 ---- */
+#fx .p-slime {
+  border-radius: 46% 54% 58% 42% / 52% 44% 56% 48%;
+  animation-name: slimeOoze;
+  box-shadow: 0 0 8px var(--c);
+}
+@keyframes slimeOoze {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.4); }
+  30%  { opacity: .95; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(1.3); }
+}
+
+/* ---- 岩/地：翻滚的碎石 ---- */
+#fx .p-rock {
+  border-radius: 3px;
+  animation-name: rockToss;
+}
+@keyframes rockToss {
+  0%   { opacity: 0; transform: translate(-50%, 0) rotate(0) scale(.5); }
+  20%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) rotate(var(--rot, 200deg)) scale(.8); }
+}
+
+/* ---- 飞行：横向气流 ---- */
+#fx .p-wind {
+  height: 3px;
+  border-radius: 3px;
+  animation-name: windStreak;
+}
+@keyframes windStreak {
+  0%   { opacity: 0; transform: translate(-50%, 0) scaleX(.2); }
+  25%  { opacity: .85; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scaleX(2.2); }
+}
+
+/* ---- 超能：扩散光环 ---- */
+#fx .p-ring {
+  background: transparent;
+  border: 2px solid var(--c);
+  animation-name: ringPulse;
+  box-shadow: 0 0 12px var(--c);
+}
+@keyframes ringPulse {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.15); }
+  30%  { opacity: .9; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), 0) scale(3.6); }
+}
+
+/* ---- 虫：密集小点 ---- */
+#fx .p-dot {
+  animation-name: dotSpray;
+}
+@keyframes dotSpray {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.4); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(.3); }
+}
+
+/* ---- 幽灵：飘忽的雾团 ---- */
+#fx .p-ghost {
+  filter: blur(3px);
+  animation-name: ghostDrift;
+}
+@keyframes ghostDrift {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.5); }
+  30%  { opacity: .7; }
+  60%  { opacity: .45; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(1.4); }
+}
+
+/* ---- 龙：螺旋光带 ---- */
+#fx .p-spiral {
+  background: transparent;
+  border: 2px solid var(--c);
+  border-radius: 50%;
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  animation-name: spiralRise;
+  filter: drop-shadow(0 0 6px var(--c));
+}
+@keyframes spiralRise {
+  0%   { opacity: 0; transform: translate(-50%, 0) rotate(0) scale(.4); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) rotate(var(--rot, 360deg)) scale(1.3); }
+}
+
+/* ---- 恶：黑影外扩 ---- */
+#fx .p-dark {
+  background: radial-gradient(circle, var(--c) 0%, transparent 70%);
+  animation-name: darkPuff;
+  filter: blur(2px);
+}
+@keyframes darkPuff {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.3); }
+  22%  { opacity: .9; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(2); }
+}
+
+/* ---- 钢：金属闪光 ---- */
+#fx .p-flash {
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  animation-name: flashPop;
+  filter: drop-shadow(0 0 6px var(--c));
+}
+@keyframes flashPop {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.2) rotate(0deg); }
+  30%  { opacity: 1; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(1.1) rotate(var(--rot, 90deg)); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(.4) rotate(var(--rot, 90deg)); }
+}
+
+/* ---- 一般/妖精：星形 ---- */
+#fx .p-star {
+  clip-path: polygon(50% 0, 62% 38%, 100% 38%, 69% 60%, 81% 100%, 50% 74%, 19% 100%, 31% 60%, 0 38%, 38% 38%);
+  animation-name: starPop;
+  filter: drop-shadow(0 0 5px var(--c));
+}
+@keyframes starPop {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(.2) rotate(0deg); }
+  30%  { opacity: 1; transform: translate(calc(-50% + var(--dx) * .5), calc(var(--dy) * .5)) scale(1) rotate(var(--rot, 120deg)); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(.5) rotate(var(--rot, 120deg)); }
+}
+
+/* ==================== 动作（精灵本体） ==================== */
+/* 每种动作都保留 translateX(-50%) 与镜像，否则精灵会跳位置 */
+#sprite.mv-charge {
+  animation: mvCharge .62s ease-in-out;
+}
+@keyframes mvCharge {
+  0%, 100% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0); filter: none; }
+  20% { transform: translateX(-52%) scaleX(var(--flip, 1)) translateY(-2px); }
+  40% { transform: translateX(-48%) scaleX(var(--flip, 1)) translateY(-3px); filter: drop-shadow(0 0 8px var(--mv-c, #fff)); }
+  60% { transform: translateX(-52%) scaleX(var(--flip, 1)) translateY(-3px); filter: drop-shadow(0 0 12px var(--mv-c, #fff)); }
+  80% { transform: translateX(-49%) scaleX(var(--flip, 1)) translateY(-1px); }
+}
+#sprite.mv-stomp {
+  animation: mvStomp .68s cubic-bezier(.4, 0, .5, 1);
+}
+@keyframes mvStomp {
+  0% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) scaleY(1); }
+  35% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(-26px) scaleY(1.06); }
+  55% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) scaleY(.86); }
+  70% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) scaleY(1.04); }
+  100% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) scaleY(1); }
+}
+#sprite.mv-bump {
+  animation: mvBump .6s ease-out;
+}
+@keyframes mvBump {
+  0% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0); }
+  30% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(-14px) rotate(-4deg); }
+  60% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) scaleY(.94); }
+  100% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0); }
+}
+#sprite.mv-hover {
+  animation: mvHover 1s ease-in-out;
+}
+@keyframes mvHover {
+  0% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0); }
+  30% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(-30px) rotate(3deg); }
+  60% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(-38px) rotate(-3deg); }
+  100% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0); }
+}
+#sprite.mv-dash {
+  animation: mvDash .55s ease-in-out;
+}
+@keyframes mvDash {
+  0% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) skewX(0); }
+  25% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(-6px) skewX(-10deg); }
+  50% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(-4px) skewX(12deg); }
+  100% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) skewX(0); }
+}
+#sprite.mv-bounce {
+  animation: mvBounce .7s cubic-bezier(.3, .8, .4, 1);
+}
+@keyframes mvBounce {
+  0%, 100% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) scaleY(1); }
+  25% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(-18px) scaleY(1.05); }
+  50% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) scaleY(.88); }
+  75% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(-10px) scaleY(1.02); }
+}

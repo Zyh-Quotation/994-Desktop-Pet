@@ -158,6 +158,20 @@ const LINES = DEX_DATA.chains.map(c => {
   return { stages: c.stages, hows: c.hows, type: (base && base.types[0]) || '' };
 }).sort((a, b) => a.stages[0][0] - b.stages[0][0]);
 
+// ---------- 专属动作（由 tools/build-signatures.js 生成） ----------
+const SIG_FILE = path.join(__dirname, 'data', 'signatures.json');
+let SIGNATURES = {};
+try { SIGNATURES = JSON.parse(fs.readFileSync(SIG_FILE, 'utf8')); } catch (e) {
+  console.error('[main] 招式表读取失败:', e.message);
+}
+function signatureFor(dex) {
+  const s = SIGNATURES[dex];
+  if (s) return s;
+  const sp = byDex.get(dex);
+  const type = (sp && sp.types && sp.types[0]) || '一般';
+  return { move: '撞击', kind: 'star', motion: 'bump', color: '#c8c2b0', type, name: sp ? sp.name : '' };
+}
+
 const SPRITE_DIR = path.join(__dirname, 'assets', 'pokemon');
 const spriteBase = () => require('url').pathToFileURL(SPRITE_DIR).href + '/';
 
@@ -179,6 +193,23 @@ function playCry(dex = speciesDex, force = false) {
   if (!url) return;
   lastCryAt = t;
   if (win && !win.isDestroyed()) win.webContents.send('cry', url);
+}
+
+// ---------- 专属动作 ----------
+let moveCooldown = 0;
+function playSignature(reason = 'manual') {
+  const t = now();
+  if (t < moveCooldown) return false;
+  if (state === 'drag' || state === 'fall' || state === 'ball') return false;
+  const spec = signatureFor(speciesDex);
+  console.log('[move] ' + spec.name + ' 使用 ' + spec.move + '（' + spec.kind + '/' + spec.motion + '）' +
+    ' bounds=' + JSON.stringify(win ? win.getBounds() : null));
+  moveCooldown = t + (reason === 'auto' ? 40000 + Math.random() * 40000 : 6000);
+  setState('move', 1200);
+  if (win && !win.isDestroyed()) win.webContents.send('fx', spec);
+  bubble(spec.move + '！', 1700);
+  playCry(speciesDex, true);
+  return true;
 }
 
 // ---------- 待机小动作 ----------
@@ -306,10 +337,11 @@ function saveState() {
 }
 
 // ---------- 尺寸 / 定位 ----------
+const FX_PAD = 66;          // 放专属动作时粒子要飞出去，窗口四周留出的透明边
 function recomputeDims() {
   petW = Math.round(aspect * petH);
-  winW = Math.max(petW + MARGIN_X * 2, 150);
-  winH = petH + BUBBLE_H + PET_BOTTOM + 4;
+  winW = Math.max(petW + (MARGIN_X + FX_PAD) * 2, 150);
+  winH = petH + BUBBLE_H + FX_PAD + PET_BOTTOM + 4;
 }
 function waFor(px, py) {
   return screen.getDisplayNearestPoint({ x: Math.round(px), y: Math.round(py) }).workArea;
@@ -408,6 +440,8 @@ function nextRandomState(t) {
     return;
   }
   if (r < 0.4) {
+    // 偶尔自己来一发专属动作，让人看见它还有这一手
+    if (Math.random() < 0.18 && playSignature('auto')) return;
     setState('idle', 1500 + Math.random() * 4000);
     if (Math.random() < 0.55) maybeIdleAct();
     if (Math.random() < 0.4) bubble(pick(['♪', '?', '咕~', '♪♪']), 1600);
@@ -651,6 +685,7 @@ function petMenuTemplate() {
     { label: inBall ? '放出来 ⚪' : '收进球 ⚪', click: () => toggleBall() },
     { label: '看介绍 📖', click: () => showLore() },
     { label: '叫声', type: 'checkbox', checked: soundOn, click: m => { soundOn = !!m.checked; saveState(); refreshTray(); } },
+    { label: '专属动作 ✨', click: () => playSignature('manual') },
     { label: '随机一只 🎲', click: () => randomSpecies() },
     { type: 'separator' },
     {
@@ -1094,6 +1129,8 @@ app.whenReady().then(() => {
   if (process.argv.includes('--settings')) setTimeout(createSettingsWindow, 1500);
   // 调试钩子：kill -USR2 <pid> 可打开设置窗口
   try { process.on('SIGUSR2', () => createSettingsWindow()); } catch (_) { /* 忽略 */ }
+  // kill -USR1 <pid> 立刻放一次专属动作（调试/录屏用）
+  try { process.on('SIGUSR1', () => playSignature('manual')); } catch (_) { /* 忽略 */ }
 
 
 });

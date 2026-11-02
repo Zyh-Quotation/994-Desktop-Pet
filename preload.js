@@ -16,5 +16,6 @@ contextBridge.exposeInMainWorld('pet', {
   onFace: cb => ipcRenderer.on('face', (_e, d) => cb(d)),
   onCry: cb => ipcRenderer.on('cry', (_e, u) => cb(u)),
   onAct: cb => ipcRenderer.on('act', (_e, a) => cb(a)),
-  onAlt: cb => ipcRenderer.on('alt', (_e, r) => cb(r))
+  onAlt: cb => ipcRenderer.on('alt', (_e, r) => cb(r)),
+  onFx: cb => ipcRenderer.on('fx', (_e, d) => cb(d))
 });

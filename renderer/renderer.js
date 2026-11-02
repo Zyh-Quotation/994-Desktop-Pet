@@ -45,6 +45,81 @@ window.pet.onAct(a => {
   actTimer = setTimeout(() => sprite.classList.remove(cls), 1400);
 });
 
+// ---------- 专属动作 ----------
+const fxLayer = document.getElementById('fx');
+const MOTIONS = ['charge', 'stomp', 'bump', 'hover', 'dash', 'bounce'];
+let fxTimer = null;
+
+// 每种特效：粒子数量、大小范围、运动幅度
+const FX_SHAPE = {
+  spark:   { n: 14, sz: [16, 26], dx: 74, dy: [-78, -22], dur: [.6, .95] },
+  ember:   { n: 13, sz: [13, 24], dx: 54, dy: [-96, -38], dur: [.7, 1.1] },
+  bubble:  { n: 12, sz: [12, 26], dx: 54, dy: [-88, -28], dur: [.8, 1.35] },
+  leaf:    { n: 12, sz: [11, 18], dx: 74, dy: [-64, 2],   dur: [.8, 1.25] },
+  crystal: { n: 11, sz: [11, 19], dx: 70, dy: [-70, -12], dur: [.6, 1.0] },
+  shock:   { n: 5,  sz: [22, 32], dx: 76, dy: [-14, 14], dur: [.5, .75] },
+  slime:   { n: 10, sz: [13, 23], dx: 46, dy: [-52, -10], dur: [.75, 1.15] },
+  rock:    { n: 10, sz: [8, 15],  dx: 70, dy: [-62, 8],   dur: [.65, .95] },
+  wind:    { n: 9,  sz: [18, 32], dx: 92, dy: [-30, 6],   dur: [.5, .8] },
+  ring:    { n: 5,  sz: [18, 28], dx: 62, dy: [-8, 8],    dur: [.65, .95] },
+  dot:     { n: 16, sz: [6, 11],  dx: 64, dy: [-64, -8],  dur: [.5, .85] },
+  ghost:   { n: 11, sz: [16, 28], dx: 58, dy: [-76, -24], dur: [.85, 1.25] },
+  spiral:  { n: 9,  sz: [15, 24], dx: 62, dy: [-84, -26], dur: [.75, 1.15] },
+  dark:    { n: 11, sz: [18, 32], dx: 68, dy: [-44, 18],  dur: [.65, .95] },
+  flash:   { n: 10, sz: [13, 22], dx: 66, dy: [-66, -6],  dur: [.45, .75] },
+  star:    { n: 12, sz: [11, 20], dx: 68, dy: [-76, -12], dur: [.65, 1.05] }
+};
+
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+window.pet.onFx(spec => {
+  console.log('[fx] ' + spec.move + ' kind=' + spec.kind + ' n=' + (FX_SHAPE[spec.kind] ? FX_SHAPE[spec.kind].n : 0));
+  const kind = FX_SHAPE[spec.kind] ? spec.kind : 'star';
+  const shape = FX_SHAPE[kind];
+  const color = spec.color || '#ffffff';
+
+  clearTimeout(fxTimer);
+  fxLayer.innerHTML = '';
+  sprite.classList.remove(...MOTIONS.map(m => 'mv-' + m));
+  sprite.style.setProperty('--mv-c', color);
+
+  // 中心光环
+  const aura = document.createElement('div');
+  aura.className = 'aura';
+  aura.style.setProperty('--c', color);
+  fxLayer.appendChild(aura);
+  const ring = document.createElement('div');
+  ring.className = 'ring';
+  ring.style.setProperty('--c', color);
+  fxLayer.appendChild(ring);
+
+  // 粒子：左右各一半，方向从身体中心往外散
+  for (let i = 0; i < shape.n; i++) {
+    const p = document.createElement('div');
+    p.className = 'p p-' + kind;
+    const side = i % 2 === 0 ? -1 : 1;
+    const spread = rnd(0.35, 1);
+    p.style.setProperty('--c', color);
+    p.style.setProperty('--sz', rnd(shape.sz[0], shape.sz[1]).toFixed(1) + 'px');
+    p.style.setProperty('--dx', (side * shape.dx * spread + rnd(-8, 8)).toFixed(1) + 'px');
+    p.style.setProperty('--dy', rnd(shape.dy[0], shape.dy[1]).toFixed(1) + 'px');
+    p.style.setProperty('--dur', rnd(shape.dur[0], shape.dur[1]).toFixed(2) + 's');
+    p.style.setProperty('--d', rnd(0, 0.16).toFixed(2) + 's');
+    p.style.setProperty('--rot', Math.round(rnd(-200, 260)) + 'deg');
+    fxLayer.appendChild(p);
+  }
+
+  // 本体动作
+  void sprite.offsetWidth;
+  const motion = MOTIONS.includes(spec.motion) ? spec.motion : 'bump';
+  sprite.classList.add('mv-' + motion);
+
+  fxTimer = setTimeout(() => {
+    fxLayer.innerHTML = '';
+    sprite.classList.remove(...MOTIONS.map(m => 'mv-' + m));
+  }, 1400);
+});
+
 // ---------- 离地高度（影子） ----------
 window.pet.onAlt(r => {
   document.documentElement.style.setProperty('--alt', String(Math.max(0, Math.min(1, r))));
