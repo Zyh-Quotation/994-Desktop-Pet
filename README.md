@@ -205,9 +205,9 @@ RELEASE_URL="https://你的地址/pokepet-0.2.0.zip" \
 
 ### 本项目的发布地址
 
-- 仓库：https://github.com/1125215601-boop/994-Desktop-Pet
-- 下载：https://github.com/1125215601-boop/994-Desktop-Pet/releases/latest
-- 更新清单：https://github.com/1125215601-boop/994-Desktop-Pet/releases/latest/download/update.json
+- 仓库：https://github.com/Zyh-Quotation/994-Desktop-Pet
+- 下载：https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/latest
+- 更新清单：https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/latest/download/update.json
 
 发布只需：
 
