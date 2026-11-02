@@ -7,5 +7,6 @@ contextBridge.exposeInMainWorld('cfg', {
   setSize: k => ipcRenderer.invoke('cfg:setSize', k),
   random: () => ipcRenderer.invoke('cfg:random'),
   setSound: on => ipcRenderer.invoke('cfg:setSound', on),
+  checkUpdate: () => ipcRenderer.invoke('cfg:checkUpdate'),
   close: () => ipcRenderer.send('cfg:close')
 });

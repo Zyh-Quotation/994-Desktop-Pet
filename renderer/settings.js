@@ -8,6 +8,9 @@ const genEl = document.getElementById('gen');
 const hintEl = document.getElementById('hint');
 const diceEl = document.getElementById('dice');
 const sound = document.getElementById('sound');
+const verEl = document.getElementById('ver');
+const updBtn = document.getElementById('check-upd');
+const updMsg = document.getElementById('upd-msg');
 
 const TYPE_COLOR = {
   草: '#78C850', 火: '#F08030', 水: '#6890F0', 电: '#F8D030',
@@ -304,6 +307,7 @@ async function init() {
 
   login.checked = !!conf.loginAtStart;
   sound.checked = conf.soundOn !== false;
+  if (verEl) verEl.textContent = conf.version || '?';
   markSizes(conf.sizeKey);
   build();
   applyFilter();
@@ -355,6 +359,31 @@ sizesEl.addEventListener('click', async e => {
   await window.cfg.setSize(btn.dataset.key);
   markSizes(btn.dataset.key);
 });
+
+updBtn.onclick = async () => {
+  updBtn.disabled = true;
+  updMsg.className = 'upd-msg';
+  updMsg.textContent = '检查中…';
+  try {
+    const r = await window.cfg.checkUpdate();
+    if (!r || r.ok === false) {
+      updMsg.className = 'upd-msg err';
+      updMsg.textContent = r && r.reason === 'no-source' ? '未配置更新源'
+        : r && r.reason === 'busy' ? '正在检查…' : '连不上更新源';
+    } else if (r.hasUpdate) {
+      updMsg.className = 'upd-msg new';
+      updMsg.textContent = `发现 v${r.latest}，正在更新…`;
+    } else {
+      updMsg.className = 'upd-msg ok';
+      updMsg.textContent = `已是最新 v${r.current}`;
+    }
+  } catch (e) {
+    updMsg.className = 'upd-msg err';
+    updMsg.textContent = '检查失败';
+  } finally {
+    updBtn.disabled = false;
+  }
+};
 
 sound.onchange = async () => {
   await window.cfg.setSound(sound.checked);

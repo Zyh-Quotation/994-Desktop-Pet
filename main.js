@@ -595,6 +595,7 @@ function petMenuTemplate() {
         click: () => setSize(k)
       }))
     },
+    { label: '检查更新 ⟳', click: () => checkUpdate(true) },
     { label: '设置…', click: createSettingsWindow },
     { type: 'separator' },
     { label: '退出', click: () => { saveState(); app.quit(); } }
@@ -675,24 +676,27 @@ async function checkUpdate(manual = true) {
   if (!conf.manifest) {
     console.log('[update] 未配置更新源');
     if (manual) bubble('还没配置更新源', 2400);
-    return;
+    return { ok: false, reason: 'no-source' };
   }
-  if (updateBusy) return;
+  if (updateBusy) return { ok: false, reason: 'busy' };
   updateBusy = true;
   try {
     const { body } = await httpGetText(conf.manifest, 10000);
     const m = JSON.parse(body);
-    console.log('[update] 清单版本', m.version, '当前', app.getVersion());
-    if (cmpVer(m.version, app.getVersion()) > 0) {
-      bubble(`发现 v${m.version}，正在更新…`, 3200);
+    const cur = app.getVersion();
+    const newer = cmpVer(m.version, cur) > 0;
+    console.log('[update] 远端', m.version, '本地', cur, '需更新?', newer);
+    if (newer) {
+      if (manual) bubble(`发现 v${m.version}，正在更新…`, 3200);
       installUpdate(conf.manifest);
     } else if (manual) {
-      console.log('[update] 已是最新');
-      bubble(`已是最新 v${app.getVersion()}`, 2400);
+      bubble(`已是最新 v${cur}`, 2400);
     }
+    return { ok: true, current: cur, latest: m.version, hasUpdate: newer };
   } catch (e) {
     console.error('[update] 检查失败', e.message);
     if (manual) bubble('连不上更新源', 2400);
+    return { ok: false, reason: 'network' };
   } finally {
     updateBusy = false;
   }
@@ -967,10 +971,13 @@ ipcMain.handle('cfg:get', () => ({
   current: speciesDex,
   loginAtStart: loginAtStartEnabled(),
   sizeKey,
+  soundOn,
+  version: app.getVersion(),
   total: SPECIES.length
 }));
 ipcMain.handle('cfg:setSpecies', (_e, dex) => { switchSpecies(Number(dex)); return { current: speciesDex }; });
 ipcMain.handle('cfg:random', () => randomSpecies());
+ipcMain.handle('cfg:checkUpdate', () => checkUpdate(true));
 ipcMain.handle('cfg:setSound', (_e, on) => { soundOn = !!on; saveState(); if (soundOn) playCry(speciesDex, true); refreshTray(); return { soundOn }; });
 ipcMain.handle('cfg:setLogin', (_e, on) => ({ loginAtStart: setLoginAtStart(!!on) }));
 ipcMain.handle('cfg:setSize', (_e, k) => { setSize(k); return { sizeKey }; });
