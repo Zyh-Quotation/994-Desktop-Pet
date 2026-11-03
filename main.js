@@ -895,7 +895,8 @@ function bubble(text, ms = 1800, force = false) {
 function nextRandomState(t) {
   if (focusMode) { setState('idle', 4000); return; }
 
-  if (!night && Math.random() < 0.12 && followCursor()) return;
+  const isNightNow = isNight();
+  if (!isNightNow && Math.random() < 0.12 && followCursor()) return;
 
   // 机器忙的时候它也会累
   if (systemLoad > 0.86 && Math.random() < 0.4) {
@@ -943,7 +944,7 @@ function nextRandomState(t) {
 
   // 下雨下雪就懒得出门，深夜更容易睡
   const badWeather = weather && (weather.kind === '雨' || weather.kind === '雪' || weather.kind === '雷');
-  const night = isNight();
+  const night = isNightNow;
   const r = Math.random();
   if (badWeather && Math.random() < 0.5) {
     setState('idle', 2500 + Math.random() * 3000);
@@ -1227,6 +1228,17 @@ function createWindow() {
     setTimeout(() => { if (!starAsked && !inBall) createStarWindow(); }, 12000);
     if (process.env.PET_SHARE) setTimeout(() => makeShareCard(process.env.PET_SHARE), 3000);
     if (process.env.PET_SETTINGS) setTimeout(() => createSettingsWindow(), 2500);
+    if (process.env.PET_DIAG) setTimeout(async () => {
+      console.log('[diag] settingsWin?', !!settingsWin, settingsWin && !settingsWin.isDestroyed());
+      if (!settingsWin) return;
+      const t0 = Date.now();
+      try {
+        const r = await settingsWin.webContents.executeJavaScript("JSON.stringify({cards:document.querySelectorAll('.card').length,locked:document.querySelectorAll('.card.locked').length,listH:document.getElementById('list').scrollHeight,clientH:document.getElementById('list').clientHeight})");
+        console.log('[diag]', Date.now()-t0, 'ms', r);
+        await settingsWin.webContents.executeJavaScript("document.getElementById('list').scrollTop=800");
+        console.log('[diag] scrollTop=', await settingsWin.webContents.executeJavaScript("document.getElementById('list').scrollTop"));
+      } catch (e) { console.log('[diag] 失败', e.message); }
+    }, 9000);
     if (process.env.PET_EGG === '1') setTimeout(() => spawnEgg(), 4000);
     if (process.env.PET_REPORT) setTimeout(() => createReportWindow(), 2500);
     if (process.env.PET_GAME) setTimeout(() => createGameWindow(), 2500);

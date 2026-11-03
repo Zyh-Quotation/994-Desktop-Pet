@@ -120,7 +120,8 @@ input:checked + .switch::after { transform: translateX(14px); }
   box-shadow: 0 2px 8px var(--chip-border, rgba(0, 0, 0, .18));
 }
 
-.list { flex: 1; overflow-y: auto; padding-right: 6px; }
+/* list 必须有高度上限，否则它会跟着内容一起长高、滚不动 */
+.list { min-height: 0; flex: 1; overflow-y: auto; padding-right: 6px; }
 .list::-webkit-scrollbar { width: 8px; }
 .list::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, .3); border-radius: 4px; }
 
@@ -266,6 +267,10 @@ html.dark .upd-btn { background: #2c2c2e; color: #eee; }
 .card-fav.on { color: #ff3b5c; }
 
 #pane-dex { flex-direction: column; }
+#pane-dex > .dex-main {
+  flex: 1; display: flex; flex-direction: column;
+  min-width: 0; min-height: 0;
+}
 .dex-side-old {
   width: 208px; flex: none; display: flex; flex-direction: column;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
