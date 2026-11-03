@@ -13,27 +13,35 @@
   }
   header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px; color: #3a3a3c;
+    padding: 10px 14px; color: #3a3a3c; flex: none;
   }
   .stat { font-size: 12px; color: #8e8e93; }
   .stat b { font-size: 17px; color: #1c1c1e; margin-left: 3px; }
   #field { position: relative; flex: 1; overflow: hidden; }
   .ball {
-    position: absolute; width: 34px; height: 34px; margin-left: -17px;
-    border-radius: 50%; cursor: pointer;
+    position: absolute; width: 30px; height: 30px; margin-left: -15px;
+    border-radius: 50%;
     background: radial-gradient(circle at 32% 30%, #fff 6%, #ff5f5f 42%, #c62828 100%);
-    box-shadow: 0 3px 8px rgba(198, 40, 40, .35);
+    box-shadow: 0 3px 8px rgba(198, 40, 40, .3);
   }
   .ball::after {
     content: ''; position: absolute; inset: 0; border-radius: 50%;
     border-top: 3px solid rgba(255, 255, 255, .75);
   }
+  #pet {
+    position: absolute; bottom: 4px; width: 56px; height: 56px;
+    image-rendering: pixelated; margin-left: -28px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .2));
+    transition: transform .08s;
+  }
+  #pet.hop { transform: translateY(-7px); }
   .poof {
-    position: absolute; font-size: 14px; color: #ff9f43;
+    position: absolute; font-size: 13px; font-weight: 600; color: #ff9f43;
     pointer-events: none; animation: up .6s ease-out forwards;
   }
-  @keyframes up { to { transform: translateY(-26px); opacity: 0; } }
-  footer { padding: 8px 14px 12px; }
+  .poof.miss { color: #c7c7cc; }
+  @keyframes up { to { transform: translateY(-24px); opacity: 0; } }
+  footer { padding: 8px 14px 12px; flex: none; }
   button {
     width: 100%; border: 0; border-radius: 10px; padding: 10px;
     font: inherit; font-size: 13px; background: #e63b3b; color: #fff; cursor: pointer;
@@ -41,7 +49,7 @@
   .over {
     position: absolute; inset: 0; display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 6px;
-    background: rgba(255, 255, 255, .92); z-index: 5;
+    background: rgba(255, 255, 255, .93); z-index: 5;
   }
   .over h2 { margin: 0; font-size: 20px; }
   .over p { margin: 0; color: #8e8e93; font-size: 12px; }
@@ -50,20 +58,21 @@
 </head>
 <body>
   <header>
-    <span class="stat">得分<b id="score">0</b></span>
+    <span class="stat">接住<b id="score">0</b></span>
+    <span class="stat">漏掉<b id="miss">0</b></span>
     <span class="stat">剩余<b id="left">30</b>s</span>
   </header>
 
   <div id="field">
-    <div class="over" id="over" hidden>
-      <h2 id="over-t">时间到！</h2>
-      <p id="over-s">–</p>
-      <button id="again" style="width:auto;padding:8px 20px;margin-top:6px">再来一局</button>
+    <img id="pet" alt="">
+    <div class="over" id="over">
+      <h2>准备好了吗？</h2>
+      <p>它会自己跑过去接，你看着就行</p>
     </div>
   </div>
 
   <footer>
-    <button id="start">开始 · 点住掉下来的球</button>
+    <button id="start">开始</button>
   </footer>
 
   <script src="game.js"></script>

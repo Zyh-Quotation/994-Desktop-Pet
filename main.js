@@ -1771,10 +1771,25 @@ function createGameWindow() {
     title: '接球小游戏', backgroundColor: '#eef6ff', show: false,
     webPreferences: {
       preload: path.join(__dirname, 'renderer', 'game-preload.js'),
-      contextIsolation: true, nodeIntegration: false
+      contextIsolation: true, nodeIntegration: false,
+      backgroundThrottling: false
     }
   });
   gameWin.loadFile(path.join(__dirname, 'renderer', 'game.html'));
+  gameWin.webContents.once('did-finish-load', () => {
+    const url = spriteUrlFor(speciesDex, shinyFor(speciesDex));
+    gameWin.webContents.executeJavaScript(`window.setPet(${JSON.stringify(url)})`).catch(() => {});
+    if (process.env.PET_GAME === '2') {
+      setTimeout(() => { try { gameWin.webContents.executeJavaScript("document.getElementById('start').click()"); } catch (_) {} }, 1200);
+      setTimeout(async () => {
+        try {
+          const img = await gameWin.webContents.capturePage();
+          fs.writeFileSync(path.join(__dirname, 'game-shot.png'), img.toPNG());
+          console.log('[game] 截图完成 score=', await gameWin.webContents.executeJavaScript("document.getElementById('score').textContent"));
+        } catch (_) {}
+      }, 9000);
+    }
+  });
   gameWin.once('ready-to-show', () => {
     gameWin.show();
     if (process.env.PET_CAPTURE) captureTo(gameWin, 'game-shot.png');
