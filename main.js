@@ -1029,7 +1029,7 @@ function tickStep() {
   tickPomodoro(t);
   if (t > achCheckAt) { achCheckAt = t + 15000; checkAchievements(); }
   if (t > expAt) { expAt = t + 60000; if (!focusMode) addExp(10); }
-  if (rotateMin > 0 && t > rotateAt) { rotateAt = t + rotateMin * 60000; randomSpecies(); }
+  if (rotateMin > 0 && t > rotateAt) { rotateAt = t + rotateMin * 60000; if (dexMet.length > 1) randomSpecies(); }
   checkSitWater();
   if (guestEnabled && !guest && t > nextGuestAt) spawnGuest();
   updateGuest(t, dt);
@@ -1585,8 +1585,10 @@ function showLore(dex = speciesDex, autoCloseMs = 9000) {
 }
 
 function randomSpecies() {
+  const pool = dexMet.length ? SPECIES.filter(sp => dexMet.includes(sp.dex)) : SPECIES;
   let n = speciesDex;
-  for (let i = 0; i < 30 && n === speciesDex; i++) n = pick(SPECIES).dex;
+  for (let i = 0; i < 30 && n === speciesDex && pool.length > 1; i++) n = pick(pool).dex;
+  if (n === speciesDex && pool.length) n = pool[0].dex;
   switchSpecies(n);
   const sp = speciesInfo();
   bubble(`🎲 ${sp.name} · ${sp.types.join('·')}`, 2400);
@@ -1976,6 +1978,7 @@ function cfgSnapshot() {
     loginAtStart: loginAtStartEnabled(),
     shinyMode, rotateMin, lang, focusMode, guestEnabled, favorites,
     nature: { zh: (currentNature || NATURES[0]).zh, en: (currentNature || NATURES[0]).en },
+    dexMet: dexMet.slice(),
     pomo: pomo ? { phase: pomo.phase, left: Math.max(0, pomo.until - Date.now()) } : null,
     level, exp,
     met: dexMet.length, shinyMet: shinyMet.length, total: SPECIES.length,
@@ -2019,7 +2022,12 @@ ipcMain.handle('cfg:action', async (_e, name) => {
   } catch (e) { console.error('[cfg:action]', name, e); }
   return cfgSnapshot();
 });
-ipcMain.handle('cfg:setSpecies', (_e, dex) => { switchSpecies(Number(dex)); return { current: speciesDex }; });
+ipcMain.handle('cfg:setSpecies', (_e, dex) => {
+  const d = Number(dex);
+  if (!dexMet.includes(d)) return { current: speciesDex, locked: true };
+  switchSpecies(d);
+  return { current: speciesDex };
+});
 ipcMain.handle('cfg:random', () => randomSpecies());
 ipcMain.handle('cfg:checkUpdate', () => checkUpdate(true));
 ipcMain.handle('cfg:setSound', (_e, on) => { soundOn = !!on; saveState(); if (soundOn) playCry(speciesDex, true); refreshTray(); return { soundOn }; });
@@ -2060,6 +2068,13 @@ app.whenReady().then(() => {
   console.log('[debug] whenReady 已触发', JSON.stringify(process.argv));
   loadState();
   if (!firstLaunch) { firstLaunch = Date.now(); saveState(); }
+  if (!dexMet.length) {
+    const starters = [1, 4, 7, 25, 133, 152, 155, 158, 252, 255, 258, 387, 390, 393];
+    const pickDex = starters[Math.floor(Math.random() * starters.length)];
+    speciesDex = pickDex;
+    markMet(pickDex);
+    saveState();
+  }
   updateStreak();
   dailyCheckIn();
   checkFestival();

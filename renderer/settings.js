@@ -51,6 +51,7 @@ let conf = null;
 let current = 175;
 let filter = '全部';
 let favorites = new Set();
+let unlockedDex = new Set();
 let query = '';
 let genFilter = 0;
 let built = false;
@@ -70,10 +71,11 @@ function pad3(n) {
 }
 
 function makeCard(sp) {
+  const locked = !unlockedDex.has(sp.dex);
   const b = document.createElement('button');
-  b.className = 'card' + (sp.dex === current ? ' active' : '');
+  b.className = 'card' + (sp.dex === current ? ' active' : '') + (locked ? ' locked' : '');
   b.dataset.dex = String(sp.dex);
-  b.title = `${sp.name} · No.${pad3(sp.dex)}`;
+  b.title = locked ? `${sp.name} · 还没解锁` : `${sp.name} · No.${pad3(sp.dex)}`;
 
   const img = document.createElement('img');
   img.src = spriteUrl(sp.dex);
@@ -106,6 +108,10 @@ function makeCard(sp) {
     if (filter === '收藏') applyFilter();
   };
   b.onclick = async () => {
+    if (locked) {
+      if (hintEl) hintEl.textContent = `${sp.name} 还没解锁 —— 孵蛋或者进化才能遇到它`;
+      return;
+    }
     await window.cfg.setSpecies(sp.dex);
     current = sp.dex;
     for (const line of lineEls) {
@@ -381,6 +387,8 @@ async function init() {
   sound.checked = conf.soundOn !== false;
   if (verEl) verEl.textContent = conf.version || '?';
   favorites = new Set(conf.favorites || []);
+  unlockedDex = new Set(conf.dexMet || []);
+  if (countEl) countEl.textContent = `已解锁 ${unlockedDex.size} / ${conf.species.length}`;
   markSizes(conf.sizeKey);
   renderOpts(conf);
   build();

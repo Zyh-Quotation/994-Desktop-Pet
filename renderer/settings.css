@@ -322,3 +322,10 @@ html.dark .upd-btn { background: #2c2c2e; color: #eee; }
 .ach-card .n { font-size: 12px; font-weight: 600; }
 .ach-card.locked .n { color: #a1a1a6; font-weight: 500; }
 .ach-card .d { font-size: 10.5px; color: #a1a1a6; line-height: 1.35; }
+
+.card.locked { opacity: .38; filter: grayscale(.85); cursor: default; }
+.card.locked::after {
+  content: '🔒'; position: absolute; top: 6px; left: 8px; font-size: 13px;
+  opacity: .85; filter: none;
+}
+.card.locked:hover { background: var(--card); }
