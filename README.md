@@ -26,8 +26,8 @@ Electron 写的，免费开源，**macOS / Windows 都能装**。
 ## 怎么玩
 
 - **专属动作**：每只宝可梦都有自己的招式。点击菜单栏图标 →「专属动作 ✨」，或者等它发呆时自己放（会冒招式名，配自己的叫声）
-  - 1025 只全覆盖：招式按属性定，粒子颜色从这只自己的精灵图里取 —— 皮卡丘是电、喷火龙是火、耿鬼是影子球
-  - 180 多只精修了招牌招式名（十万伏特、喷射火焰、加农水炮、画龙点睛…），其余按主属性给标准招式
+  - 1025 只全覆盖：从各世代的升级招式表里挑本系招，威力跟着进化阶段走 —— 妙蛙种子是藤鞭、水箭龟才是加农水炮、皮卡丘是十万伏特
+  - 428 种不同招式：粒子形状跟着**招式属性**走，颜色从这只自己的精灵图里取 —— 同为水系，杰尼龟和鲤鱼王的特效也不一样
 
 
 | 操作 | 反应 |
@@ -107,10 +107,12 @@ settings-preload.js  设置窗口的安全桥
 renderer/            显示层：宠物窗口 + 设置页 + 故事卡
 data/pokedex.json    1025 只：中文名、属性、世代、进化链
 data/lore.json       1025 条：分类、栖息地、图鉴原文、身高体重
+data/signatures.json 1025 只的专属动作：招式名 + 粒子形状 + 动作 + 配色
 assets/pokemon/      2050 张精灵图（普通 + 异色，121MB，不进仓库）
 assets/cries/        1025 条叫声（16MB，不进仓库）
 docs/                GitHub Pages 下载页
 tools/               打包、发版、素材抓取脚本
+tools/signature-moves.json  招式名数据源（可手工改，改完重跑 build-signatures）
 promo/               宣传图和文案
 ```
 
@@ -139,4 +141,5 @@ npm install                     # Electron
 精灵图和叫声来自 [PokeAPI](https://github.com/PokeAPI)，宝可梦版权属于任天堂 / Game Freak / Creatures。
 **仅供个人使用，请勿商用。**
 
-图鉴数据由 `tools/build-pokedex.js` 从 PokeAPI 数据集生成，故事文本由 `tools/build-lore.js` 生成。
+图鉴数据由 `tools/build-pokedex.js` 从 PokeAPI 数据集生成，故事文本由 `tools/build-lore.js` 生成，
+专属招式由 `tools/build-signature-moves.js` 从各世代升级招式表挑选（首次运行自动下载数据到 `tools/.cache/`）。

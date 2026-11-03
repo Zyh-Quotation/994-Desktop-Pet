@@ -6,6 +6,7 @@ userdata/
 # 构建产物（可复现，不入库）
 release/
 .pokepet-cache/
+tools/.cache/
 
 # 大体积素材，用 tools/fetch-*.js 补
 assets/pokemon/
