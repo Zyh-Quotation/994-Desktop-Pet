@@ -78,22 +78,27 @@ function pad3(n) {
   return String(n).padStart(3, '0');
 }
 
+// 英文界面优先用英文名（data/names-en.json 提供，没有就退回中文）
+function displayName(sp) {
+  return (window.PET_LANG === 'en' && sp.nameEn) ? sp.nameEn : sp.name;
+}
+
 function makeCard(sp) {
   const locked = !unlockedDex.has(sp.dex);
   const b = document.createElement('button');
   b.className = 'card' + (sp.dex === current ? ' active' : '') + (locked ? ' locked' : '');
   b.dataset.dex = String(sp.dex);
-  b.title = locked ? `${sp.name} · 还没解锁` : `${sp.name} · No.${pad3(sp.dex)}`;
+  b.title = locked ? `${displayName(sp)} · 还没解锁` : `${displayName(sp)} · No.${pad3(sp.dex)}`;
 
   const img = document.createElement('img');
   img.src = spriteUrl(sp.dex);
-  img.alt = sp.name;
+  img.alt = displayName(sp);
   img.loading = 'lazy';
   img.decoding = 'async';
 
   const name = document.createElement('span');
   name.className = 'card-name';
-  name.textContent = sp.name;
+  name.textContent = displayName(sp);
 
   const types = document.createElement('span');
   types.className = 'card-types';

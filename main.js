@@ -578,6 +578,12 @@ function checkAchievements() {
 // ---------- 图鉴数据（由 data/pokedex.json 生成，覆盖 001-1025） ----------
 const DEX_FILE = path.join(__dirname, 'data', 'pokedex.json');
 const DEX_DATA = JSON.parse(fs.readFileSync(DEX_FILE, 'utf8'));
+// 英文名数据（data/names-en.json，形如 {"25":"Pikachu"}；没有也不影响中文）
+let EN_NAMES = {};
+try {
+  EN_NAMES = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'names-en.json'), 'utf8')) || {};
+} catch (_) { EN_NAMES = {}; }
+
 const SPECIES = DEX_DATA.species;
 const byDex = new Map(SPECIES.map(s => [s.dex, s]));
 // 进化表：from -> [{ to, how }]，伊布这种一个前身多条分支
@@ -2116,7 +2122,7 @@ ipcMain.handle('cfg:dexPulse', () => ({ n: dexMet.length, cur: speciesDex, level
 ipcMain.on('lang:sync', e => { try { e.returnValue = lang; } catch (_) {} });
 
 ipcMain.handle('cfg:get', () => ({
-  species: SPECIES.map(s => ({ dex: s.dex, name: s.name, types: s.types, gen: s.gen, legend: !!(s.legend || s.myth) })),
+  species: SPECIES.map(s => ({ dex: s.dex, name: s.name, nameEn: EN_NAMES[s.dex] || '', types: s.types, gen: s.gen, legend: !!(s.legend || s.myth) })),
   chains: LINES.map(l => ({ stages: l.stages, hows: l.hows, type: l.type })),
   spriteBase: spriteBase(),
   ...cfgSnapshot()
