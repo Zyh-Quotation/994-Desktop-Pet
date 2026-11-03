@@ -8,6 +8,7 @@
 set -euo pipefail
 
 SRC="$HOME/Applications/神奇宝贝.app"
+SRC_ROOT="$HOME/Applications/桌宠"
 OUT_DIR="${1:-$HOME/Applications/桌宠/release}"
 OUT="$OUT_DIR/神奇宝贝.app"
 
@@ -26,6 +27,12 @@ rsync -a --exclude userdata --exclude node_modules --exclude release \
 # 保证 Resources/app 是真实目录
 test -d "$OUT/Contents/Resources/app" && ! test -L "$OUT/Contents/Resources/app" || {
   echo "❌ Resources/app 仍是软链接"; exit 1; }
+
+# 换成自己的应用图标（Info.plist 里 CFBundleIconFile 指向 pokeball）
+if [ -f "$SRC_ROOT/assets/app-icon.icns" ]; then
+  cp "$SRC_ROOT/assets/app-icon.icns" "$OUT/Contents/Resources/pokeball.icns"
+  echo "已替换应用图标"
+fi
 
 xattr -cr "$OUT" 2>/dev/null || true
 

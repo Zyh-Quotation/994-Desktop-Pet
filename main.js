@@ -2165,6 +2165,10 @@ app.on('before-quit', () => {
 });
 
 app.whenReady().then(() => {
+  // 开发时跑的是 Electron 本体，Dock 默认显示 Electron 原子图标，这里换成自己的
+  if (IS_MAC && app.dock) {
+    try { app.dock.setIcon(path.join(__dirname, 'assets', 'app-icon.png')); } catch (_) {}
+  }
   console.log('[debug] whenReady 已触发', JSON.stringify(process.argv));
   loadState();
   if (!firstLaunch) { firstLaunch = Date.now(); saveState(); }
