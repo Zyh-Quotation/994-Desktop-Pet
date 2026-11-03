@@ -45,7 +45,18 @@
     font-size: 11px; color: #86868b;
   }
   .foot b { color: #1d1d1f; font-size: 12px; }
+
+  /* ── 深色模式 ── */
+  @media (prefers-color-scheme: dark) {
+    body {
+      background: #141416 !important;
+      color: #f5f5f7 !important;
+    }
+    .card { background: #1c1c1e !important; }
+    .muted, small { color: #98989d !important; }
+  }
 </style>
+  <script src="i18n.js"></script>
 </head>
 <body>
 <div id="card">

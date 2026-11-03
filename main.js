@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, ipcMain, shell, dialog, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -1268,6 +1268,34 @@ function createWindow() {
     setTimeout(() => { if (!starAsked && !inBall) createStarWindow(); }, 12000);
     if (process.env.PET_SHARE) setTimeout(() => makeShareCard(process.env.PET_SHARE), 3000);
     if (process.env.PET_SETTINGS) setTimeout(() => createSettingsWindow(), 2500);
+    if (process.env.PET_EGGI18N) setTimeout(async () => {
+      createEggWindow();
+      setTimeout(async () => {
+        try {
+          const r = await eggWin.webContents.executeJavaScript(
+            "JSON.stringify({title:document.querySelector('h1')?.textContent, sub:document.querySelector('.sub')?.textContent, btn:document.querySelector('button')?.textContent, dark:matchMedia('(prefers-color-scheme: dark)').matches})");
+          console.log('[eggi18n]', r);
+        } catch (e) { console.log('[eggi18n] 失败', e.message); }
+      }, 2500);
+    }, 7000);
+    if (process.env.PET_I18N) setTimeout(async () => {
+      try {
+        const r = await settingsWin.webContents.executeJavaScript(`(function(){
+          document.getElementById('tab-dex').click();
+          return new Promise(res => setTimeout(() => {
+          const q = s => [...document.querySelectorAll(s)].map(e => e.textContent.trim());
+          res(JSON.stringify({
+            tabs: q('.tab'),
+            chips: q('.chip').slice(0, 6),
+            hint: document.getElementById('hint').textContent,
+            count: document.getElementById('count').textContent,
+            names: [...document.querySelectorAll('.card .name')].slice(0, 3).map(e => e.textContent.trim())
+          }));
+          }, 400));
+        })()`);
+        console.log('[i18n]', r);
+      } catch (e) { console.log('[i18n] 失败', e.message); }
+    }, 9000);
     if (process.env.PET_DIAG) setTimeout(async () => {
       console.log('[diag] settingsWin?', !!settingsWin, settingsWin && !settingsWin.isDestroyed());
       if (!settingsWin) return;
@@ -2085,6 +2113,8 @@ function cfgSnapshot() {
 }
 
 ipcMain.handle('cfg:dexPulse', () => ({ n: dexMet.length, cur: speciesDex, level }));
+ipcMain.on('lang:sync', e => { try { e.returnValue = lang; } catch (_) {} });
+
 ipcMain.handle('cfg:get', () => ({
   species: SPECIES.map(s => ({ dex: s.dex, name: s.name, types: s.types, gen: s.gen, legend: !!(s.legend || s.myth) })),
   chains: LINES.map(l => ({ stages: l.stages, hows: l.hows, type: l.type })),
@@ -2165,6 +2195,7 @@ app.on('before-quit', () => {
 });
 
 app.whenReady().then(() => {
+  if (process.env.PET_DARK) nativeTheme.themeSource = process.env.PET_DARK === 'light' ? 'light' : 'dark';
   // 开发时跑的是 Electron 本体，Dock 默认显示 Electron 原子图标，这里换成自己的
   if (IS_MAC && app.dock) {
     try { app.dock.setIcon(path.join(__dirname, 'assets', 'app-icon.png')); } catch (_) {}

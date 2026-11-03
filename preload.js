@@ -26,3 +26,6 @@ contextBridge.exposeInMainWorld('pet', {
   onAlt: cb => ipcRenderer.on('alt', (_e, r) => cb(r)),
   onFx: cb => ipcRenderer.on('fx', (_e, d) => cb(d))
 });
+
+// 当前语言（i18n 用）
+try { contextBridge.exposeInMainWorld('PET_LANG', ipcRenderer.sendSync('lang:sync') || 'zh'); } catch (_) {}

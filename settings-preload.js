@@ -15,3 +15,6 @@ contextBridge.exposeInMainWorld('cfg', {
   onChanged: fn => ipcRenderer.on('cfg:changed', () => fn()),
   close: () => ipcRenderer.send('cfg:close')
 });
+
+// 当前语言（i18n 用）
+try { contextBridge.exposeInMainWorld('PET_LANG', ipcRenderer.sendSync('lang:sync') || 'zh'); } catch (_) {}

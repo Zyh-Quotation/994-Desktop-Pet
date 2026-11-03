@@ -36,7 +36,18 @@
   #later:hover { background: rgba(0, 0, 0, .1); }
   #go { background: #e63b3b; color: #fff; font-weight: 600; }
   #go:hover { background: #d33232; }
+
+  /* ── 深色模式 ── */
+  @media (prefers-color-scheme: dark) {
+    body {
+      background: #141416 !important;
+      color: #f5f5f7 !important;
+    }
+    .card, .sheet { background: #232325 !important; }
+    .sub, small, .muted { color: #98989d !important; }
+  }
 </style>
+  <script src="i18n.js"></script>
 </head>
 <body>
 <div id="card">

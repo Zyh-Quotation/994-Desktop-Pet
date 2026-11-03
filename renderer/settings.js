@@ -347,9 +347,11 @@ function applyFilter() {
   }
 
   countEl.textContent = query ? `找到 ${shown} 只` : `共 ${shown} 只`;
-  hintEl.textContent = shown === 0
-    ? '没有匹配的宝可梦：换个关键词，或点「全部」取消属性/世代筛选'
-    : '点任意一只即可切换';
+  if (!document.getElementById('pane-dex').hidden) {
+    hintEl.textContent = shown === 0
+      ? '没有匹配的宝可梦：换个关键词，或点「全部」取消属性/世代筛选'
+      : '点任意一只即可切换';
+  }
 }
 
 function markSeg(el, key) {

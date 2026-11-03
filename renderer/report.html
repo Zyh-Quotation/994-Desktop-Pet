@@ -33,7 +33,19 @@
   }
   button:disabled { opacity: .6; cursor: default; }
   button.ghost { background: #f0f0f4; color: #3a3a3c; }
+
+  /* ── 深色模式 ── */
+  @media (prefers-color-scheme: dark) {
+    body {
+      background: #141416 !important;
+      color: #f5f5f7 !important;
+    }
+    .card, .sheet, .panel { background: #1c1c1e !important; }
+    .muted, .label, small { color: #98989d !important; }
+    .stat, .row { border-color: rgba(255,255,255,.08) !important; }
+  }
 </style>
+  <script src="i18n.js"></script>
 </head>
 <body>
   <h1>陪伴报告</h1>

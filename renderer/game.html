@@ -54,7 +54,19 @@
   .over h2 { margin: 0; font-size: 20px; }
   .over p { margin: 0; color: #8e8e93; font-size: 12px; }
   .over[hidden] { display: none; }
+
+  /* ── 深色模式 ── */
+  @media (prefers-color-scheme: dark) {
+    body {
+      background: #141416 !important;
+      color: #f5f5f7 !important;
+    }
+    .field, .panel, .card { background: #1c1c1e !important; }
+    .sub, small { color: #98989d !important; }
+    button { background: #2c2c2e !important; color: #f5f5f7 !important; }
+  }
 </style>
+  <script src="i18n.js"></script>
 </head>
 <body>
   <header>
