@@ -1246,6 +1246,7 @@ function petMenuTemplate() {
     ...(canFlyNow() ? [{ label: L('飞一飞 🕊️', 'Fly 🕊️'), click: doFly }] : []),
     { label: inBall ? L('放出来 ⚪', 'Let out ⚪') : L('收进球 ⚪', 'Into ball ⚪'), click: () => toggleBall() },
     { label: L('专属动作 ✨', 'Signature move ✨'), click: () => playSignature('manual') },
+    { label: L('随机一只 🎲', 'Random 🎲'), click: () => randomSpecies() },
     { label: L('看介绍 📖', 'Profile 📖'), click: () => showLore() },
     { type: 'separator' },
     { label: L('设置…', 'Settings…'), click: createSettingsWindow },
