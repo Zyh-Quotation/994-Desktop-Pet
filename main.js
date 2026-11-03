@@ -1586,6 +1586,13 @@ function showLore(dex = speciesDex, autoCloseMs = 9000) {
 
 function randomSpecies() {
   const pool = dexMet.length ? SPECIES.filter(sp => dexMet.includes(sp.dex)) : SPECIES;
+  if (pool.length <= 1) {
+    bubble(lang === 'en'
+      ? 'Only one unlocked — hatch an egg or evolve first'
+      : '只解锁了这一只，先孵颗蛋或进化吧', 3200, true);
+    refreshTray();
+    return { current: speciesDex };
+  }
   let n = speciesDex;
   for (let i = 0; i < 30 && n === speciesDex && pool.length > 1; i++) n = pick(pool).dex;
   if (n === speciesDex && pool.length) n = pool[0].dex;
