@@ -2075,6 +2075,8 @@ function cfgSnapshot() {
     checkInDays: counters.checkIn || 0,
     pomo: pomo ? { phase: pomo.phase, left: Math.max(0, pomo.until - Date.now()) } : null,
     level, exp,
+    expInLevel: Math.max(0, exp - expTotalForLevel(level)),
+    expNeed: expNeedFor(level),
     met: dexMet.length, shinyMet: shinyMet.length, total: SPECIES.length,
     achievements: ACHIEVEMENTS.map(a => ({ id: a.id, name: a.name, en: a.en || a.name, desc: a.desc, unlocked: !!unlocked[a.id] })),
     streak: counters.streak || 1, sig: counters.sig,
