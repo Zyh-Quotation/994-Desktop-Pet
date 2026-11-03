@@ -14,6 +14,7 @@
 
 <nav class="tabs">
   <button class="tab active" data-pane="dex" id="tab-dex">图鉴</button>
+  <button class="tab" data-pane="ach" id="tab-ach">成就</button>
   <button class="tab" data-pane="opts" id="tab-opts">设置</button>
 </nav>
 
@@ -29,13 +30,15 @@
   <main id="list" class="list"></main>
   </div>
 
-  <aside class="dex-side">
-    <div class="side-head">
-      <span>成就</span>
-      <b id="side-count">–</b>
-    </div>
-    <div class="side-grid" id="side-ach"></div>
-  </aside>
+</div>
+
+<div class="pane" id="pane-ach" hidden>
+  <div class="ach-top">
+    <span class="ach-title">已解锁</span>
+    <b id="ach-count">–</b>
+  </div>
+  <div class="ach-bar"><i id="ach-bar" style="width:0"></i></div>
+  <div class="ach-grid" id="ach-grid"></div>
 </div>
 
 <div class="pane" id="pane-opts" hidden>

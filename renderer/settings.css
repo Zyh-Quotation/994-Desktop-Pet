@@ -265,9 +265,8 @@ html.dark .upd-btn { background: #2c2c2e; color: #eee; }
 .card-fav:hover { transform: scale(1.18); }
 .card-fav.on { color: #ff3b5c; }
 
-#pane-dex { flex-direction: row; gap: 12px; }
-.dex-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.dex-side {
+#pane-dex { flex-direction: column; }
+.dex-side-old {
   width: 208px; flex: none; display: flex; flex-direction: column;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
   padding: 10px 10px 8px; overflow-y: auto;
@@ -293,3 +292,33 @@ html.dark .upd-btn { background: #2c2c2e; color: #eee; }
 .side-ach.locked .b { background: #f1f2f6; box-shadow: none; filter: grayscale(1); opacity: .5; }
 .side-ach .t { font-size: 9.5px; line-height: 1.25; color: #3a3a3c; }
 .side-ach.locked .t { color: #b0b0b8; }
+
+.ach-top {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 12px; color: var(--muted); padding: 2px 2px 7px; flex: none;
+}
+.ach-top b { font-size: 15px; color: var(--text); }
+.ach-bar { height: 6px; background: #eef0f4; border-radius: 3px; overflow: hidden; margin-bottom: 14px; flex: none; }
+.ach-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffb347, #ff6b6b); border-radius: 3px; transition: width .4s; }
+.ach-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  overflow-y: auto; flex: 1; padding-right: 6px; align-content: start;
+}
+.ach-grid::-webkit-scrollbar { width: 7px; }
+.ach-grid::-webkit-scrollbar-thumb { background: rgba(128,128,128,.28); border-radius: 4px; }
+.ach-card {
+  background: #fff; border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px 8px 11px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.ach-card.locked { background: #fbfbfd; }
+.ach-card .b {
+  width: 50px; height: 50px; border-radius: 50%; font-size: 24px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(145deg, #ffe9a8, #ffb347);
+  box-shadow: 0 3px 7px rgba(255, 159, 67, .26);
+}
+.ach-card.locked .b { background: #f1f2f6; box-shadow: none; filter: grayscale(1); opacity: .5; }
+.ach-card .n { font-size: 12px; font-weight: 600; }
+.ach-card.locked .n { color: #a1a1a6; font-weight: 500; }
+.ach-card .d { font-size: 10.5px; color: #a1a1a6; line-height: 1.35; }

@@ -21,8 +21,9 @@ const dexProgEl = document.getElementById('dex-prog');
 const achProgEl = document.getElementById('ach-prog');
 
 const guestSw = document.getElementById('guest');
-const sideAch = document.getElementById('side-ach');
-const sideCount = document.getElementById('side-count');
+const achGrid = document.getElementById('ach-grid');
+const achCount = document.getElementById('ach-count');
+const achBar = document.getElementById('ach-bar');
 const ACH_ICONS = {
   first: '👋', dex10: '🚪', dex50: '🧭', dex200: '🔬', dex1025: '📚',
   shiny1: '✨', shiny8: '💎', sig10: '🌟', sig100: '🏅',
@@ -352,13 +353,15 @@ function renderOpts(c) {
   if (lvlEl) lvlEl.textContent = `Lv.${c.level} · 经验 ${c.exp % 100}/100`;
   if (dexProgEl) dexProgEl.textContent = `遇见 ${c.met}/${c.total} · 异色 ${c.shinyMet}`;
   const list = c.achievements || [];
-  if (sideAch) {
+  if (achGrid) {
     const done = list.filter(a => a.unlocked).length;
-    if (sideCount) sideCount.textContent = `${done}/${list.length}`;
-    sideAch.innerHTML = list.map(a =>
-      `<div class="side-ach${a.unlocked ? '' : ' locked'}" title="${a.desc}">
+    if (achCount) achCount.textContent = `${done} / ${list.length}`;
+    if (achBar) achBar.style.width = Math.round((done / Math.max(1, list.length)) * 100) + '%';
+    achGrid.innerHTML = list.map(a =>
+      `<div class="ach-card${a.unlocked ? '' : ' locked'}">
          <span class="b">${ACH_ICONS[a.id] || '🏆'}</span>
-         <span class="t">${a.name}</span>
+         <span class="n">${a.name}</span>
+         <span class="d">${a.desc}</span>
        </div>`).join('');
   }
   if (achProgEl) achProgEl.textContent = `${list.filter(a => a.unlocked).length}/${list.length} 已解锁`;
@@ -464,8 +467,9 @@ sound.onchange = async () => {
 document.querySelectorAll('.tab').forEach(t => {
   t.onclick = () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
-    document.getElementById('pane-dex').hidden = t.dataset.pane !== 'dex';
-    document.getElementById('pane-opts').hidden = t.dataset.pane !== 'opts';
+    document.querySelectorAll('.pane').forEach(p => {
+      p.hidden = p.id !== 'pane-' + t.dataset.pane;
+    });
   };
 });
 

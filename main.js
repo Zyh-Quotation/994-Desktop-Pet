@@ -1930,7 +1930,7 @@ function createSettingsWindow() {
   }
   const wa = screen.getPrimaryDisplay().workAreaSize;
   settingsWin = new BrowserWindow({
-    width: Math.min(1040, wa.width - 80), height: Math.min(840, wa.height - 80),
+    width: Math.min(820, wa.width - 80), height: Math.min(840, wa.height - 80),
     resizable: false, minimizable: false, maximizable: false,
     title: '神奇宝贝 · 设置',
     backgroundColor: '#f5f5f7',
@@ -1947,6 +1947,10 @@ function createSettingsWindow() {
       if (process.env.PET_SETTINGS === '2') {
         try { await settingsWin.webContents.executeJavaScript("document.getElementById('tab-opts').click()"); } catch (_) {}
         await new Promise(r => setTimeout(r, 600));
+      }
+      if (process.env.PET_SETTINGS === '4') {
+        try { await settingsWin.webContents.executeJavaScript("document.getElementById('tab-ach').click()"); } catch (_) {}
+        await new Promise(r => setTimeout(r, 700));
       }
       if (process.env.PET_SETTINGS === '3') {
         try {
