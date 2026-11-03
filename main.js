@@ -210,7 +210,10 @@ function natureFor(dex) {
 }
 let currentNature = NATURES[0];
 let walkedPx = 0;        // 走了多少像素，攒够了给颗蛋
-const EGG_AT = Number(process.env.PET_EGG_AT || 36000);
+const EGG_MIN = 22000;   // 约 8 分钟纯走路
+const EGG_MAX = 58000;   // 约 21 分钟
+const EGG_AT = Number(process.env.PET_EGG_AT || 0);   // 调试用固定值，0 表示随机
+let eggTarget = EGG_AT || (EGG_MIN + Math.floor(Math.random() * (EGG_MAX - EGG_MIN)));
 let hasEgg = false;
 let guestWin = null;     // 串门的另一只
 let guest = null;        // { dex, x, dir, until, phase: 'in'|'stay'|'out' }
@@ -410,6 +413,7 @@ function doHatch() {
   try { playCry(target.dex, true); } catch (_) {}
   counters.hatch = (counters.hatch || 0) + 1;
   walkedPx = 0;                       // 孵完重新攒下一颗
+  eggTarget = EGG_AT || (EGG_MIN + Math.floor(Math.random() * (EGG_MAX - EGG_MIN)));
   addStone(1);
   saveState();
   console.log('[hatch] 孵出', target.dex, target.name, '| 有前置进化?', !!target.from);
@@ -773,6 +777,8 @@ function loadState() {
     if (d.focusMode === true) focusMode = true;
     if (d.guestEnabled === false) guestEnabled = false;
     if (Array.isArray(d.favorites)) favorites = d.favorites.filter(n => Number.isFinite(n));
+    if (Number.isFinite(d.eggTarget) && d.eggTarget > 1000) eggTarget = d.eggTarget;
+    if (Number.isFinite(d.walkedPx)) walkedPx = Math.max(0, d.walkedPx);
     if (Number.isFinite(d.firstLaunch)) firstLaunch = d.firstLaunch;
     if (Number.isFinite(d.sitWarnMin)) sitWarnMin = d.sitWarnMin;
     if (Number.isFinite(d.waterWarnMin)) waterWarnMin = d.waterWarnMin;
@@ -792,7 +798,7 @@ function saveState() {
   try {
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
     fs.writeFileSync(stateFile(), JSON.stringify({
-      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, guestEnabled, favorites, firstLaunch, sitWarnMin, waterWarnMin, savedAt: new Date().toISOString()
+      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, guestEnabled, favorites, firstLaunch, sitWarnMin, waterWarnMin, eggTarget, walkedPx, savedAt: new Date().toISOString()
     }));
   } catch (e) { console.error('saveState failed:', e.message); }
 }
@@ -1154,7 +1160,7 @@ function tickStep() {
       }
       walkedPx += Math.abs(speed * ((currentNature || NATURES[0]).speed || 1) * dt);
       counters.walked = (counters.walked || 0) + Math.abs(speed * ((currentNature || NATURES[0]).speed || 1) * dt);
-      if (walkedPx > EGG_AT && !hasEgg && !inBall) { walkedPx = 0; spawnEgg(); }
+      if (walkedPx > eggTarget && !hasEgg && !inBall) { walkedPx = 0; spawnEgg(); }
       const wa = waFor(x + winW / 2, y + winH / 2);
       if (x <= wa.x && !neighborOf(wa, -1)) { x = wa.x; dir = 1; }
       if (x + winW >= wa.x + wa.width && !neighborOf(wa, 1)) { x = wa.x + wa.width - winW; dir = -1; }
@@ -1820,8 +1826,8 @@ function createEggWindow() {
 
 ipcMain.handle('egg:get', () => ({
   hasEgg,
-  eggProgress: Math.min(1, walkedPx / EGG_AT),
-  eggAt: EGG_AT,
+  eggProgress: Math.min(1, walkedPx / eggTarget),
+  eggAt: eggTarget,
   eggs: counters.hatch || 0,
   stones: counters.stones || 0
 }));
@@ -2051,8 +2057,8 @@ function cfgSnapshot() {
     stones: counters.stones || 0,
     eggs: counters.hatch || 0,
     hasEgg,
-    eggProgress: Math.min(1, walkedPx / EGG_AT),
-    eggAt: EGG_AT,
+    eggProgress: Math.min(1, walkedPx / eggTarget),
+    eggAt: eggTarget,
     checkedIn: counters.lastCheckIn === new Date().toISOString().slice(0, 10),
     checkInDays: counters.checkIn || 0,
     pomo: pomo ? { phase: pomo.phase, left: Math.max(0, pomo.until - Date.now()) } : null,
