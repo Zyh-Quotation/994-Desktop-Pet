@@ -210,7 +210,7 @@ function natureFor(dex) {
 }
 let currentNature = NATURES[0];
 let walkedPx = 0;        // 走了多少像素，攒够了给颗蛋
-const EGG_AT = Number(process.env.PET_EGG || 36000);
+const EGG_AT = Number(process.env.PET_EGG_AT || 36000);
 let hasEgg = false;
 let guestWin = null;     // 串门的另一只
 let guest = null;        // { dex, x, dir, until, phase: 'in'|'stay'|'out' }
@@ -402,6 +402,7 @@ function doHatch() {
   bubble(lang === 'en' ? `It hatched! ${target.name}!` : `蛋孵出来啦！是 ${target.name}！`, 4200, true);
   try { playCry(target.dex, true); } catch (_) {}
   counters.hatch = (counters.hatch || 0) + 1;
+  walkedPx = 0;                       // 孵完重新攒下一颗
   addStone(1);
   saveState();
   console.log('[hatch] 孵出', target.dex, target.name, '| 有前置进化?', !!target.from);

@@ -35,7 +35,11 @@ function render(d) {
     subEl.textContent = '蛋已经捡到了';
   } else {
     const leftPx = Math.max(0, (1 - (d.eggProgress || 0)) * d.eggAt);
-    timerEl.innerHTML = `约 ${fmt(leftPx / SPEED)}<small> 还差</small>`;
+    if (leftPx <= 1) {
+      timerEl.innerHTML = '马上就有<small> 就差一点</small>';
+    } else {
+      timerEl.innerHTML = `约 ${fmt(leftPx / SPEED)}<small> 还差</small>`;
+    }
     const walked = Math.round((d.eggProgress || 0) * d.eggAt / 50);
     const total = Math.round(d.eggAt / 50);
     statEl.textContent = `进度 ${Math.round((d.eggProgress || 0) * 100)}% · 已走 ${walked} / ${total} 米`;
