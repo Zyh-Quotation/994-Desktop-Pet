@@ -35,30 +35,10 @@ rsync -a ./ "$APP/resources/app/" \
   --exclude '*.md' --exclude '*.zip' --exclude '安装说明.txt' \
   --exclude '双击启动.command'
 
-# 说明文件用 ASCII 文件名 + UTF-8 BOM，记事本打开不乱码
-printf '\xEF\xBB\xBF' > "$APP/README.txt"
-cat >> "$APP/README.txt" <<'TXT'
-神奇宝贝桌宠 · Windows 便携版
-================================
-
-怎么用：
-1. 先把整个 TogepiPet 文件夹放到一个固定位置（比如 D:\TogepiPet）。
-   不要直接在压缩包里双击，也不要放桌面——放桌面容易误删。
-2. 双击 TogepiPet.exe。
-3. 想开机自启：右键托盘上的精灵球 →「设置…」→ 打开「开机自启」。
-
-数据在哪：
-  %APPDATA%\神奇宝贝
-
-遇到问题：
-· 双击没反应：右键 TogepiPet.exe → 属性 → 兼容性 →
-  勾选「以兼容模式运行这个程序」，选 Windows 10，再试。
-· 杀毒软件报毒：这是未签名的 Electron 程序，属正常，加到信任即可。
-· 桌面不显示：检查是不是被多显示器或全屏应用挡住了，按一下 Win 键看看。
-
-版本和更新：
-  托盘精灵球 →「检查更新 ⟳」
-TXT
+# 说明文件用 ASCII 文件名（Windows 解压中文名容易乱码），内容用统一的那份
+if [ -f docs/使用说明.txt ]; then
+  cp docs/使用说明.txt "$APP/README.txt"
+fi
 
 echo "▶ 打包…"
 rm -f "$DEST"

@@ -171,6 +171,8 @@ let shinyMode = 'auto';             // auto（1/128 彩蛋）| always | never
 let lastTs = Date.now();
 let speciesDex = 175;                // 当前宝可梦（全国图鉴编号）
 let settingsWin = null;
+let starWin = null;
+let starAsked = false;   // 只在第一次打开时问一次要不要去点 Star
 
 // ---------- 图鉴数据（由 data/pokedex.json 生成，覆盖 001-1025） ----------
 const DEX_FILE = path.join(__dirname, 'data', 'pokedex.json');
@@ -369,6 +371,7 @@ function loadState() {
     if (typeof d.soundOn === 'boolean') soundOn = d.soundOn;
     if (d.species && SPECIES.some(s => s.dex === Number(d.species))) speciesDex = Number(d.species);
     if (d.shinyMode === 'auto' || d.shinyMode === 'always' || d.shinyMode === 'never') shinyMode = d.shinyMode;
+    if (d.starAsked === true) starAsked = true;
   } catch (_) { /* 首次运行 */ }
   shiny = shinyFor(speciesDex);
 }
@@ -376,7 +379,7 @@ function saveState() {
   try {
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
     fs.writeFileSync(stateFile(), JSON.stringify({
-      stats, sizeKey, soundOn, species: speciesDex, shinyMode, savedAt: new Date().toISOString()
+      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, savedAt: new Date().toISOString()
     }));
   } catch (e) { console.error('saveState failed:', e.message); }
 }
@@ -761,6 +764,8 @@ function createWindow() {
     setInterval(fetchWeather, 15 * 60 * 1000);
     setTimeout(() => checkUpdate(false), 8000);
     setInterval(() => checkUpdate(false), 6 * 60 * 60 * 1000);
+    // 装好第一次打开时，等它露面十几秒再问，别一启动就糊脸
+    setTimeout(() => { if (!starAsked && !inBall) createStarWindow(); }, 12000);
   });
 }
 
@@ -1179,6 +1184,45 @@ function switchSpecies(dex) {
   saveState();
   showLore(dex, 9000);
 }
+
+// ---------- 第一次打开：问一句要不要去点 Star ----------
+function createStarWindow() {
+  if (starWin && !starWin.isDestroyed()) { starWin.show(); return; }
+  starWin = new BrowserWindow({
+    width: 400, height: 258,
+    frame: false, transparent: true, resizable: false,
+    alwaysOnTop: true, skipTaskbar: true, hasShadow: false, show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'renderer', 'star-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  starWin.loadFile(path.join(__dirname, 'renderer', 'star.html'));
+  starWin.once('ready-to-show', () => {
+    starWin.center();
+    starWin.show();
+    starWin.focus();
+    console.log('[star] 首次启动弹窗已显示');
+    captureTo(starWin, 'star-capture.png');
+  });
+  starWin.on('closed', () => { starWin = null; });
+}
+
+function markStarAsked() {
+  starAsked = true;
+  saveState();
+}
+
+ipcMain.on('star:go', () => {
+  markStarAsked();
+  shell.openExternal('https://github.com/Zyh-Quotation/994-Desktop-Pet');
+  if (starWin && !starWin.isDestroyed()) starWin.close();
+});
+ipcMain.on('star:later', () => {
+  markStarAsked();
+  if (starWin && !starWin.isDestroyed()) starWin.close();
+});
 
 function createSettingsWindow() {
   if (settingsWin && !settingsWin.isDestroyed()) {

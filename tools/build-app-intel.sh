@@ -75,7 +75,11 @@ du -sh "$OUT" | awk '{print "   体积：" $1}'
 
 # ---------- 5. 打成发布用的 zip ----------
 ZIP="$OUT_DIR/pokepet-${VER}-mac-x64.zip"
+STAGE=$(mktemp -d)
+ditto "$OUT" "$STAGE/神奇宝贝.app"
+[ -f "$ROOT/docs/使用说明.txt" ] && cp "$ROOT/docs/使用说明.txt" "$STAGE/使用说明.txt"
 rm -f "$ZIP"
-ditto -c -k --norsrc --keepParent "$OUT" "$ZIP"
+ditto -c -k --norsrc "$STAGE" "$ZIP"
+rm -rf "$STAGE"
 echo "📦 $ZIP"
 ls -lh "$ZIP" | awk '{print "   体积：" $5}'

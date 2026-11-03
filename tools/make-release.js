@@ -20,8 +20,17 @@ if (!fs.existsSync(APP)) {
   process.exit(1);
 }
 
+// 解压后要能直接看到说明书，所以先摊到一个临时目录再压：
+//   神奇宝贝.app
+//   使用说明.txt
+const DOC = path.join(ROOT, 'docs', '使用说明.txt');
+const os = require('os');
+const STAGE = fs.mkdtempSync(path.join(os.tmpdir(), 'pokezip-'));
+execFileSync('ditto', [APP, path.join(STAGE, '神奇宝贝.app')]);
+if (fs.existsSync(DOC)) fs.copyFileSync(DOC, path.join(STAGE, '使用说明.txt'));
 fs.rmSync(ZIP, { force: true });
-execFileSync('ditto', ['-c', '-k', '--norsrc', '--keepParent', APP, ZIP]);
+execFileSync('ditto', ['-c', '-k', '--norsrc', STAGE, ZIP]);
+fs.rmSync(STAGE, { recursive: true, force: true });
 
 const sha256 = crypto.createHash('sha256').update(fs.readFileSync(ZIP)).digest('hex');
 const size = fs.statSync(ZIP).size;
