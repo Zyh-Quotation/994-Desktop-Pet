@@ -18,3 +18,8 @@ promo/page-*.png
 
 # 系统
 .DS_Store
+
+# 调试截图
+capture.png
+settings-capture.png
+star-capture.png
