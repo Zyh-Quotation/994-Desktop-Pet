@@ -58,6 +58,13 @@ echo ""
 echo "▶ 组装并签名…"
 bash tools/build-app.sh 2>&1 | tail -4
 
+# ---------- 4.5 Mac Intel 版（可选，SKIP_INTEL=1 跳过） ----------
+if [ -z "${SKIP_INTEL:-}" ]; then
+  echo ""
+  echo "▶ 构建 Mac Intel 版…"
+  bash tools/build-app-intel.sh 2>&1 | tail -3 || echo "⚠️  Intel 构建失败，继续只发 Apple 芯片版"
+fi
+
 # ---------- 5. 打包 + 清单 ----------
 echo ""
 echo "▶ 打包…"
@@ -87,6 +94,8 @@ fi
 # ---------- 6. 上传 GitHub Release（有 gh 且已登录时才做） ----------
 ZIP="release/pokepet-${NEW_VER}.zip"
 ASSETS=("$ZIP" "release/update.json")
+INTELZIP="release/pokepet-${NEW_VER}-mac-x64.zip"
+[ -f "$INTELZIP" ] && ASSETS+=("$INTELZIP")
 [ -n "$WINZIP" ] && [ -f "$WINZIP" ] && ASSETS+=("$WINZIP")
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && [ -n "${GH_RELEASE:-}" ]; then
   echo ""

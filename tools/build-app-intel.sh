@@ -72,3 +72,10 @@ codesign --verify --deep --strict "$OUT" 2>&1 | tail -2
 echo "✅ Intel 版完成：$OUT"
 file "$OUT/Contents/MacOS/Electron" | sed 's/^/   架构：/'
 du -sh "$OUT" | awk '{print "   体积：" $1}'
+
+# ---------- 5. 打成发布用的 zip ----------
+ZIP="$OUT_DIR/pokepet-${VER}-mac-x64.zip"
+rm -f "$ZIP"
+ditto -c -k --norsrc --keepParent "$OUT" "$ZIP"
+echo "📦 $ZIP"
+ls -lh "$ZIP" | awk '{print "   体积：" $5}'
