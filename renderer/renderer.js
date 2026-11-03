@@ -192,6 +192,12 @@ window.pet.onPlayFx(() => {
   ], { duration: 800, easing: 'ease-out' }), 600);
 });
 
+// 蛋：走够了会冒出来，点一下孵化
+const eggEl = document.getElementById('egg');
+window.pet.onEgg(() => { eggEl.hidden = false; sprite.style.visibility = 'hidden'; });
+window.pet.onEggGone(() => { eggEl.hidden = true; sprite.style.visibility = ''; });
+eggEl.addEventListener('click', e => { e.stopPropagation(); window.pet.hatch(); });
+
 // 进化：白闪一下再换形态
 const evolveFlash = document.getElementById('flash');
 window.pet.onEvolve(d => {
@@ -222,6 +228,11 @@ function onDown(e) {
   window.pet.grab();
 }
 sprite.addEventListener('mousedown', onDown);
+// 右键：直接弹出快捷菜单
+sprite.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  window.pet.contextMenu();
+});
 ballEl.addEventListener('mousedown', onDown);
 
 window.addEventListener('mousemove', e => {

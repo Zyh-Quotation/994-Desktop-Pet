@@ -20,6 +20,8 @@ const lvlEl = document.getElementById('lvl');
 const dexProgEl = document.getElementById('dex-prog');
 const achProgEl = document.getElementById('ach-prog');
 const achListEl = document.getElementById('ach-list');
+const guestSw = document.getElementById('guest');
+const natureEl = document.getElementById('nature');
 
 const TYPE_COLOR = {
   草: '#78C850', 火: '#F08030', 水: '#6890F0', 电: '#F8D030',
@@ -321,6 +323,8 @@ function renderOpts(c) {
   markSeg(langSeg, c.lang);
   if (rotationEl) rotationEl.value = String(c.rotateMin || 0);
   if (focusSw) focusSw.checked = !!c.focusMode;
+  if (guestSw) guestSw.checked = c.guestEnabled !== false;
+  if (natureEl) natureEl.textContent = c.nature ? c.nature.zh : '–';
   if (lvlEl) lvlEl.textContent = `Lv.${c.level} · 经验 ${c.exp % 100}/100`;
   if (dexProgEl) dexProgEl.textContent = `遇见 ${c.met}/${c.total} · 异色 ${c.shinyMet}`;
   const list = c.achievements || [];
@@ -459,6 +463,12 @@ if (rotationEl) {
 if (focusSw) {
   focusSw.addEventListener('change', async () => {
     renderOpts(await window.cfg.setOpt('focus', focusSw.checked));
+  });
+}
+
+if (guestSw) {
+  guestSw.addEventListener('change', async () => {
+    renderOpts(await window.cfg.setOpt('guest', guestSw.checked));
   });
 }
 

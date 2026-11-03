@@ -181,7 +181,7 @@ let pomo = null;         // 番茄钟 { phase: 'work' | 'rest', until, workMin, 
 // ---------- 收集 / 成就 ----------
 let dexMet = [];                     // 遇见过的图鉴编号
 let shinyMet = [];                   // 见过异色的编号
-let counters = { sig: 0, feed: 0, play: 0, pet: 0, throw: 0, streak: 0, lastDay: '' };
+let counters = { sig: 0, feed: 0, play: 0, pet: 0, throw: 0, streak: 0, lastDay: '', checkIn: 0, lastCheckIn: '' };
 let unlocked = {};                   // 成就 id -> 解锁时间
 let lang = 'zh';  // zh | en
 try {
@@ -192,6 +192,30 @@ let rotateMin = 0;                   // 自动换宝可梦的间隔（分钟）�
 let rotateAt = 0;
 let level = 1;                       // 陪伴等级
 let exp = 0;                         // 经验，每 100 一级
+
+const NATURES = [
+  { key: 'cheer',  zh: '开朗', en: 'Cheerful', speed: 1.25, sleepMult: .7 },
+  { key: 'lazy',   zh: '慵懒', en: 'Lazy',     speed: .8,  sleepMult: 1.4 },
+  { key: 'timid',  zh: '胆小', en: 'Timid',    speed: 1.1, flee: true },
+  { key: 'tsun',   zh: '傲娇', en: 'Tsundere', speed: 1,   tsun: true },
+  { key: 'greedy', zh: '贪吃', en: 'Greedy',   speed: 1,   hungerMult: 1.35 },
+  { key: 'sleepy', zh: '爱睡', en: 'Sleepy',   speed: .9,  sleepMult: 1.7 }
+];
+function natureFor(dex) {
+  let h = Math.imul((dex | 0) ^ 0x7f4a7c15, 0x9e3779b1) >>> 0;
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2c1b3c6d) >>> 0;
+  h ^= h >>> 12;
+  return NATURES[h % NATURES.length];
+}
+let currentNature = NATURES[0];
+let walkedPx = 0;        // 走了多少像素，攒够了给颗蛋
+const EGG_AT = Number(process.env.PET_EGG || 36000);
+let hasEgg = false;
+let guestWin = null;     // 串门的另一只
+let guest = null;        // { dex, x, dir, until, phase: 'in'|'stay'|'out' }
+let nextGuestAt = 0;
+let guestEnabled = true;
 
 const ACHIEVEMENTS = [
   { id: 'first', name: '初次见面', en: 'First meeting', desc: '遇见第一只宝可梦', test: () => dexMet.length >= 1 },
@@ -206,7 +230,8 @@ const ACHIEVEMENTS = [
   { id: 'feed50', name: '饲养员', en: 'Caretaker', desc: '喂食 50 次', test: () => counters.feed >= 50 },
   { id: 'pet500', name: '摸头狂魔', en: 'Head-pat pro', desc: '摸头 500 次', test: () => counters.pet >= 500 },
   { id: 'throw10', name: '投掷训练', en: 'Throw training', desc: '把宠物扔出去 10 次', test: () => counters.throw >= 10 },
-  { id: 'streak7', name: '老朋友', en: 'Old friend', desc: '连续陪伴 7 天', test: () => counters.streak >= 7 }
+  { id: 'streak7', name: '老朋友', en: 'Old friend', desc: '连续陪伴 7 天', test: () => counters.streak >= 7 },
+  { id: 'checkin7', name: '每日打卡', en: 'Daily regular', desc: '连续签到 7 天', test: () => counters.checkIn >= 7 }
 ];
 
 function evolvesAt(how) {
@@ -241,6 +266,7 @@ function doEvolve(ev) {
   const fromName = (byDex.get(speciesDex) || {}).name || '它';
   speciesDex = ev.to;
   shiny = shinyFor(speciesDex);
+  currentNature = natureFor(speciesDex);
   if (win && !win.isDestroyed()) {
     win.webContents.send('evolve', { url: spriteUrlFor(speciesDex, shiny), name: to.name });
   }
@@ -277,6 +303,125 @@ function updateStreak() {
   counters.lastDay = day;
   saveState();
 }
+function guestSprite(url) {
+  if (!guestWin || guestWin.isDestroyed()) return;
+  guestWin.webContents.executeJavaScript(`document.getElementById('s').src = ${JSON.stringify(url)}`).catch(() => {});
+}
+
+function spawnGuest() {
+  if (guestWin || !guestEnabled || focusMode || inBall) return;
+  const pool = SPECIES.filter(sp => sp.dex !== speciesDex);
+  const target = pool[Math.floor(Math.random() * pool.length)];
+  const wa = waFor(x + winW / 2, y + winH / 2);
+  const size = 110;
+  const fromLeft = Math.random() < 0.5;
+  guestWin = new BrowserWindow({
+    width: size, height: size,
+    x: Math.round(fromLeft ? wa.x - size : wa.x + wa.width),
+    y: Math.round(wa.y + wa.height - size),
+    frame: false, transparent: true, resizable: false, movable: false,
+    alwaysOnTop: true, skipTaskbar: true, focusable: false, hasShadow: false,
+    show: false,
+    webPreferences: { contextIsolation: true, nodeIntegration: false }
+  });
+  guestWin.setIgnoreMouseEvents(true);
+  guestWin.loadFile(path.join(__dirname, 'renderer', 'guest.html'));
+  guestWin.once('ready-to-show', () => {
+    if (!guestWin || guestWin.isDestroyed()) return;
+    guestWin.showInactive();
+    guestSprite(spriteUrlFor(target.dex, shinyFor(target.dex)));
+  });
+  guest = {
+    dex: target.dex,
+    x: fromLeft ? wa.x - size : wa.x + wa.width,
+    dir: fromLeft ? 1 : -1,
+    phase: 'in',
+    until: now() + 120000,
+    size
+  };
+  nextGuestAt = now() + (12 + Math.random() * 18) * 60000;
+  bubble(lang === 'en' ? `${target.name} came by!` : `${target.name} 跑过来串门了`, 3000, true);
+}
+
+function updateGuest(t, dt) {
+  if (!guest) return;
+  const wa = waFor(guest.x + guest.size / 2, guest.y || 0);
+  const groundY = wa.y + wa.height - guest.size;
+  if (!guestWin || guestWin.isDestroyed()) { guest = null; guestWin = null; return; }
+
+  guest.x += guest.dir * 55 * dt;
+  const minX = wa.x - guest.size, maxX = wa.x + wa.width;
+
+  if (guest.phase === 'in' && guest.x > wa.x + 140) guest.phase = 'stay';
+  if (guest.phase === 'stay' && t > guest.until - 12000) {
+    guest.phase = 'out';
+    guest.dir = guest.x > (wa.x + wa.width / 2) ? 1 : -1;
+  }
+  if (guest.phase === 'out' && (guest.x < minX || guest.x > maxX)) {
+    guestWin.destroy();
+    guestWin = null;
+    guest = null;
+    return;
+  }
+  if (t > guest.until + 40000) {
+    guestWin.destroy(); guestWin = null; guest = null;
+    return;
+  }
+  try { guestWin.setBounds({ x: Math.round(guest.x), y: Math.round(groundY), width: guest.size, height: guest.size }); } catch (_) {}
+}
+
+function spawnEgg() {
+  if (hasEgg) return;
+  hasEgg = true;
+  if (win && !win.isDestroyed()) win.webContents.send('egg');
+  bubble(lang === 'en' ? 'Huh? An egg appeared…' : '咦…这里怎么有个蛋？', 3200, true);
+  if (process.env.PET_EGG_CLICK) {
+    setTimeout(() => { try { win.webContents.executeJavaScript("document.getElementById('egg').click()"); } catch (_) {} }, 3000);
+  }
+}
+
+ipcMain.on('hatch', () => {
+  if (!hasEgg) return;
+  hasEgg = false;
+  if (win && !win.isDestroyed()) win.webContents.send('egg-gone');
+  const unseen = SPECIES.filter(sp => !dexMet.includes(sp.dex));
+  const pool = unseen.length ? unseen : SPECIES;
+  const target = pool[Math.floor(Math.random() * pool.length)];
+  switchSpecies(target.dex);
+  bubble(lang === 'en' ? `It hatched! ${target.name}!` : `蛋孵出来啦！是 ${target.name}！`, 4200, true);
+  try { playCry(target.dex, true); } catch (_) {}
+  counters.hatch = (counters.hatch || 0) + 1;
+  saveState();
+});
+
+function dailyCheckIn() {
+  const day = new Date().toISOString().slice(0, 10);
+  if (counters.lastCheckIn === day) return false;
+  const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  counters.checkIn = counters.lastCheckIn === yest ? (Number(counters.checkIn) || 0) + 1 : 1;
+  counters.lastCheckIn = day;
+  addExp(50);
+  saveState();
+  setTimeout(() => {
+    bubble(lang === 'en'
+      ? `Daily check-in +50 EXP (${counters.checkIn} days in a row)`
+      : `今日签到 +50 经验（连续 ${counters.checkIn} 天）`, 3400, true);
+  }, 3200);
+  checkAchievements();
+  return true;
+}
+
+// 系统负载：内存吃紧时它会显得累
+let systemLoad = 0;
+function updateLoad() {
+  try {
+    const m = process.getSystemMemoryInfo();
+    const total = m.total || 0;
+    const free = m.free !== undefined ? m.free : (m.available || 0);
+    if (total > 0) systemLoad = Math.min(1, Math.max(0, (total - free) / total));
+  } catch (_) { systemLoad = 0; }
+}
+
 function checkAchievements() {
   const fresh = [];
   for (const a of ACHIEVEMENTS) {
@@ -502,6 +647,7 @@ function loadState() {
     if (d.shinyMode === 'auto' || d.shinyMode === 'always' || d.shinyMode === 'never') shinyMode = d.shinyMode;
     if (d.starAsked === true) starAsked = true;
     if (d.focusMode === true) focusMode = true;
+    if (d.guestEnabled === false) guestEnabled = false;
     if (Array.isArray(d.dexMet)) dexMet = d.dexMet.filter(n => Number.isFinite(n));
     if (Array.isArray(d.shinyMet)) shinyMet = d.shinyMet.filter(n => Number.isFinite(n));
     if (d.counters && typeof d.counters === 'object') counters = { ...counters, ...d.counters };
@@ -517,7 +663,7 @@ function saveState() {
   try {
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
     fs.writeFileSync(stateFile(), JSON.stringify({
-      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, savedAt: new Date().toISOString()
+      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, guestEnabled, savedAt: new Date().toISOString()
     }));
   } catch (e) { console.error('saveState failed:', e.message); }
 }
@@ -633,6 +779,26 @@ function bubble(text, ms = 1800, force = false) {
 
 function nextRandomState(t) {
   if (focusMode) { setState('idle', 4000); return; }
+
+  // 机器忙的时候它也会累
+  if (systemLoad > 0.86 && Math.random() < 0.4) {
+    setState('idle', 3200 + Math.random() * 3000);
+    if (Math.random() < 0.45) bubble(pick(['电脑好烫…', '有点卡…', '累了…']), 2200);
+    return;
+  }
+
+  // 天气 / 时间的表现
+  const wk = weather && weather.kind;
+  if (wk === '雪' && Math.random() < 0.35) {
+    setState('idle', 2600 + Math.random() * 2200);
+    bubble(pick(['❄️', '下雪了!', '好冷…']), 1800);
+    return;
+  }
+  if (wk === '雷' && Math.random() < 0.4) {
+    setState('happy', 900);
+    bubble(pick(['⚡!', '吓一跳', '打雷了…']), 1600);
+    return;
+  }
   if (stats.hunger < 15 && Math.random() < 0.5) {
     setState('sleep', 8000 + Math.random() * 9000);
     bubble('饿得没力气了…', 2200);
@@ -667,7 +833,7 @@ function nextRandomState(t) {
     if (Math.random() < 0.3) bubble(pick(['外面在下雨…', '不想出去', '好冷…']), 1800);
     return;
   }
-  if (night && Math.random() < 0.45) {
+  if (night && Math.random() < 0.45 * (currentNature.sleepMult || 1) && Math.random() < 0.9) {
     setState('sleep', 10000 + Math.random() * 12000);
     if (Math.random() < 0.5) bubble('Zzz…', 2200);
     return;
@@ -695,7 +861,7 @@ function decayAndNag(t, dt) {
     stats.mood = Math.min(100, stats.mood + dt * 0.8);
     stats.hunger = Math.max(0, stats.hunger - dt * 0.01);
   } else {
-    stats.hunger = Math.max(0, stats.hunger - dt * 0.045);
+    stats.hunger = Math.max(0, stats.hunger - dt * 0.045 * (currentNature.hungerMult || 1));
     stats.mood = Math.max(0, stats.mood - dt * 0.03);
   }
   if (stats.hunger < 30 && t > hungerNagAt) {
@@ -747,6 +913,8 @@ function tickStep() {
   if (t > achCheckAt) { achCheckAt = t + 15000; checkAchievements(); }
   if (t > expAt) { expAt = t + 60000; if (!focusMode) addExp(10); }
   if (rotateMin > 0 && t > rotateAt) { rotateAt = t + rotateMin * 60000; randomSpecies(); }
+  if (guestEnabled && !guest && t > nextGuestAt) spawnGuest();
+  updateGuest(t, dt);
   const groundY = groundYFor();
 
   if (state === 'drag') {
@@ -824,8 +992,15 @@ function tickStep() {
   } else {
     if (!inBall && t >= stateUntil) nextRandomState(t);
     y = groundY;
+    if (state === 'walk' && currentNature.flee) {
+      const cur = screen.getCursorScreenPoint();
+      const dx = cur.x - (x + winW / 2);
+      if (Math.abs(dx) < 130 && Math.abs(cur.y - (y + winH / 2)) < 190) dir = dx > 0 ? -1 : 1;
+    }
     if (state === 'walk') {
-      x += dir * speed * dt;
+      x += dir * speed * (currentNature.speed || 1) * dt;
+      walkedPx += Math.abs(speed * (currentNature.speed || 1) * dt);
+      if (walkedPx > EGG_AT && !hasEgg && !inBall) { walkedPx = 0; spawnEgg(); }
       const wa = waFor(x + winW / 2, y + winH / 2);
       if (x <= wa.x && !neighborOf(wa, -1)) { x = wa.x; dir = 1; }
       if (x + winW >= wa.x + wa.width && !neighborOf(wa, 1)) { x = wa.x + wa.width - winW; dir = -1; }
@@ -913,6 +1088,9 @@ function createWindow() {
     setTimeout(() => { if (!starAsked && !inBall) createStarWindow(); }, 12000);
     if (process.env.PET_SHARE) setTimeout(() => makeShareCard(process.env.PET_SHARE), 3000);
     if (process.env.PET_SETTINGS) setTimeout(() => createSettingsWindow(), 2500);
+    if (process.env.PET_EGG === '1') setTimeout(() => spawnEgg(), 4000);
+    nextGuestAt = now() + (6 + Math.random() * 8) * 60000;
+    if (process.env.PET_GUEST === '1') setTimeout(() => spawnGuest(), 4000);
   });
 }
 
@@ -1056,7 +1234,7 @@ function petMenuTemplate() {
   const L = (zh, en) => (lang === 'en' ? en : zh);
   return [
     {
-      label: `${speciesInfo().name} · ${L('Lv.', 'Lv.')}${level} · ${L('饱食度', 'Hunger')} ${Math.round(stats.hunger)} · ${L('心情', 'Mood')} ${Math.round(stats.mood)}`,
+      label: `${speciesInfo().name} · ${L(currentNature.zh, currentNature.en)} · Lv.${level} · ${L('饱食度', 'Hunger')} ${Math.round(stats.hunger)} · ${L('心情', 'Mood')} ${Math.round(stats.mood)}`,
       enabled: false
     },
     { type: 'separator' },
@@ -1328,6 +1506,10 @@ function updateIgnore() {
     win.setIgnoreMouseEvents(state !== 'drag' && !hover, { forward: true });
   }
 }
+ipcMain.on('context-menu', () => {
+  if (!win || win.isDestroyed()) return;
+  try { Menu.buildFromTemplate(petMenuTemplate()).popup({ window: win }); } catch (e) { console.error('[menu]', e); }
+});
 ipcMain.on('grab', () => {
   if (state === 'drag' || state === 'fall') return;
   setState('drag', 15000);
@@ -1511,7 +1693,8 @@ function cfgSnapshot() {
     current: speciesDex,
     sizeKey, soundOn,
     loginAtStart: loginAtStartEnabled(),
-    shinyMode, rotateMin, lang, focusMode,
+    shinyMode, rotateMin, lang, focusMode, guestEnabled,
+    nature: { zh: currentNature.zh, en: currentNature.en },
     pomo: pomo ? { phase: pomo.phase, left: Math.max(0, pomo.until - Date.now()) } : null,
     level, exp,
     met: dexMet.length, shinyMet: shinyMet.length, total: SPECIES.length,
@@ -1535,6 +1718,7 @@ ipcMain.handle('cfg:setOpt', (_e, key, value) => {
     else if (key === 'rotate') setRotate(Number(value) || 0);
     else if (key === 'lang') setLang(value);
     else if (key === 'focus') setFocus(!!value);
+    else if (key === 'guest') { guestEnabled = !!value; nextGuestAt = now() + 5 * 60000; saveState(); }
     else if (key === 'sound') { soundOn = !!value; saveState(); refreshTray(); }
     else if (key === 'login') setLoginAtStart(!!value);
   } catch (e) { console.error('[cfg:setOpt]', key, e); }
@@ -1583,6 +1767,9 @@ app.whenReady().then(() => {
   console.log('[debug] whenReady 已触发', JSON.stringify(process.argv));
   loadState();
   updateStreak();
+  dailyCheckIn();
+  updateLoad();
+  setInterval(updateLoad, 30000);
   markMet(speciesDex);
   markShiny(speciesDex);
   setTimeout(() => tryEvolve(), 3000);   // 等级够了就进化

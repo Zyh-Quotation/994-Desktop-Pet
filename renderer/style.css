@@ -539,3 +539,16 @@ body[data-state="angry"] #sprite {
   will-change: transform, opacity; z-index: 98;
   transform: translate(-50%, 0);
 }
+
+#egg {
+  position: fixed; left: 50%; bottom: 2px; transform: translateX(-50%);
+  font-size: 44px; line-height: 1; cursor: pointer;
+  animation: eggwob 1.6s ease-in-out infinite;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .25));
+  z-index: 5;
+}
+#egg[hidden] { display: none; }
+@keyframes eggwob {
+  0%, 100% { transform: translateX(-50%) rotate(-6deg); }
+  50% { transform: translateX(-50%) rotate(6deg); }
+}
