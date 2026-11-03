@@ -217,6 +217,12 @@ let guest = null;        // { dex, x, dir, until, phase: 'in'|'stay'|'out' }
 let nextGuestAt = 0;
 let guestEnabled = true;
 let favorites = [];       // 收藏的图鉴编号
+let firstLaunch = 0;      // 第一次打开的时间（生日）
+let sitWarnMin = 45;      // 坐多久提醒一次
+let waterWarnMin = 60;    // 多久提醒喝水
+let lastSitAt = Date.now();
+let lastWaterAt = Date.now();
+let birthdayDone = 0;
 
 const ACHIEVEMENTS = [
   { id: 'first', name: '初次见面', en: 'First meeting', desc: '遇见第一只宝可梦', test: () => dexMet.length >= 1 },
@@ -394,6 +400,72 @@ ipcMain.on('hatch', () => {
   counters.hatch = (counters.hatch || 0) + 1;
   saveState();
 });
+
+function checkSitWater() {
+  if (focusMode) return;
+  const nowMs = Date.now();
+  if (sitWarnMin > 0 && nowMs - lastSitAt > sitWarnMin * 60000) {
+    lastSitAt = nowMs;
+    bubble(lang === 'en' ? 'Been sitting a while — stretch!' : '坐挺久了吧？起来动一动', 3800, true);
+    return;
+  }
+  if (waterWarnMin > 0 && nowMs - lastWaterAt > waterWarnMin * 60000) {
+    lastWaterAt = nowMs;
+    bubble(lang === 'en' ? 'Time for some water 💧' : '该喝口水啦 💧', 3200, true);
+  }
+}
+
+function festivalToday() {
+  const d = new Date();
+  const m = d.getMonth() + 1, day = d.getDate();
+  if (m === 12 && day === 25) return { fx: '🎄', zh: '圣诞快乐！', en: 'Merry Christmas!' };
+  if (m === 12 && day === 31) return { fx: '🎊', zh: '今晚跨年！', en: "New Year's Eve!" };
+  if (m === 1 && day === 1) return { fx: '🎆', zh: '新年快乐！', en: 'Happy New Year!' };
+  if (m === 2 && day === 14) return { fx: '💝', zh: '情人节快乐', en: "Happy Valentine's" };
+  if (m === 5 && day === 1) return { fx: '🌷', zh: '劳动节快乐', en: 'Happy May Day' };
+  if (m === 10 && day === 1) return { fx: '🎉', zh: '国庆快乐！', en: 'Happy National Day' };
+  return null;
+}
+
+function checkFestival() {
+  const f = festivalToday();
+  if (!f) return;
+  const key = new Date().toISOString().slice(0, 10);
+  if (counters.lastFestival === key) return;
+  counters.lastFestival = key;
+  addExp(80);
+  saveState();
+  setTimeout(() => bubble(`${f.fx} ${lang === 'en' ? f.en : f.zh}`, 4200, true), 5200);
+}
+
+function checkBirthday() {
+  if (!firstLaunch) return;
+  const born = new Date(firstLaunch), nowD = new Date();
+  if (born.getMonth() !== nowD.getMonth() || born.getDate() !== nowD.getDate()) return;
+  const year = nowD.getFullYear();
+  if (counters.lastBirthday === year) return;
+  counters.lastBirthday = year;
+  addExp(300);
+  saveState();
+  const years = year - born.getFullYear();
+  setTimeout(() => {
+    bubble(years <= 0
+      ? (lang === 'en' ? '🎂 It has been a whole year!' : '🎂 今天是我来你桌面的第一年！')
+      : (lang === 'en' ? `🎂 ${years} years today!` : `🎂 今天是我 ${years} 岁生日！`), 5000, true);
+  }, 7000);
+}
+
+function followCursor() {
+  if (focusMode) return false;
+  try {
+    const cur = screen.getCursorScreenPoint();
+    const tx = cur.x - winW / 2;
+    if (Math.abs(tx - x) < 60) return false;
+    dir = tx > x ? 1 : -1;
+    setState('walk', 2200 + Math.random() * 1800);
+    return true;
+  } catch (_) { return false; }
+}
 
 function dailyCheckIn() {
   const day = new Date().toISOString().slice(0, 10);
@@ -650,6 +722,9 @@ function loadState() {
     if (d.focusMode === true) focusMode = true;
     if (d.guestEnabled === false) guestEnabled = false;
     if (Array.isArray(d.favorites)) favorites = d.favorites.filter(n => Number.isFinite(n));
+    if (Number.isFinite(d.firstLaunch)) firstLaunch = d.firstLaunch;
+    if (Number.isFinite(d.sitWarnMin)) sitWarnMin = d.sitWarnMin;
+    if (Number.isFinite(d.waterWarnMin)) waterWarnMin = d.waterWarnMin;
     if (Array.isArray(d.dexMet)) dexMet = d.dexMet.filter(n => Number.isFinite(n));
     if (Array.isArray(d.shinyMet)) shinyMet = d.shinyMet.filter(n => Number.isFinite(n));
     if (d.counters && typeof d.counters === 'object') counters = { ...counters, ...d.counters };
@@ -665,7 +740,7 @@ function saveState() {
   try {
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
     fs.writeFileSync(stateFile(), JSON.stringify({
-      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, guestEnabled, favorites, savedAt: new Date().toISOString()
+      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, guestEnabled, favorites, firstLaunch, sitWarnMin, waterWarnMin, savedAt: new Date().toISOString()
     }));
   } catch (e) { console.error('saveState failed:', e.message); }
 }
@@ -781,6 +856,8 @@ function bubble(text, ms = 1800, force = false) {
 
 function nextRandomState(t) {
   if (focusMode) { setState('idle', 4000); return; }
+
+  if (!night && Math.random() < 0.12 && followCursor()) return;
 
   // 机器忙的时候它也会累
   if (systemLoad > 0.86 && Math.random() < 0.4) {
@@ -915,6 +992,7 @@ function tickStep() {
   if (t > achCheckAt) { achCheckAt = t + 15000; checkAchievements(); }
   if (t > expAt) { expAt = t + 60000; if (!focusMode) addExp(10); }
   if (rotateMin > 0 && t > rotateAt) { rotateAt = t + rotateMin * 60000; randomSpecies(); }
+  checkSitWater();
   if (guestEnabled && !guest && t > nextGuestAt) spawnGuest();
   updateGuest(t, dt);
   const groundY = groundYFor();
@@ -1002,6 +1080,7 @@ function tickStep() {
     if (state === 'walk') {
       x += dir * speed * ((currentNature || NATURES[0]).speed || 1) * dt;
       walkedPx += Math.abs(speed * ((currentNature || NATURES[0]).speed || 1) * dt);
+      counters.walked = (counters.walked || 0) + Math.abs(speed * ((currentNature || NATURES[0]).speed || 1) * dt);
       if (walkedPx > EGG_AT && !hasEgg && !inBall) { walkedPx = 0; spawnEgg(); }
       const wa = waFor(x + winW / 2, y + winH / 2);
       if (x <= wa.x && !neighborOf(wa, -1)) { x = wa.x; dir = 1; }
@@ -1091,6 +1170,8 @@ function createWindow() {
     if (process.env.PET_SHARE) setTimeout(() => makeShareCard(process.env.PET_SHARE), 3000);
     if (process.env.PET_SETTINGS) setTimeout(() => createSettingsWindow(), 2500);
     if (process.env.PET_EGG === '1') setTimeout(() => spawnEgg(), 4000);
+    if (process.env.PET_REPORT) setTimeout(() => createReportWindow(), 2500);
+    if (process.env.PET_GAME) setTimeout(() => createGameWindow(), 2500);
     nextGuestAt = now() + (6 + Math.random() * 8) * 60000;
     if (process.env.PET_GUEST === '1') setTimeout(() => spawnGuest(), 4000);
   });
@@ -1248,6 +1329,8 @@ function petMenuTemplate() {
     { label: L('专属动作 ✨', 'Signature move ✨'), click: () => playSignature('manual') },
     { label: L('随机一只 🎲', 'Random 🎲'), click: () => randomSpecies() },
     { label: L('看介绍 📖', 'Profile 📖'), click: () => showLore() },
+    { label: L('陪伴报告 📊', 'Report 📊'), click: createReportWindow },
+    { label: L('接球小游戏 🎮', 'Catch game 🎮'), click: createGameWindow },
     { type: 'separator' },
     { label: L('设置…', 'Settings…'), click: createSettingsWindow },
     { label: L('退出', 'Quit'), click: () => { saveState(); app.quit(); } }
@@ -1617,6 +1700,89 @@ function switchSpecies(dex) {
 }
 
 // ---------- 第一次打开：问一句要不要去点 Star ----------
+let gameWin = null;
+
+function createGameWindow() {
+  if (gameWin && !gameWin.isDestroyed()) { gameWin.show(); gameWin.focus(); return; }
+  gameWin = new BrowserWindow({
+    width: 420, height: 560, resizable: false, minimizable: false, maximizable: false,
+    title: '接球小游戏', backgroundColor: '#eef6ff', show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'renderer', 'game-preload.js'),
+      contextIsolation: true, nodeIntegration: false
+    }
+  });
+  gameWin.loadFile(path.join(__dirname, 'renderer', 'game.html'));
+  gameWin.once('ready-to-show', () => {
+    gameWin.show();
+    if (process.env.PET_CAPTURE) captureTo(gameWin, 'game-shot.png');
+  });
+  gameWin.on('closed', () => { gameWin = null; });
+}
+
+ipcMain.on('game:done', (_e, score) => {
+  const n = Math.max(0, Math.min(200, Number(score) || 0));
+  if (n <= 0) return;
+  addExp(n * 8);
+  counters.play = (counters.play || 0) + 1;
+  saveState();
+  bubble(lang === 'en' ? `Caught ${n}! +${n * 8} EXP` : `接住 ${n} 个！经验 +${n * 8}`, 3200, true);
+});
+ipcMain.on('game:close', () => { if (gameWin && !gameWin.isDestroyed()) gameWin.close(); });
+
+let reportWin = null;
+
+function reportData() {
+  const days = firstLaunch ? Math.max(1, Math.floor((Date.now() - firstLaunch) / 86400000) + 1) : 1;
+  return {
+    days,
+    hours: Math.floor((counters.runningMs || 0) / 3600000),
+    meters: Math.round((counters.walked || 0) / 50),
+    feed: counters.feed || 0,
+    play: counters.play || 0,
+    pet: counters.pet || 0,
+    thrown: counters.throw || 0,
+    sig: counters.sig || 0,
+    met: dexMet.length,
+    shiny: shinyMet.length,
+    total: SPECIES.length,
+    hatch: counters.hatch || 0,
+    streak: counters.streak || 1,
+    level,
+    firstLaunch
+  };
+}
+
+function createReportWindow() {
+  if (reportWin && !reportWin.isDestroyed()) { reportWin.show(); reportWin.focus(); return; }
+  reportWin = new BrowserWindow({
+    width: 460, height: 740, resizable: false, minimizable: false, maximizable: false,
+    title: '陪伴报告', backgroundColor: '#ffffff', show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'renderer', 'report-preload.js'),
+      contextIsolation: true, nodeIntegration: false
+    }
+  });
+  reportWin.loadFile(path.join(__dirname, 'renderer', 'report.html'));
+  reportWin.once('ready-to-show', () => {
+    reportWin.show();
+    if (process.env.PET_CAPTURE) captureTo(reportWin, 'report-shot.png');
+  });
+  reportWin.on('closed', () => { reportWin = null; });
+}
+
+ipcMain.handle('report:get', () => reportData());
+ipcMain.handle('report:save', async () => {
+  if (!reportWin || reportWin.isDestroyed()) return { ok: false };
+  try {
+    const img = await reportWin.webContents.capturePage();
+    const file = path.join(app.getPath('desktop'), `陪伴报告-${new Date().toISOString().slice(0, 10)}.png`);
+    fs.writeFileSync(file, img.toPNG());
+    return { ok: true, file };
+  } catch (e) { return { ok: false, reason: e.message }; }
+});
+ipcMain.on('report:close', () => { if (reportWin && !reportWin.isDestroyed()) reportWin.close(); });
+
 function createStarWindow() {
   if (starWin && !starWin.isDestroyed()) { starWin.show(); return; }
   starWin = new BrowserWindow({
@@ -1785,10 +1951,14 @@ app.on('before-quit', () => {
 app.whenReady().then(() => {
   console.log('[debug] whenReady 已触发', JSON.stringify(process.argv));
   loadState();
+  if (!firstLaunch) { firstLaunch = Date.now(); saveState(); }
   updateStreak();
   dailyCheckIn();
+  checkFestival();
+  checkBirthday();
   updateLoad();
   setInterval(updateLoad, 30000);
+  setInterval(() => { counters.runningMs = (counters.runningMs || 0) + 60000; if (Math.random() < 0.1) saveState(); }, 60000);
   markMet(speciesDex);
   markShiny(speciesDex);
   setTimeout(() => tryEvolve(), 3000);   // 等级够了就进化

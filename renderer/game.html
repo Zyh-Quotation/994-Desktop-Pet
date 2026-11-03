@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>接球小游戏</title>
+<style>
+  * { box-sizing: border-box; user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    font: 13px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(180deg, #eaf4ff 0%, #fdfdff 70%, #eaf7ee 100%);
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; color: #3a3a3c;
+  }
+  .stat { font-size: 12px; color: #8e8e93; }
+  .stat b { font-size: 17px; color: #1c1c1e; margin-left: 3px; }
+  #field { position: relative; flex: 1; overflow: hidden; }
+  .ball {
+    position: absolute; width: 34px; height: 34px; margin-left: -17px;
+    border-radius: 50%; cursor: pointer;
+    background: radial-gradient(circle at 32% 30%, #fff 6%, #ff5f5f 42%, #c62828 100%);
+    box-shadow: 0 3px 8px rgba(198, 40, 40, .35);
+  }
+  .ball::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    border-top: 3px solid rgba(255, 255, 255, .75);
+  }
+  .poof {
+    position: absolute; font-size: 14px; color: #ff9f43;
+    pointer-events: none; animation: up .6s ease-out forwards;
+  }
+  @keyframes up { to { transform: translateY(-26px); opacity: 0; } }
+  footer { padding: 8px 14px 12px; }
+  button {
+    width: 100%; border: 0; border-radius: 10px; padding: 10px;
+    font: inherit; font-size: 13px; background: #e63b3b; color: #fff; cursor: pointer;
+  }
+  .over {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 6px;
+    background: rgba(255, 255, 255, .92); z-index: 5;
+  }
+  .over h2 { margin: 0; font-size: 20px; }
+  .over p { margin: 0; color: #8e8e93; font-size: 12px; }
+  .over[hidden] { display: none; }
+</style>
+</head>
+<body>
+  <header>
+    <span class="stat">得分<b id="score">0</b></span>
+    <span class="stat">剩余<b id="left">30</b>s</span>
+  </header>
+
+  <div id="field">
+    <div class="over" id="over" hidden>
+      <h2 id="over-t">时间到！</h2>
+      <p id="over-s">–</p>
+      <button id="again" style="width:auto;padding:8px 20px;margin-top:6px">再来一局</button>
+    </div>
+  </div>
+
+  <footer>
+    <button id="start">开始 · 点住掉下来的球</button>
+  </footer>
+
+  <script src="game.js"></script>
+</body>
+</html>
