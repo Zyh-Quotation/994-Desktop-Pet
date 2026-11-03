@@ -15,7 +15,12 @@ process.on('uncaughtException', err => {
 app.setName('togepi-pet');
 const IS_MAC = process.platform === 'darwin';
 const IS_WIN = process.platform === 'win32';
-if (IS_WIN) app.setAppUserModelId('com.zyh.togepipet');  // Windows 任务栏/通知归组
+if (IS_WIN) {
+  app.setAppUserModelId('com.zyh.togepipet');  // Windows 任务栏/通知归组
+  // Windows：Chromium 的原生遮挡检测会把这些透明置顶窗口误判成「被别的窗口盖住了」，
+  // 于是暂停绘制 —— 表现就是宠物一闪一闪、甚至整只消失，只留下移动时的残影。
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+}
 // 开发时把 userData 放进项目目录（便携）；打包成自包含 app 时放系统标准位置
 // （否则会往已签名的 bundle 里写文件，破坏签名，也可能没权限）
 //
@@ -153,6 +158,7 @@ let stateUntil = 0;
 let dir = 1;
 let speed = 45;
 let vx = 0, vy = 0;
+let lastWinX = null, lastWinY = null, lastWinW = 0, lastWinH = 0;
 let bounceCount = 0;
 let hardThrow = false;
 let stats = { hunger: 80, mood: 80 };
@@ -409,7 +415,13 @@ function clampX() {
 function applyPosition() {
   if (!win || win.isDestroyed()) return;
   ensureOnScreen();
-  win.setPosition(Math.round(x), Math.round(y));
+  const nx = Math.round(x), ny = Math.round(y);
+  // 位置和尺寸都没变就不碰窗口：静止时每帧重设位置会白触发一次重绘，
+  // Windows 上容易看出闪烁
+  if (nx === lastWinX && ny === lastWinY && winW === lastWinW && winH === lastWinH) return;
+  lastWinX = nx; lastWinY = ny; lastWinW = winW; lastWinH = winH;
+  if (IS_WIN) win.setBounds({ x: nx, y: ny, width: winW, height: winH });
+  else win.setPosition(nx, ny);
 }
 
 // 兜底：整只跑到所有显示器之外时，挪回主屏地面。
@@ -694,7 +706,10 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // 桌宠窗口经常处于「没焦点/被判定为不可见」的状态，
+      // 默认节流会把动画降到 1fps 甚至停住，看起来就是卡顿和频闪
+      backgroundThrottling: false
     }
   });
   win.setAlwaysOnTop(true, 'floating');
@@ -935,7 +950,8 @@ function showLore(dex = speciesDex, autoCloseMs = 9000) {
       webPreferences: {
         preload: path.join(__dirname, 'lore-preload.js'),
         contextIsolation: true,
-        nodeIntegration: false
+        nodeIntegration: false,
+        backgroundThrottling: false
       }
     });
     loreWin.setAlwaysOnTop(true, 'floating');
