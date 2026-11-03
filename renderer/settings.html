@@ -9,51 +9,130 @@
 <body>
 <header>
   <h1>设置</h1>
-  <p class="sub">全国图鉴 001–1025，按属性 / 世代挑选，点进化链上任意一只即可切换</p>
+  <p class="sub" id="subtitle">全国图鉴 001–1025，按属性 / 世代挑选，点进化链上任意一只即可切换</p>
 </header>
 
-<div class="search-row">
-  <input id="search" class="search" type="search" placeholder="搜索宝可梦 / 编号 / 属性，例如 皮卡丘、25、火" autocomplete="off" spellcheck="false">
-  <select id="gen" class="gen-select" title="按世代筛选"></select>
-  <button id="dice" class="dice-btn" title="随机来一只">🎲</button>
-  <span id="count" class="count">共 1025 只</span>
+<nav class="tabs">
+  <button class="tab active" data-pane="dex" id="tab-dex">图鉴</button>
+  <button class="tab" data-pane="opts" id="tab-opts">设置</button>
+</nav>
+
+<div class="pane" id="pane-dex">
+  <div class="search-row">
+    <input id="search" class="search" type="search" placeholder="搜索宝可梦 / 编号 / 属性，例如 皮卡丘、25、火" autocomplete="off" spellcheck="false">
+    <select id="gen" class="gen-select" title="按世代筛选"></select>
+    <button id="dice" class="dice-btn" title="随机来一只">🎲</button>
+    <span id="count" class="count">共 1025 只</span>
+  </div>
+  <nav id="chips" class="chips"></nav>
+  <main id="list" class="list"></main>
 </div>
 
-<section class="opts">
-  <label class="opt">
-    <span class="opt-label">开机自启</span>
-    <span class="switch-wrap">
-      <input type="checkbox" id="login">
-      <i class="switch"></i>
-    </span>
-  </label>
-  <label class="opt">
-    <span class="opt-label">叫声</span>
-    <span class="switch-wrap">
-      <input type="checkbox" id="sound">
-      <i class="switch"></i>
-    </span>
-  </label>
-  <div class="opt">
-    <span class="opt-label">版本 v<span id="ver">–</span></span>
-    <div class="upd">
-      <span id="upd-msg" class="upd-msg"></span>
-      <button id="check-upd" class="upd-btn">检查更新</button>
+<div class="pane" id="pane-opts" hidden>
+  <section class="opts opts-stack">
+    <div class="opt">
+      <span class="opt-label">大小</span>
+      <div class="segmented" id="sizes">
+        <button class="size-btn" data-key="small">小</button>
+        <button class="size-btn" data-key="medium">中</button>
+        <button class="size-btn" data-key="large">大</button>
+      </div>
     </div>
-  </div>
-  <div class="opt">
-    <span class="opt-label">大小</span>
-    <div class="segmented" id="sizes">
-      <button class="size-btn" data-key="small">小</button>
-      <button class="size-btn" data-key="medium">中</button>
-      <button class="size-btn" data-key="large">大</button>
+
+    <div class="opt">
+      <span class="opt-label">异色</span>
+      <div class="segmented" id="shiny-seg">
+        <button class="size-btn" data-key="auto">自动 1/128</button>
+        <button class="size-btn" data-key="always">总是</button>
+        <button class="size-btn" data-key="never">从不</button>
+      </div>
     </div>
-  </div>
-</section>
 
-<nav id="chips" class="chips"></nav>
+    <div class="opt">
+      <span class="opt-label">自动换一只</span>
+      <select id="rotation" class="gen-select">
+        <option value="0">关闭</option>
+        <option value="5">每 5 分钟</option>
+        <option value="15">每 15 分钟</option>
+        <option value="30">每 30 分钟</option>
+        <option value="60">每 1 小时</option>
+        <option value="180">每 3 小时</option>
+      </select>
+    </div>
 
-<main id="list" class="list"></main>
+    <div class="opt">
+      <span class="opt-label">语言 / Language</span>
+      <div class="segmented" id="lang-seg">
+        <button class="size-btn" data-key="zh">中文</button>
+        <button class="size-btn" data-key="en">English</button>
+      </div>
+    </div>
+
+    <label class="opt">
+      <span class="opt-label">叫声</span>
+      <span class="switch-wrap">
+        <input type="checkbox" id="sound">
+        <i class="switch"></i>
+      </span>
+    </label>
+
+    <label class="opt">
+      <span class="opt-label">开机自启</span>
+      <span class="switch-wrap">
+        <input type="checkbox" id="login">
+        <i class="switch"></i>
+      </span>
+    </label>
+
+    <label class="opt">
+      <span class="opt-label">专注模式（不跑不吵）</span>
+      <span class="switch-wrap">
+        <input type="checkbox" id="focus">
+        <i class="switch"></i>
+      </span>
+    </label>
+
+    <div class="opt">
+      <span class="opt-label">番茄钟</span>
+      <div class="segmented">
+        <button class="size-btn" id="pomo25">25 分钟</button>
+        <button class="size-btn" id="pomo45">45 分钟</button>
+        <button class="size-btn" id="pomo-stop">停止</button>
+      </div>
+      <span class="opt-label" id="pomo-state"></span>
+    </div>
+
+    <div class="opt">
+      <span class="opt-label">等级</span>
+      <span class="opt-label" id="lvl">–</span>
+    </div>
+
+    <div class="opt">
+      <span class="opt-label">图鉴</span>
+      <span class="opt-label" id="dex-prog">–</span>
+    </div>
+
+    <div class="opt">
+      <span class="opt-label">成就</span>
+      <span class="opt-label" id="ach-prog">–</span>
+    </div>
+
+    <div class="opt ach-list" id="ach-list"></div>
+
+    <div class="opt">
+      <button class="upd-btn" id="random-btn">随机一只 🎲</button>
+      <button class="upd-btn" id="share-btn">拍照分享 📸</button>
+    </div>
+
+    <div class="opt">
+      <span class="opt-label">版本 v<span id="ver">–</span></span>
+      <div class="upd">
+        <span id="upd-msg" class="upd-msg"></span>
+        <button id="check-upd" class="upd-btn">检查更新</button>
+      </div>
+    </div>
+  </section>
+</div>
 
 <footer>
   <span id="hint" class="hint">点任意一只即可切换</span>

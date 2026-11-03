@@ -8,5 +8,7 @@ contextBridge.exposeInMainWorld('cfg', {
   random: () => ipcRenderer.invoke('cfg:random'),
   setSound: on => ipcRenderer.invoke('cfg:setSound', on),
   checkUpdate: () => ipcRenderer.invoke('cfg:checkUpdate'),
+  setOpt: (key, value) => ipcRenderer.invoke('cfg:setOpt', key, value),
+  action: name => ipcRenderer.invoke('cfg:action', name),
   close: () => ipcRenderer.send('cfg:close')
 });

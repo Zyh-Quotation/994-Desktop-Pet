@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -169,16 +169,142 @@ let clickTimes = [];
 let shiny = false;                  // 当前这只是否用异色图
 let shinyMode = 'auto';             // auto（1/128 彩蛋）| always | never
 let lastTs = Date.now();
+let achCheckAt = 0;
+let expAt = 0;
 let speciesDex = 175;                // 当前宝可梦（全国图鉴编号）
 let settingsWin = null;
 let starWin = null;
 let starAsked = false;   // 只在第一次打开时问一次要不要去点 Star
+let focusMode = false;   // 专注模式：不跑、不冒泡、不打扰
+let pomo = null;         // 番茄钟 { phase: 'work' | 'rest', until, workMin, restMin }
+
+// ---------- 收集 / 成就 ----------
+let dexMet = [];                     // 遇见过的图鉴编号
+let shinyMet = [];                   // 见过异色的编号
+let counters = { sig: 0, feed: 0, play: 0, pet: 0, throw: 0, streak: 0, lastDay: '' };
+let unlocked = {};                   // 成就 id -> 解锁时间
+let lang = 'zh';  // zh | en
+try {
+  // 打包后才按系统语言判断；开发模式下 getLocale 不可靠，直接中文
+  if (app.isPackaged && !String(app.getLocale() || '').toLowerCase().startsWith('zh')) lang = 'en';
+} catch (_) {}
+let rotateMin = 0;                   // 自动换宝可梦的间隔（分钟），0=关
+let rotateAt = 0;
+let level = 1;                       // 陪伴等级
+let exp = 0;                         // 经验，每 100 一级
+
+const ACHIEVEMENTS = [
+  { id: 'first', name: '初次见面', en: 'First meeting', desc: '遇见第一只宝可梦', test: () => dexMet.length >= 1 },
+  { id: 'dex10', name: '串门儿', en: 'Visitor', desc: '遇见 10 只', test: () => dexMet.length >= 10 },
+  { id: 'dex50', name: '见多识广', en: 'Well-travelled', desc: '遇见 50 只', test: () => dexMet.length >= 50 },
+  { id: 'dex200', name: '博物学家', en: 'Naturalist', desc: '遇见 200 只', test: () => dexMet.length >= 200 },
+  { id: 'dex1025', name: '图鉴全开', en: 'Full dex', desc: '遇见全部 1025 只', test: () => dexMet.length >= 1025 },
+  { id: 'shiny1', name: '异色猎人', en: 'Shiny hunter', desc: '见过一只异色', test: () => shinyMet.length >= 1 },
+  { id: 'shiny8', name: '异色收藏家', en: 'Shiny collector', desc: '见齐 8 只原生异色', test: () => shinyMet.length >= 8 },
+  { id: 'sig10', name: '初出茅庐', en: 'Getting started', desc: '发动 10 次专属动作', test: () => counters.sig >= 10 },
+  { id: 'sig100', name: '招式大师', en: 'Move master', desc: '发动 100 次专属动作', test: () => counters.sig >= 100 },
+  { id: 'feed50', name: '饲养员', en: 'Caretaker', desc: '喂食 50 次', test: () => counters.feed >= 50 },
+  { id: 'pet500', name: '摸头狂魔', en: 'Head-pat pro', desc: '摸头 500 次', test: () => counters.pet >= 500 },
+  { id: 'throw10', name: '投掷训练', en: 'Throw training', desc: '把宠物扔出去 10 次', test: () => counters.throw >= 10 },
+  { id: 'streak7', name: '老朋友', en: 'Old friend', desc: '连续陪伴 7 天', test: () => counters.streak >= 7 }
+];
+
+function evolvesAt(how) {
+  const m = /Lv\.(\d+)/.exec(how || '');
+  if (m) return Number(m[1]);
+  if ((how || '').includes('亲密度')) return 20;
+  if ((how || '').includes('通信')) return 30;
+  return 25;   // 道具 / 地点 / 招式 等简化成等级
+}
+
+function addExp(n) {
+  exp += n;
+  const lv = Math.floor(exp / 100) + 1;
+  if (lv > level) {
+    level = lv;
+    bubble(`Lv.${level}！`, 1400);
+    tryEvolve();
+  }
+  saveState();
+}
+
+function tryEvolve() {
+  if (state === 'drag' || state === 'fall' || state === 'ball') return;
+  const opts = (EVO_MAP[speciesDex] || []).filter(o => evolvesAt(o.how) <= level);
+  if (!opts.length) return;
+  doEvolve(opts[Math.floor(Math.random() * opts.length)]);
+}
+
+function doEvolve(ev) {
+  const to = byDex.get(ev.to);
+  if (!to) return;
+  const fromName = (byDex.get(speciesDex) || {}).name || '它';
+  speciesDex = ev.to;
+  shiny = shinyFor(speciesDex);
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('evolve', { url: spriteUrlFor(speciesDex, shiny), name: to.name });
+  }
+  markMet(speciesDex);
+  markShiny(speciesDex);
+  setState('happy', 1600);
+  saveState();
+  refreshTray();
+  console.log(`[evolve] ${fromName} → ${to.name}（${ev.how}）`);
+  setTimeout(() => {
+    bubble(`✨ ${fromName} 进化成 ${to.name}！`, 5200, true);
+    try { playCry(speciesDex, true); } catch (_) {}
+  }, 900);
+  setTimeout(() => tryEvolve(), 9000);   // 三段进化可能接着来
+}
+
+function markMet(dex) {
+  if (!Number.isFinite(dex) || dexMet.includes(dex)) return;
+  dexMet.push(dex);
+  saveState();
+  checkAchievements();
+}
+function markShiny(dex) {
+  if (!shiny || !Number.isFinite(dex) || shinyMet.includes(dex)) return;
+  shinyMet.push(dex);
+  saveState();
+  checkAchievements();
+}
+function updateStreak() {
+  const day = new Date().toISOString().slice(0, 10);
+  if (counters.lastDay === day) return;
+  const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  counters.streak = counters.lastDay === yest ? (Number(counters.streak) || 0) + 1 : 1;
+  counters.lastDay = day;
+  saveState();
+}
+function checkAchievements() {
+  const fresh = [];
+  for (const a of ACHIEVEMENTS) {
+    if (unlocked[a.id]) continue;
+    try { if (a.test()) { unlocked[a.id] = Date.now(); fresh.push(a); } } catch (_) {}
+  }
+  if (!fresh.length) return;
+  saveState();
+  refreshTray();
+  const a = fresh[0];
+  bubble(`🏆 成就解锁：${a.name}`, 4200, true);
+  setTimeout(() => { try { playCry(speciesDex, true); } catch (_) {} }, 260);
+}
 
 // ---------- 图鉴数据（由 data/pokedex.json 生成，覆盖 001-1025） ----------
 const DEX_FILE = path.join(__dirname, 'data', 'pokedex.json');
 const DEX_DATA = JSON.parse(fs.readFileSync(DEX_FILE, 'utf8'));
 const SPECIES = DEX_DATA.species;
 const byDex = new Map(SPECIES.map(s => [s.dex, s]));
+// 进化表：from -> [{ to, how }]，伊布这种一个前身多条分支
+const EVO_MAP = (() => {
+  const m = {};
+  for (const sp of SPECIES) {
+    if (!sp.from) continue;
+    (m[sp.from] = m[sp.from] || []).push({ to: sp.dex, how: sp.how || '' });
+  }
+  return m;
+})();
 
 // 进化链 → 每条链的「分层」结构，用于设置页展示
 const LINES = DEX_DATA.chains.map(c => {
@@ -229,6 +355,8 @@ function playSignature(reason = 'manual') {
   const t = now();
   if (t < moveCooldown) return false;
   if (state === 'drag' || state === 'fall' || state === 'ball') return false;
+  counters.sig++;
+  addExp(25);
   const spec = signatureFor(speciesDex);
   console.log('[move] ' + spec.name + ' 使用 ' + spec.move + '（' + spec.kind + '/' + spec.motion + '）' +
     ' bounds=' + JSON.stringify(win ? win.getBounds() : null));
@@ -285,11 +413,12 @@ const WEATHER_ICON = { 晴: '☀️', 云: '☁️', 雨: '🌧️', 雪: '❄�
 
 function timeLabel() {
   const h = new Date().getHours();
-  if (h < 5) return '深夜';
-  if (h < 9) return '清晨';
-  if (h < 12) return '上午';
-  if (h < 14) return '中午';
-  if (h < 18) return '午后';
+  const t = (zh, en) => (lang === 'en' ? en : zh);
+  if (h < 5) return t('深夜', 'late night');
+  if (h < 9) return t('清晨', 'early morning');
+  if (h < 12) return t('上午', 'morning');
+  if (h < 14) return t('中午', 'noon');
+  if (h < 18) return t('午后', 'afternoon');
   if (h < 22) return '晚上';
   return '深夜';
 }
@@ -372,6 +501,15 @@ function loadState() {
     if (d.species && SPECIES.some(s => s.dex === Number(d.species))) speciesDex = Number(d.species);
     if (d.shinyMode === 'auto' || d.shinyMode === 'always' || d.shinyMode === 'never') shinyMode = d.shinyMode;
     if (d.starAsked === true) starAsked = true;
+    if (d.focusMode === true) focusMode = true;
+    if (Array.isArray(d.dexMet)) dexMet = d.dexMet.filter(n => Number.isFinite(n));
+    if (Array.isArray(d.shinyMet)) shinyMet = d.shinyMet.filter(n => Number.isFinite(n));
+    if (d.counters && typeof d.counters === 'object') counters = { ...counters, ...d.counters };
+    if (d.unlocked && typeof d.unlocked === 'object') unlocked = d.unlocked;
+    if (d.lang === 'zh' || d.lang === 'en') lang = d.lang;
+    if (Number.isFinite(d.rotateMin)) rotateMin = d.rotateMin;
+    if (Number.isFinite(d.level)) level = d.level;
+    if (Number.isFinite(d.exp)) exp = d.exp;
   } catch (_) { /* 首次运行 */ }
   shiny = shinyFor(speciesDex);
 }
@@ -379,7 +517,7 @@ function saveState() {
   try {
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
     fs.writeFileSync(stateFile(), JSON.stringify({
-      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, savedAt: new Date().toISOString()
+      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, savedAt: new Date().toISOString()
     }));
   } catch (e) { console.error('saveState failed:', e.message); }
 }
@@ -488,11 +626,13 @@ function pushFace() {
   if (win && !win.isDestroyed()) win.webContents.send('face', dir);
 }
 
-function bubble(text, ms = 1800) {
+function bubble(text, ms = 1800, force = false) {
+  if (focusMode && !force) return;   // 专注模式不打扰
   if (win && !win.isDestroyed()) win.webContents.send('bubble', { text, ms });
 }
 
 function nextRandomState(t) {
+  if (focusMode) { setState('idle', 4000); return; }
   if (stats.hunger < 15 && Math.random() < 0.5) {
     setState('sleep', 8000 + Math.random() * 9000);
     bubble('饿得没力气了…', 2200);
@@ -550,6 +690,7 @@ function nextRandomState(t) {
 }
 
 function decayAndNag(t, dt) {
+  if (focusMode) return;   // 专注期间不饿也不闹
   if (state === 'sleep') {
     stats.mood = Math.min(100, stats.mood + dt * 0.8);
     stats.hunger = Math.max(0, stats.hunger - dt * 0.01);
@@ -602,6 +743,10 @@ function tickStep() {
   lastTs = t;
   if (!win || win.isDestroyed()) return;
 
+  tickPomodoro(t);
+  if (t > achCheckAt) { achCheckAt = t + 15000; checkAchievements(); }
+  if (t > expAt) { expAt = t + 60000; if (!focusMode) addExp(10); }
+  if (rotateMin > 0 && t > rotateAt) { rotateAt = t + rotateMin * 60000; randomSpecies(); }
   const groundY = groundYFor();
 
   if (state === 'drag') {
@@ -766,6 +911,8 @@ function createWindow() {
     setInterval(() => checkUpdate(false), 6 * 60 * 60 * 1000);
     // 装好第一次打开时，等它露面十几秒再问，别一启动就糊脸
     setTimeout(() => { if (!starAsked && !inBall) createStarWindow(); }, 12000);
+    if (process.env.PET_SHARE) setTimeout(() => makeShareCard(process.env.PET_SHARE), 3000);
+    if (process.env.PET_SETTINGS) setTimeout(() => createSettingsWindow(), 2500);
   });
 }
 
@@ -783,6 +930,117 @@ function createTray() {
     try { tray.setImage(icon); } catch (_) { /* 托盘已销毁 */ }
   }, 1200);
 }
+// ---------- 拍照分享卡 ----------
+let shareWin = null;
+async function makeShareCard(savePath) {
+  try {
+    if (shareWin && !shareWin.isDestroyed()) shareWin.destroy();
+    const sp = loreDataFor(speciesDex);
+    shareWin = new BrowserWindow({
+      width: 640, height: 420, show: false, frame: false,
+      backgroundColor: '#f6f7fb',
+      webPreferences: {
+        preload: path.join(__dirname, 'renderer', 'share-preload.js'),
+        contextIsolation: true, nodeIntegration: false
+      }
+    });
+    await shareWin.loadFile(path.join(__dirname, 'renderer', 'share.html'));
+    const spec = signatureFor(speciesDex) || {};
+    const data = {
+      dex: sp.dex, name: sp.name, types: sp.types || [], genus: sp.genus || '',
+      flavor: sp.flavor || '', shiny, spriteUrl: sp.spriteUrl,
+      move: spec.move || '',
+      date: new Date().toLocaleDateString('zh-CN')
+    };
+    await new Promise(res => {
+      let done = false;
+      const fin = () => { if (done) return; done = true; ipcMain.removeListener('share-ready', fin); res(); };
+      ipcMain.on('share-ready', fin);
+      setTimeout(fin, 2600);
+      shareWin.webContents.send('share-data', data);
+    });
+    await new Promise(r => setTimeout(r, 260));
+    const img = await shareWin.webContents.capturePage();
+    shareWin.destroy(); shareWin = null;
+    if (savePath) { fs.writeFileSync(savePath, img.toPNG()); console.log('[share] 已保存', savePath); return; }
+    const dir = app.getPath('pictures') || app.getPath('desktop');
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: '保存图鉴卡',
+      defaultPath: path.join(dir, `神奇宝贝-${sp.name}.png`),
+      filters: [{ name: 'PNG 图片', extensions: ['png'] }]
+    });
+    if (canceled || !filePath) return;
+    fs.writeFileSync(filePath, img.toPNG());
+    bubble('图鉴卡存好啦 📸', 2400, true);
+    shell.showItemInFolder(filePath);
+  } catch (e) {
+    console.error('[share] 生成失败', e);
+    bubble('图鉴卡生成失败…', 2200, true);
+  }
+}
+
+function setLang(v) {
+  lang = v === 'en' ? 'en' : 'zh';
+  saveState();
+  refreshTray();
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('lang', lang);
+  bubble(lang === 'en' ? 'Switched to English' : '换成中文啦', 1600, true);
+}
+
+function setRotate(min) {
+  rotateMin = Number(min) || 0;
+  rotateAt = now() + rotateMin * 60000;
+  bubble(rotateMin
+    ? (lang === 'en' ? `New Pokémon every ${rotateMin} min` : `每 ${rotateMin} 分钟换一只新的`)
+    : (lang === 'en' ? 'Auto switch off' : '不自动切换了'), 1900, true);
+  saveState();
+  refreshTray();
+}
+
+function setFocus(on) {
+  focusMode = !!on;
+  if (focusMode) {
+    altTarget = 0; alt = 0;
+    y = groundYFor();
+    setState('idle', 3600000);
+  }
+  bubble(focusMode ? '专注模式，我不吵你 🎯' : '我回来啦', 1600, true);
+  updateIgnore();
+  refreshTray();
+  saveState();
+}
+
+const fmtLeft = ms => {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+function startPomodoro(min = 25) {
+  pomo = { phase: 'work', until: Date.now() + min * 60000, restMin: 5 };
+  bubble(`好，专注 ${min} 分钟 ⏱`, 2400, true);
+  refreshTray();
+}
+
+function stopPomodoro() {
+  pomo = null;
+  bubble('番茄钟停啦', 1600, true);
+  refreshTray();
+}
+
+function tickPomodoro(t) {
+  if (!pomo || t < pomo.until) return;
+  if (pomo.phase === 'work') {
+    bubble('时间到！起来动一动 🧘', 9000, true);
+    try { playCry(speciesDex, true); } catch (_) {}
+    setState('happy', 2600);
+    pomo = { ...pomo, phase: 'rest', until: t + pomo.restMin * 60000 };
+  } else {
+    bubble('休息结束，继续加油 💪', 6000, true);
+    pomo = null;
+  }
+  refreshTray();
+}
+
 function setShinyMode(mode) {
   shinyMode = mode;
   shiny = shinyFor(speciesDex);
@@ -795,46 +1053,23 @@ function setShinyMode(mode) {
 }
 
 function petMenuTemplate() {
+  const L = (zh, en) => (lang === 'en' ? en : zh);
   return [
     {
-      label: `${speciesInfo().name} · 饱食度 ${Math.round(stats.hunger)} · 心情 ${Math.round(stats.mood)}`
-        + ` · ${timeLabel()}`
-        + (weather ? ` · ${WEATHER_ICON[weather.kind]}${weather.kind} ${weather.temp}°` : '')
-        + ` · v${app.getVersion()}`,
+      label: `${speciesInfo().name} · ${L('Lv.', 'Lv.')}${level} · ${L('饱食度', 'Hunger')} ${Math.round(stats.hunger)} · ${L('心情', 'Mood')} ${Math.round(stats.mood)}`,
       enabled: false
     },
     { type: 'separator' },
-    { label: '喂食 🍞', click: doFeed },
-    { label: '玩耍 🎾', click: doPlay },
-    { label: '打盹 😴', click: doNap },
-    ...(canFlyNow() ? [{ label: '飞一飞 🕊️', click: doFly }] : []),
-    { label: inBall ? '放出来 ⚪' : '收进球 ⚪', click: () => toggleBall() },
-    { label: '看介绍 📖', click: () => showLore() },
-    { label: '叫声', type: 'checkbox', checked: soundOn, click: m => { soundOn = !!m.checked; saveState(); refreshTray(); } },
-    { label: '专属动作 ✨', click: () => playSignature('manual') },
-    { label: '随机一只 🎲', click: () => randomSpecies() },
+    { label: L('喂食 🍞', 'Feed 🍞'), click: doFeed },
+    { label: L('玩耍 🎾', 'Play 🎾'), click: doPlay },
+    { label: L('打盹 😴', 'Nap 😴'), click: doNap },
+    ...(canFlyNow() ? [{ label: L('飞一飞 🕊️', 'Fly 🕊️'), click: doFly }] : []),
+    { label: inBall ? L('放出来 ⚪', 'Let out ⚪') : L('收进球 ⚪', 'Into ball ⚪'), click: () => toggleBall() },
+    { label: L('专属动作 ✨', 'Signature move ✨'), click: () => playSignature('manual') },
+    { label: L('看介绍 📖', 'Profile 📖'), click: () => showLore() },
     { type: 'separator' },
-    {
-      label: '大小',
-      submenu: Object.keys(SIZES).map(k => ({
-        label: SIZE_LABEL[k],
-        type: 'radio',
-        checked: k === sizeKey,
-        click: () => setSize(k)
-      }))
-    },
-    {
-      label: '异色 ✨',
-      submenu: [
-        { label: '自动（1/128 彩蛋）', type: 'radio', checked: shinyMode === 'auto', click: () => setShinyMode('auto') },
-        { label: '总是异色', type: 'radio', checked: shinyMode === 'always', click: () => setShinyMode('always') },
-        { label: '始终正常', type: 'radio', checked: shinyMode === 'never', click: () => setShinyMode('never') }
-      ]
-    },
-    { label: '检查更新 ⟳', click: () => checkUpdate(true) },
-    { label: '设置…', click: createSettingsWindow },
-    { type: 'separator' },
-    { label: '退出', click: () => { saveState(); app.quit(); } }
+    { label: L('设置…', 'Settings…'), click: createSettingsWindow },
+    { label: L('退出', 'Quit'), click: () => { saveState(); app.quit(); } }
   ];
 }
 function refreshTray() {
@@ -847,7 +1082,10 @@ function doFeed() {
   if (state === 'drag' || state === 'fall') return;
   stats.hunger = Math.min(100, stats.hunger + 35);
   stats.mood = Math.min(100, stats.mood + 8);
-  setState('eat', 2000);
+  counters.feed++;
+  addExp(60);
+  if (win && !win.isDestroyed()) win.webContents.send('feed-fx');
+  setState('eat', 2400);
   bubble('美味♪', 1800);
   playCry();
   refreshTray();
@@ -857,7 +1095,10 @@ function doPlay() {
   if (state === 'drag' || state === 'fall') return;
   stats.mood = Math.min(100, stats.mood + 25);
   stats.hunger = Math.max(0, stats.hunger - 4);
-  setState('happy', 2200);
+  counters.play++;
+  addExp(45);
+  if (win && !win.isDestroyed()) win.webContents.send('play-fx');
+  setState('happy', 2600);
   bubble(pick(['波克波克♪', '再来一次!']), 1800);
   refreshTray();
   saveState();
@@ -1068,6 +1309,8 @@ ipcMain.on('pet', () => {
   const t = now();
   if (t - petAt < 520) return;
   petAt = t;
+  counters.pet++;
+  addExp(2);
   stats.mood = Math.min(100, stats.mood + 0.7);
   if (Math.random() < 0.22) {
     setState('happy', 700);
@@ -1094,6 +1337,7 @@ ipcMain.on('release', (_e, vxIn, vyIn) => {
   vx = clamp(Number(vxIn) || 0, -650, 650);
   vy = clamp(Number(vyIn) || 0, -1200, 1100);
   bounceCount = 0;
+  counters.throw++;
   hardThrow = Math.abs(vx) > 320 || Math.abs(vy) > 700;
   setState('fall');
 });
@@ -1177,6 +1421,8 @@ function switchSpecies(dex) {
   if (alt > 1 && !canFlyNow()) { alt = 0; altTarget = 0; y = groundYFor(); }
   sentFace = 0;
   shiny = shinyFor(dex);
+  markMet(dex);
+  markShiny(dex);
   if (win && !win.isDestroyed()) win.webContents.send('sprite', { url: spriteUrlFor(dex, shiny) });
   bubble(`${speciesInfo().name}，来啦!`, 2000);
   setTimeout(() => playCry(dex, true), 260);
@@ -1244,6 +1490,15 @@ function createSettingsWindow() {
     }
   });
   settingsWin.loadFile(path.join(__dirname, 'renderer', 'settings.html'));
+  if (process.env.PET_CAPTURE) {
+    settingsWin.webContents.once('did-finish-load', async () => {
+      if (process.env.PET_SETTINGS === '2') {
+        try { await settingsWin.webContents.executeJavaScript("document.getElementById('tab-opts').click()"); } catch (_) {}
+        await new Promise(r => setTimeout(r, 600));
+      }
+      captureTo(settingsWin, 'settings-capture.png');
+    });
+  }
   settingsWin.webContents.on('console-message', (_e, _level, message) => {
     console.log('[settings]', message);
   });
@@ -1251,17 +1506,51 @@ function createSettingsWindow() {
   settingsWin.on('closed', () => { settingsWin = null; });
 }
 
+function cfgSnapshot() {
+  return {
+    current: speciesDex,
+    sizeKey, soundOn,
+    loginAtStart: loginAtStartEnabled(),
+    shinyMode, rotateMin, lang, focusMode,
+    pomo: pomo ? { phase: pomo.phase, left: Math.max(0, pomo.until - Date.now()) } : null,
+    level, exp,
+    met: dexMet.length, shinyMet: shinyMet.length, total: SPECIES.length,
+    achievements: ACHIEVEMENTS.map(a => ({ id: a.id, name: a.name, en: a.en || a.name, desc: a.desc, unlocked: !!unlocked[a.id] })),
+    streak: counters.streak || 1, sig: counters.sig,
+    version: app.getVersion()
+  };
+}
+
 ipcMain.handle('cfg:get', () => ({
   species: SPECIES.map(s => ({ dex: s.dex, name: s.name, types: s.types, gen: s.gen, legend: !!(s.legend || s.myth) })),
   chains: LINES.map(l => ({ stages: l.stages, hows: l.hows, type: l.type })),
   spriteBase: spriteBase(),
-  current: speciesDex,
-  loginAtStart: loginAtStartEnabled(),
-  sizeKey,
-  soundOn,
-  version: app.getVersion(),
-  total: SPECIES.length
+  ...cfgSnapshot()
 }));
+
+ipcMain.handle('cfg:setOpt', (_e, key, value) => {
+  try {
+    if (key === 'size') setSize(value);
+    else if (key === 'shiny') setShinyMode(value);
+    else if (key === 'rotate') setRotate(Number(value) || 0);
+    else if (key === 'lang') setLang(value);
+    else if (key === 'focus') setFocus(!!value);
+    else if (key === 'sound') { soundOn = !!value; saveState(); refreshTray(); }
+    else if (key === 'login') setLoginAtStart(!!value);
+  } catch (e) { console.error('[cfg:setOpt]', key, e); }
+  return cfgSnapshot();
+});
+
+ipcMain.handle('cfg:action', async (_e, name) => {
+  try {
+    if (name === 'random') randomSpecies();
+    else if (name === 'share') await makeShareCard();
+    else if (name === 'pomo25') startPomodoro(25);
+    else if (name === 'pomo45') startPomodoro(45);
+    else if (name === 'pomoStop') stopPomodoro();
+  } catch (e) { console.error('[cfg:action]', name, e); }
+  return cfgSnapshot();
+});
 ipcMain.handle('cfg:setSpecies', (_e, dex) => { switchSpecies(Number(dex)); return { current: speciesDex }; });
 ipcMain.handle('cfg:random', () => randomSpecies());
 ipcMain.handle('cfg:checkUpdate', () => checkUpdate(true));
@@ -1293,6 +1582,10 @@ app.on('before-quit', () => {
 app.whenReady().then(() => {
   console.log('[debug] whenReady 已触发', JSON.stringify(process.argv));
   loadState();
+  updateStreak();
+  markMet(speciesDex);
+  markShiny(speciesDex);
+  setTimeout(() => tryEvolve(), 3000);   // 等级够了就进化
   petH = SIZES[sizeKey] || 96;
   recomputeDims();
   createTray();                                        // 先建托盘状态项

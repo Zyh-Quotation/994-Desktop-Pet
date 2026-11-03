@@ -526,3 +526,16 @@ body[data-state="angry"] #sprite {
   50% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(0) scaleY(.88); }
   75% { transform: translateX(-50%) scaleX(var(--flip, 1)) translateY(-10px) scaleY(1.02); }
 }
+
+#flash {
+  position: fixed; inset: 0; background: #fff; opacity: 0;
+  pointer-events: none; transition: opacity .16s linear; z-index: 99;
+  border-radius: 12px;
+}
+
+.tmp-fx {
+  position: fixed; left: 50%; top: 50%;
+  font-size: 30px; line-height: 1; pointer-events: none;
+  will-change: transform, opacity; z-index: 98;
+  transform: translate(-50%, 0);
+}

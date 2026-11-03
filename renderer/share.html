@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 640px; height: 420px; overflow: hidden; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: linear-gradient(160deg, #fbfbfd 0%, #f0f1f6 100%);
+    color: #1d1d1f;
+  }
+  #card { width: 100%; height: 100%; padding: 26px 28px; display: flex; flex-direction: column; }
+  .top { display: flex; gap: 22px; flex: 1; }
+  .left { width: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .sprite-box {
+    width: 168px; height: 168px; border-radius: 20px;
+    background: rgba(255, 255, 255, .85);
+    border: 1px solid rgba(0, 0, 0, .06);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  #sprite { image-rendering: pixelated; max-width: 150px; max-height: 150px; }
+  #shiny-badge {
+    position: absolute; top: 8px; right: 10px;
+    font-size: 11px; font-weight: 700; color: #9a6b00;
+    background: linear-gradient(135deg, #ffe38a, #ffc93c);
+    padding: 2px 7px; border-radius: 999px;
+  }
+  #dex { margin-top: 12px; font-size: 12px; color: #86868b; font-variant-numeric: tabular-nums; }
+  .right { flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+  h1 { margin: 4px 0 2px; font-size: 27px; letter-spacing: .3px; }
+  .genus { font-size: 12px; color: #86868b; margin-bottom: 10px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip { font-size: 11px; font-weight: 600; color: #fff; padding: 3px 10px; border-radius: 999px; }
+  .move { font-size: 13px; margin-bottom: 10px; }
+  .move b { color: #e63b3b; }
+  .flavor {
+    font-size: 12.5px; line-height: 1.65; color: #4a4a4f;
+    border-left: 3px solid rgba(230, 59, 59, .35); padding-left: 10px;
+  }
+  .foot {
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(0, 0, 0, .07);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; color: #86868b;
+  }
+  .foot b { color: #1d1d1f; font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="card">
+  <div class="top">
+    <div class="left">
+      <div class="sprite-box">
+        <img id="sprite" alt="">
+        <span id="shiny-badge" hidden>✨ 异色</span>
+      </div>
+      <div id="dex">#000</div>
+    </div>
+    <div class="right">
+      <h1 id="name">–</h1>
+      <div class="genus" id="genus"></div>
+      <div class="chips" id="types"></div>
+      <div class="move" id="move"></div>
+      <div class="flavor" id="flavor"></div>
+    </div>
+  </div>
+  <div class="foot">
+    <span><b>神奇宝贝桌宠</b> · 1025 只全国图鉴</span>
+    <span id="date"></span>
+  </div>
+</div>
+<script>
+  const TYPE_COLOR = {
+    一般: '#929da3', 火: '#ff9d55', 水: '#4d90d5', 电: '#f4d23c', 草: '#63bb5b',
+    冰: '#73cec0', 格斗: '#ce4069', 毒: '#ab6ac8', 地面: '#d97845', 飞行: '#8fa8dd',
+    超能: '#f97176', 虫: '#90c12c', 岩石: '#c7b78b', 幽灵: '#5269ad', 龙: '#0b6dc3',
+    恶: '#5a5366', 钢: '#5a8ea1', 妖精: '#ec8fe6'
+  };
+  window.share.onData(d => {
+    document.getElementById('dex').textContent = '#' + String(d.dex).padStart(3, '0');
+    document.getElementById('name').textContent = d.name;
+    document.getElementById('genus').textContent = d.genus || '';
+    document.getElementById('flavor').textContent = d.flavor || '';
+    document.getElementById('move').innerHTML = d.move ? `专属招式 <b>${d.move}</b>` : '';
+    document.getElementById('date').textContent = d.date;
+    document.getElementById('shiny-badge').hidden = !d.shiny;
+    const box = document.getElementById('types');
+    box.innerHTML = '';
+    for (const t of d.types) {
+      const s = document.createElement('span');
+      s.className = 'chip';
+      s.textContent = t;
+      s.style.background = TYPE_COLOR[t] || '#999';
+      box.appendChild(s);
+    }
+    const img = document.getElementById('sprite');
+    img.onload = () => window.share.ready();
+    img.onerror = () => window.share.ready();
+    img.src = d.spriteUrl;
+    if (img.complete) window.share.ready();
+  });
+</script>
+</body>
+</html>

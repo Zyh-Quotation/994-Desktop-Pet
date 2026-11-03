@@ -11,6 +11,15 @@ const sound = document.getElementById('sound');
 const verEl = document.getElementById('ver');
 const updBtn = document.getElementById('check-upd');
 const updMsg = document.getElementById('upd-msg');
+const shinySeg = document.getElementById('shiny-seg');
+const langSeg = document.getElementById('lang-seg');
+const rotationEl = document.getElementById('rotation');
+const focusSw = document.getElementById('focus');
+const pomoState = document.getElementById('pomo-state');
+const lvlEl = document.getElementById('lvl');
+const dexProgEl = document.getElementById('dex-prog');
+const achProgEl = document.getElementById('ach-prog');
+const achListEl = document.getElementById('ach-list');
 
 const TYPE_COLOR = {
   草: '#78C850', 火: '#F08030', 水: '#6890F0', 电: '#F8D030',
@@ -301,6 +310,32 @@ function applyFilter() {
     : '点任意一只即可切换';
 }
 
+function markSeg(el, key) {
+  if (!el) return;
+  el.querySelectorAll('.size-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+}
+
+function renderOpts(c) {
+  if (!c) return;
+  markSeg(shinySeg, c.shinyMode);
+  markSeg(langSeg, c.lang);
+  if (rotationEl) rotationEl.value = String(c.rotateMin || 0);
+  if (focusSw) focusSw.checked = !!c.focusMode;
+  if (lvlEl) lvlEl.textContent = `Lv.${c.level} · 经验 ${c.exp % 100}/100`;
+  if (dexProgEl) dexProgEl.textContent = `遇见 ${c.met}/${c.total} · 异色 ${c.shinyMet}`;
+  const list = c.achievements || [];
+  if (achProgEl) achProgEl.textContent = `${list.filter(a => a.unlocked).length}/${list.length} 已解锁`;
+  if (achListEl) {
+    achListEl.innerHTML = list.map(a =>
+      `<span class="${a.unlocked ? 'on' : ''}">${a.unlocked ? '✅' : '◻️'} ${a.name}</span>`).join('');
+  }
+  if (pomoState) {
+    pomoState.textContent = c.pomo
+      ? (c.pomo.phase === 'work' ? '专注中…' : '休息中…')
+      : '';
+  }
+}
+
 async function init() {
   conf = await window.cfg.get();
   current = conf.current;
@@ -309,6 +344,7 @@ async function init() {
   sound.checked = conf.soundOn !== false;
   if (verEl) verEl.textContent = conf.version || '?';
   markSizes(conf.sizeKey);
+  renderOpts(conf);
   build();
   applyFilter();
 
@@ -388,6 +424,67 @@ updBtn.onclick = async () => {
 sound.onchange = async () => {
   await window.cfg.setSound(sound.checked);
 };
+
+// ---- 设置页的选项 ----
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+    document.getElementById('pane-dex').hidden = t.dataset.pane !== 'dex';
+    document.getElementById('pane-opts').hidden = t.dataset.pane !== 'opts';
+  };
+});
+
+if (shinySeg) {
+  shinySeg.addEventListener('click', async e => {
+    const b = e.target.closest('.size-btn');
+    if (!b) return;
+    renderOpts(await window.cfg.setOpt('shiny', b.dataset.key));
+  });
+}
+
+if (langSeg) {
+  langSeg.addEventListener('click', async e => {
+    const b = e.target.closest('.size-btn');
+    if (!b) return;
+    renderOpts(await window.cfg.setOpt('lang', b.dataset.key));
+  });
+}
+
+if (rotationEl) {
+  rotationEl.addEventListener('change', async () => {
+    renderOpts(await window.cfg.setOpt('rotate', Number(rotationEl.value)));
+  });
+}
+
+if (focusSw) {
+  focusSw.addEventListener('change', async () => {
+    renderOpts(await window.cfg.setOpt('focus', focusSw.checked));
+  });
+}
+
+const pomo25 = document.getElementById('pomo25');
+const pomo45 = document.getElementById('pomo45');
+const pomoStop = document.getElementById('pomo-stop');
+if (pomo25) pomo25.onclick = async () => renderOpts(await window.cfg.action('pomo25'));
+if (pomo45) pomo45.onclick = async () => renderOpts(await window.cfg.action('pomo45'));
+if (pomoStop) pomoStop.onclick = async () => renderOpts(await window.cfg.action('pomoStop'));
+
+const randomBtn = document.getElementById('random-btn');
+if (randomBtn) {
+  randomBtn.onclick = async () => {
+    const r = await window.cfg.action('random');
+    if (r) focusSpecies(r.current);
+    renderOpts(r);
+  };
+}
+
+const shareBtn = document.getElementById('share-btn');
+if (shareBtn) {
+  shareBtn.onclick = async () => {
+    shareBtn.disabled = true;
+    try { renderOpts(await window.cfg.action('share')); } finally { shareBtn.disabled = false; }
+  };
+}
 
 document.getElementById('close').onclick = () => window.cfg.close();
 

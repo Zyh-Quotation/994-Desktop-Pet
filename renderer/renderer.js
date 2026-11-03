@@ -134,6 +134,72 @@ window.pet.onSprite(d => {
   sprite.src = d.url;
 });
 
+// ---------- 喂食 / 玩耍 的动作表演 ----------
+function popFx(text, frames, opts) {
+  const el = document.createElement('div');
+  el.className = 'tmp-fx';
+  el.textContent = text;
+  document.body.appendChild(el);
+  const a = el.animate(frames, opts);
+  a.onfinish = () => el.remove();
+  setTimeout(() => el.remove(), (opts.duration || 900) + 600);
+}
+
+window.pet.onFeedFx(() => {
+  // 食物从上面掉到嘴边，被一口吃掉
+  popFx('🍎', [
+    { transform: 'translate(-50%, -170px) scale(.85)', opacity: 0 },
+    { transform: 'translate(-50%, -34px) scale(1)', opacity: 1, offset: .62 },
+    { transform: 'translate(-50%, -6px) scale(.15)', opacity: 0 }
+  ], { duration: 1150, easing: 'cubic-bezier(.34,1.1,.64,1)' });
+  // 吃完冒爱心
+  for (let i = 0; i < 3; i++) {
+    setTimeout(() => popFx('❤️', [
+      { transform: 'translate(-50%, -4px) scale(.5)', opacity: 0 },
+      { transform: `translate(calc(-50% + ${(i - 1) * 20}px), -72px) scale(1)`, opacity: 1, offset: .5 },
+      { transform: `translate(calc(-50% + ${(i - 1) * 30}px), -118px) scale(.75)`, opacity: 0 }
+    ], { duration: 880, easing: 'ease-out' }), 760 + i * 120);
+  }
+  // 小跳一下
+  sprite.animate([
+    { transform: 'translateY(0)' },
+    { transform: 'translateY(-9px)' },
+    { transform: 'translateY(0)' }
+  ], { duration: 420, iterations: 2, easing: 'ease-out' });
+});
+
+window.pet.onPlayFx(() => {
+  // 球弹出去又弹回来，逗它去追
+  popFx('🎾', [
+    { transform: 'translate(-50%, 4px) scale(.5)', opacity: 0 },
+    { transform: 'translate(calc(-50% - 58px), -66px) scale(1)', opacity: 1, offset: .28 },
+    { transform: 'translate(calc(-50% - 96px), 8px) scale(.95)', opacity: 1, offset: .52 },
+    { transform: 'translate(calc(-50% - 24px), -44px) scale(.9)', opacity: 1, offset: .74 },
+    { transform: 'translate(calc(-50% + 34px), 6px) scale(.75)', opacity: 0 }
+  ], { duration: 1450, easing: 'ease-in-out' });
+  // 扑腾两下
+  sprite.animate([
+    { transform: 'translateY(0) rotate(0deg)' },
+    { transform: 'translateY(-7px) rotate(-7deg)' },
+    { transform: 'translateY(0) rotate(0deg)' },
+    { transform: 'translateY(-7px) rotate(7deg)' },
+    { transform: 'translateY(0) rotate(0deg)' }
+  ], { duration: 1300, easing: 'ease-in-out' });
+  setTimeout(() => popFx('✨', [
+    { transform: 'translate(-50%, 0) scale(.4)', opacity: 0 },
+    { transform: 'translate(-50%, -50px) scale(1.1)', opacity: 1, offset: .5 },
+    { transform: 'translate(-50%, -90px) scale(.6)', opacity: 0 }
+  ], { duration: 800, easing: 'ease-out' }), 600);
+});
+
+// 进化：白闪一下再换形态
+const evolveFlash = document.getElementById('flash');
+window.pet.onEvolve(d => {
+  evolveFlash.style.opacity = '1';
+  setTimeout(() => { sprite.src = d.url; }, 280);
+  setTimeout(() => { evolveFlash.style.opacity = '0'; }, 760);
+});
+
 sprite.addEventListener('load', () => {
   console.log('[sprite loaded] ' + sprite.naturalWidth + 'x' + sprite.naturalHeight);
   sprite.classList.add('ready');
