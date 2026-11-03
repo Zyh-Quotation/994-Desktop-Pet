@@ -1230,6 +1230,7 @@ function createWindow() {
     if (process.env.PET_EGG === '1') setTimeout(() => spawnEgg(), 4000);
     if (process.env.PET_REPORT) setTimeout(() => createReportWindow(), 2500);
     if (process.env.PET_GAME) setTimeout(() => createGameWindow(), 2500);
+    if (process.env.PET_ACH) setTimeout(() => createAchievementsWindow(), 2500);
     if (process.env.PET_CLIMB === '1') setTimeout(() => { climbDir = 'up'; climbTop = 220; alt = 0; setState('climb', 45000); }, 1200);
     if (process.env.PET_CLIMB === '1') setTimeout(() => { try { console.log('[climb] y=', win.getBounds().y, 'state=', state, 'alt=', Math.round(alt)); } catch (_) {} }, 6000);
     if (process.env.PET_STONE === '1') { counters.stones = 3; saveState(); setTimeout(() => useStone(), 5000); }
@@ -1760,6 +1761,31 @@ function switchSpecies(dex) {
 }
 
 // ---------- 第一次打开：问一句要不要去点 Star ----------
+let achWin = null;
+
+function createAchievementsWindow() {
+  if (achWin && !achWin.isDestroyed()) { achWin.show(); achWin.focus(); return; }
+  achWin = new BrowserWindow({
+    width: 540, height: 660, resizable: false, minimizable: false, maximizable: false,
+    title: '成就', backgroundColor: '#fffdf7', show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'renderer', 'achievements-preload.js'),
+      contextIsolation: true, nodeIntegration: false
+    }
+  });
+  achWin.loadFile(path.join(__dirname, 'renderer', 'achievements.html'));
+  achWin.once('ready-to-show', () => {
+    achWin.show();
+    if (process.env.PET_CAPTURE) captureTo(achWin, 'ach-shot.png');
+  });
+  achWin.on('closed', () => { achWin = null; });
+}
+
+ipcMain.handle('ach:get', () => ({
+  achievements: ACHIEVEMENTS.map(a => ({ id: a.id, name: a.name, en: a.en || a.name, desc: a.desc, unlocked: !!unlocked[a.id] }))
+}));
+ipcMain.on('ach:close', () => { if (achWin && !achWin.isDestroyed()) achWin.close(); });
+
 let gameWin = null;
 
 function createGameWindow() {
@@ -1985,6 +2011,7 @@ ipcMain.handle('cfg:action', async (_e, name) => {
     else if (name === 'pomoStop') stopPomodoro();
     else if (name === 'report') createReportWindow();
     else if (name === 'game') createGameWindow();
+    else if (name === 'ach') createAchievementsWindow();
   } catch (e) { console.error('[cfg:action]', name, e); }
   return cfgSnapshot();
 });

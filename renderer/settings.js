@@ -19,7 +19,7 @@ const pomoState = document.getElementById('pomo-state');
 const lvlEl = document.getElementById('lvl');
 const dexProgEl = document.getElementById('dex-prog');
 const achProgEl = document.getElementById('ach-prog');
-const achListEl = document.getElementById('ach-list');
+
 const guestSw = document.getElementById('guest');
 const natureEl = document.getElementById('nature');
 
@@ -346,10 +346,7 @@ function renderOpts(c) {
   if (dexProgEl) dexProgEl.textContent = `遇见 ${c.met}/${c.total} · 异色 ${c.shinyMet}`;
   const list = c.achievements || [];
   if (achProgEl) achProgEl.textContent = `${list.filter(a => a.unlocked).length}/${list.length} 已解锁`;
-  if (achListEl) {
-    achListEl.innerHTML = list.map(a =>
-      `<span class="${a.unlocked ? 'on' : ''}">${a.unlocked ? '✅' : '◻️'} ${a.name}</span>`).join('');
-  }
+
   if (pomoState) {
     pomoState.textContent = c.pomo
       ? (c.pomo.phase === 'work' ? '专注中…' : '休息中…')
@@ -513,6 +510,9 @@ if (shareBtn) {
     try { renderOpts(await window.cfg.action('share')); } finally { shareBtn.disabled = false; }
   };
 }
+
+const achBtn = document.getElementById('ach-btn');
+if (achBtn) achBtn.onclick = () => window.cfg.action('ach');
 
 const reportBtn = document.getElementById('report-btn');
 if (reportBtn) reportBtn.onclick = () => window.cfg.action('report');
