@@ -18,10 +18,29 @@ const IS_WIN = process.platform === 'win32';
 if (IS_WIN) app.setAppUserModelId('com.zyh.togepipet');  // Windows 任务栏/通知归组
 // 开发时把 userData 放进项目目录（便携）；打包成自包含 app 时放系统标准位置
 // （否则会往已签名的 bundle 里写文件，破坏签名，也可能没权限）
-const IN_BUNDLE = app.isPackaged;
+//
+// 不能只看 app.isPackaged：直接执行 .app/Contents/MacOS/Electron 调试时，
+// Electron 可能把它当成默认 app（defaultApp=true），userData 就会落进 bundle。
+// 所以补一条：app 目录在 .app 里、且不是软链（开发版是软链指向项目），才算打包版。
+function isBundledApp() {
+  if (app.isPackaged) return true;
+  try {
+    const appDir = app.getAppPath();
+    if (!/\.app\/Contents\/Resources\/app$/.test(appDir)) return false;
+    return !fs.lstatSync(appDir).isSymbolicLink();
+  } catch (_) {
+    return false;
+  }
+}
+const IN_BUNDLE = isBundledApp();
 app.setPath('userData', IN_BUNDLE
   ? path.join(app.getPath('appData'), '神奇宝贝')
   : path.join(__dirname, 'userdata'));
+
+// 全新安装（尤其 Intel 版）第一次启动时这个目录还不存在，
+// 而日志、单实例锁、存档都要往里写——不先建出来，requestSingleInstanceLock()
+// 会因为建不了锁文件而返回 false，进程直接退出，表现为"双击没反应"。
+try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); } catch (_) {}
 
 // 日志同时写入 userdata/app.log（打包成 bundle 后没有终端输出）
 (function () {

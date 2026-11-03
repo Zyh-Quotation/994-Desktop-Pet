@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>神奇宝贝桌宠 · 把宝可梦养在桌面上</title>
-<meta name="description" content="1025 只宝可梦桌面宠物，会走会飞，能摸能扔。免费开源，支持 macOS 与 Windows。">
+<meta name="description" content="1025 只宝可梦桌面宠物，会走会飞，能摸能扔。免费开源，支持 Apple 芯片 / Intel 芯片 Mac 与 Windows。">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -70,7 +70,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="tag">macOS / Windows · 免费开源</div>
+  <div class="tag">macOS（Apple / Intel）/ Windows · 免费开源</div>
   <h1>把宝可梦<br>养在桌面上</h1>
   <p class="sub">1025 只全国图鉴 · 会走会飞 · 能摸能扔<br>还会跟着你的鼠标跑</p>
 
@@ -109,7 +109,7 @@
     ·
     <a href="https://github.com/Zyh-Quotation/994-Desktop-Pet/releases" target="_blank" rel="noopener">所有版本</a>
     ·
-    仅支持 Apple 芯片（M1 及以后）与 Windows 10/11 64 位
+    支持 Apple 芯片、Intel 芯片的 Mac 与 Windows 10/11 64 位
   </footer>
 </div>
 
@@ -119,24 +119,51 @@ const RELEASES = `https://github.com/${REPO}/releases`;
 
 const $ = id => document.getElementById(id);
 
-function detectOS() {
+function baseOS() {
   const ua = navigator.userAgent;
   if (/Windows NT/i.test(ua)) return 'win';
   if (/Macintosh|Mac OS X/i.test(ua)) return 'mac';
-  if (/Android|iPhone|iPad|Linux/i.test(ua)) return 'other';
   return 'other';
 }
 
-const OS = detectOS();
-const NAME = { win: 'Windows', mac: 'macOS', other: '其他系统' };
-$('detect').textContent = OS === 'other'
-  ? '没识别出系统，请手动选择'
-  : `已识别：${NAME[OS]} · 将下载对应版本`;
+// 判断 Mac 用的是 Apple 芯片还是 Intel。
+// 不能看 UA —— Safari 在 M 系列上同样报 "Intel Mac OS X"。
+// 先试 User-Agent Client Hints（Chrome / Edge），再退回 WebGL 渲染器字符串。
+async function macArch() {
+  try {
+    const d = navigator.userAgentData;
+    if (d && d.getHighEntropyValues) {
+      const { architecture } = await d.getHighEntropyValues(['architecture']);
+      if (architecture === 'arm') return 'arm64';
+      if (architecture === 'x86') return 'x64';
+    }
+  } catch (_) {}
+  try {
+    const gl = document.createElement('canvas').getContext('webgl');
+    if (gl) {
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      const r = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+      if (/Apple\s+(M\d|GPU)/i.test(r)) return 'arm64';
+      if (/Intel|AMD|Radeon|NVIDIA/i.test(r)) return 'x64';
+    }
+  } catch (_) {}
+  return null;
+}
+
+const OS_BASE = baseOS();
+const NAME = {
+  win: 'Windows',
+  'mac-arm64': 'macOS（Apple 芯片）',
+  'mac-x64': 'macOS（Intel 芯片）',
+  mac: 'macOS',
+  other: '其他系统'
+};
+let OS = OS_BASE;
 
 const fmt = n => n > 1e9 ? (n / 1073741824).toFixed(2) + ' GB'
   : n > 1e6 ? Math.round(n / 1048576) + ' MB' : (n / 1024).toFixed(0) + ' KB';
 
-let assets = { win: null, mac: null };
+let assets = { win: null, macArm: null, macX64: null };
 
 async function loadRelease() {
   try {
@@ -145,10 +172,11 @@ async function loadRelease() {
     const j = await r.json();
     for (const a of j.assets || []) {
       if (/-win-x64\.zip$/i.test(a.name)) assets.win = a;
-      else if (/^pokepet-[\d.]+\.zip$/i.test(a.name)) assets.mac = a;
+      else if (/-mac-x64\.zip$/i.test(a.name)) assets.macX64 = a;
+      else if (/^pokepet-[\d.]+\.zip$/i.test(a.name)) assets.macArm = a;
     }
     $('ver').textContent = `最新版 v${j.tag_name.replace(/^v/, '')} · ${
-      [assets.mac, assets.win].filter(Boolean).map(a => fmt(a.size)).join(' / ')}`;
+      [assets.macArm, assets.macX64, assets.win].filter(Boolean).map(a => fmt(a.size)).join(' / ')}`;
     apply();
   } catch (e) {
     $('ver').textContent = '读取版本信息失败，可直接去 Releases 页面下载';
@@ -158,36 +186,70 @@ async function loadRelease() {
 }
 
 function apply() {
-  const primary = assets[OS];
-  const secondary = OS === 'win' ? assets.mac : assets.win;
   const btn = $('main-btn');
+  let primary = null;
+  if (OS === 'win') primary = assets.win;
+  else if (OS === 'mac-arm64') primary = assets.macArm;
+  else if (OS === 'mac-x64') primary = assets.macX64;
+  else if (OS === 'mac') primary = assets.macArm;   // 芯片认不出时先给 Apple 芯片版
 
   if (primary) {
     btn.href = primary.browser_download_url;
     btn.innerHTML = `下载 ${NAME[OS]} 版 <small>${fmt(primary.size)}</small>`;
-  } else if (assets.win || assets.mac) {
-    const fallback = assets.win || assets.mac;
-    btn.href = fallback.browser_download_url;
-    btn.innerHTML = `下载 <small>${fmt(fallback.size)}</small>`;
   } else {
-    btn.href = RELEASES;
-    btn.textContent = '打开下载页';
+    const fallback = assets.win || assets.macArm || assets.macX64;
+    if (fallback) {
+      btn.href = fallback.browser_download_url;
+      btn.innerHTML = `下载 <small>${fmt(fallback.size)}</small>`;
+    } else {
+      btn.href = RELEASES;
+      btn.textContent = '打开下载页';
+    }
   }
 
+  // 另一个平台
+  let secondary = null, label = '';
+  if (OS === 'win') { secondary = assets.macArm; label = 'macOS'; }
+  else if (OS.indexOf('mac') === 0) { secondary = assets.win; label = 'Windows'; }
   if (secondary) {
-    $('alt-link').textContent = `下载 ${NAME[OS === 'win' ? 'mac' : 'win']} 版（${fmt(secondary.size)}）`;
+    $('alt-link').textContent = `下载 ${label} 版（${fmt(secondary.size)}）`;
     $('alt-link').href = secondary.browser_download_url;
   } else {
     $('alt-link').href = RELEASES;
     $('alt-link').textContent = '查看全部下载';
   }
 
-  $('note-body').innerHTML = OS === 'win'
-    ? '解压后双击 <code>TogepiPet.exe</code> 就行。放在固定文件夹里，别直接放桌面。'
-    : '解开 zip，把「神奇宝贝.app」拖进「应用程序」，<b>首次打开要右键 → 打开</b>（没买苹果签名，系统会拦一下）。';
+  // 装好之后怎么开
+  if (OS === 'win') {
+    $('note-body').innerHTML = '解压后双击 <code>TogepiPet.exe</code> 就行。放在固定文件夹里，别直接放桌面。';
+  } else if (OS === 'mac-x64') {
+    $('note-body').innerHTML = '解开 zip，把「神奇宝贝.app」拖进「应用程序」，<b>首次打开要右键 → 打开</b>（没买苹果签名，系统会拦一下）。这是 <b>Intel 芯片</b>专用版。';
+  } else if (OS === 'mac-arm64') {
+    $('note-body').innerHTML = '解开 zip，把「神奇宝贝.app」拖进「应用程序」，<b>首次打开要右键 → 打开</b>（没买苹果签名，系统会拦一下）。这是 <b>Apple 芯片</b>版。';
+  } else if (OS === 'mac') {
+    const intel = assets.macX64
+      ? ` 如果是 <b>Intel 芯片</b>的 Mac，请下 <a href="${assets.macX64.browser_download_url}">Intel 版</a>。`
+      : '';
+    $('note-body').innerHTML = '把「神奇宝贝.app」拖进「应用程序」，<b>首次打开要右键 → 打开</b>。' + intel;
+  } else {
+    $('note-body').innerHTML = 'Mac 版右键 → 打开；Windows 版解压后双击 exe。';
+  }
 }
 
-loadRelease();
+(async () => {
+  if (OS_BASE === 'mac') {
+    const arch = await macArch();
+    if (arch === 'arm64') OS = 'mac-arm64';
+    else if (arch === 'x64') OS = 'mac-x64';
+    // 认不出就留在 'mac'
+  }
+  $('detect').textContent = OS === 'other'
+    ? '没识别出系统，请手动选择'
+    : OS === 'mac'
+      ? '已识别：macOS · 认不出芯片型号，先给你 Apple 芯片版'
+      : `已识别：${NAME[OS]} · 将下载对应版本`;
+  await loadRelease();
+})();
 </script>
 </body>
 </html>

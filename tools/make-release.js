@@ -35,6 +35,24 @@ const manifest = {
   notes: process.env.RELEASE_NOTES || '',
   publishedAt: new Date().toISOString()
 };
+// Intel 版如果已经打好（tools/build-app-intel.sh），一并写进清单，
+// 让 update.sh 能按本机架构挑对包包
+const INTEL = path.join(OUT_DIR, `pokepet-${pkg.version}-mac-x64.zip`);
+if (fs.existsSync(INTEL)) {
+  const ib = fs.readFileSync(INTEL);
+  const iName = path.basename(INTEL);
+  const iBase = manifest.url.replace(/[^/]+$/, '');
+  manifest.builds = {
+    arm64: { file: NAME, url: manifest.url, sha256, size },
+    x64: {
+      file: iName,
+      url: iBase + iName,
+      sha256: crypto.createHash('sha256').update(ib).digest('hex'),
+      size: ib.length
+    }
+  };
+}
+
 fs.writeFileSync(path.join(OUT_DIR, 'update.json'), JSON.stringify(manifest, null, 2));
 
 console.log(`✅ 打包完成：${ZIP}`);

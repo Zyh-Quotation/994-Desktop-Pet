@@ -21,9 +21,11 @@ else
 fi
 
 VER=$(node -p "require('$TMP/update.json').version")
-URL=$(node -p "require('$TMP/update.json').url")
-SHA=$(node -p "require('$TMP/update.json').sha256")
-echo "目标版本：$VER"
+# Intel 和 Apple 芯片的包不一样，按本机架构挑对应的下载地址
+ARCH=$(uname -m); [ "$ARCH" = "x86_64" ] && ARCH=x64 || ARCH=arm64
+URL=$(node -p "const m=require('$TMP/update.json'); (m.builds && m.builds['$ARCH'] && m.builds['$ARCH'].url) || m.url")
+SHA=$(node -p "const m=require('$TMP/update.json'); (m.builds && m.builds['$ARCH'] && m.builds['$ARCH'].sha256) || m.sha256")
+echo "目标版本：$VER（$ARCH）"
 
 curl -fsSL --max-time 300 "$URL" -o "$TMP/update.zip"
 ACTUAL=$(shasum -a 256 "$TMP/update.zip" | awk '{print $1}')
