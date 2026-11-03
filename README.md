@@ -79,23 +79,6 @@ npm install
 npm start                 # 开发模式，改动即时生效
 ```
 
-### 发版（一条命令）
-
-```bash
-GH_RELEASE=1 ./tools/publish.sh patch "修了 xxx"    # 0.2.6 → 0.2.7
-GH_RELEASE=1 ./tools/publish.sh minor "新增 xxx"    # → 0.3.0
-SKIP_WIN=1 GH_RELEASE=1 ./tools/publish.sh patch "只发 Mac"
-```
-
-它会自动：升版本 → 组装自包含 app → ad-hoc 签名 → 打包 → 构建 Windows 包 →
-生成 update.json → 建 Release 并上传三个资产。
-
-| 改了啥 | 升哪一位 |
-|---|---|
-| 修 bug、调文案、换素材 | patch |
-| 加新功能 | minor |
-| 大改版、不兼容旧存档 | major |
-
 ### 单独打包
 
 ```bash
@@ -116,7 +99,7 @@ data/signatures.json 1025 只的专属动作：招式名 + 粒子形状 + 动作
 assets/pokemon/      2050 张精灵图（普通 + 异色，121MB，不进仓库）
 assets/cries/        1025 条叫声（16MB，不进仓库）
 docs/                GitHub Pages 下载页
-tools/               打包、发版、素材抓取脚本
+tools/               打包、素材抓取脚本
 tools/signature-moves.json  招式名数据源（可手工改，改完重跑 build-signatures）
 promo/               宣传图和文案
 ```

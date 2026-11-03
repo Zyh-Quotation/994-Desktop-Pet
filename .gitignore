@@ -23,3 +23,6 @@ promo/page-*.png
 capture.png
 settings-capture.png
 star-capture.png
+
+# 发布脚本只在维护者本地，不进公开仓库
+tools/publish.sh
