@@ -514,6 +514,12 @@ if (shareBtn) {
   };
 }
 
+const reportBtn = document.getElementById('report-btn');
+if (reportBtn) reportBtn.onclick = () => window.cfg.action('report');
+
+const gameBtn = document.getElementById('game-btn');
+if (gameBtn) gameBtn.onclick = () => window.cfg.action('game');
+
 document.getElementById('close').onclick = () => window.cfg.close();
 
 init().catch(err => {

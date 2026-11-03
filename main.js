@@ -1391,8 +1391,6 @@ function petMenuTemplate() {
     { label: L(`用${stoneFor()}进化 ✨ (${counters.stones || 0})`, `Evolve with stone ✨ (${counters.stones || 0})`), click: useStone },
     { label: L('随机一只 🎲', 'Random 🎲'), click: () => randomSpecies() },
     { label: L('看介绍 📖', 'Profile 📖'), click: () => showLore() },
-    { label: L('陪伴报告 📊', 'Report 📊'), click: createReportWindow },
-    { label: L('接球小游戏 🎮', 'Catch game 🎮'), click: createGameWindow },
     { type: 'separator' },
     { label: L('设置…', 'Settings…'), click: createSettingsWindow },
     { label: L('退出', 'Quit'), click: () => { saveState(); app.quit(); } }
@@ -1985,6 +1983,8 @@ ipcMain.handle('cfg:action', async (_e, name) => {
     else if (name === 'pomo25') startPomodoro(25);
     else if (name === 'pomo45') startPomodoro(45);
     else if (name === 'pomoStop') stopPomodoro();
+    else if (name === 'report') createReportWindow();
+    else if (name === 'game') createGameWindow();
   } catch (e) { console.error('[cfg:action]', name, e); }
   return cfgSnapshot();
 });
