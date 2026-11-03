@@ -1264,6 +1264,11 @@ function createWindow() {
     if (process.env.PET_GAME) setTimeout(() => createGameWindow(), 2500);
     if (process.env.PET_ACH) setTimeout(() => createAchievementsWindow(), 2500);
     if (process.env.PET_EGGWIN) setTimeout(() => createEggWindow(), 2500);
+    if (process.env.PET_EVOLVE_TEST) setTimeout(() => {
+      const evs = EVO_MAP[speciesDex] || [];
+      console.log('[evolve-test] 当前', speciesDex, 'Lv', level, '可进化到', JSON.stringify(evs));
+      if (evs.length) doEvolve(evs[0]);
+    }, 6000);
     if (process.env.PET_CLIMB === '1') setTimeout(() => { climbDir = 'up'; climbTop = 220; alt = 0; setState('climb', 45000); }, 1200);
     if (process.env.PET_CLIMB === '1') setTimeout(() => { try { console.log('[climb] y=', win.getBounds().y, 'state=', state, 'alt=', Math.round(alt)); } catch (_) {} }, 6000);
     if (process.env.PET_STONE === '1') { counters.stones = 3; saveState(); setTimeout(() => useStone(), 5000); }
@@ -2070,6 +2075,7 @@ function cfgSnapshot() {
   };
 }
 
+ipcMain.handle('cfg:dexPulse', () => ({ n: dexMet.length, cur: speciesDex, level }));
 ipcMain.handle('cfg:get', () => ({
   species: SPECIES.map(s => ({ dex: s.dex, name: s.name, types: s.types, gen: s.gen, legend: !!(s.legend || s.myth) })),
   chains: LINES.map(l => ({ stages: l.stages, hows: l.hows, type: l.type })),

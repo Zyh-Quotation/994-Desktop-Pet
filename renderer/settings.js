@@ -427,7 +427,22 @@ async function init() {
   build();
   applyFilter();
 
-  window.cfg.onChanged && window.cfg.onChanged(() => { reload().catch(() => {}); });
+  window.cfg.onChanged && window.cfg.onChanged(() => {
+    reload().catch(e => console.error('[settings] 刷新失败', e));
+  });
+
+  // 兜底：万一推送丢了，靠轮询也能追上进度
+  let pulse = { n: unlockedDex.size, cur: current, level: conf.level };
+  setInterval(async () => {
+    if (document.hidden) return;
+    try {
+      const p = await window.cfg.dexPulse();
+      if (p.n !== pulse.n || p.cur !== pulse.cur || p.level !== pulse.level) {
+        pulse = p;
+        await reload();
+      }
+    } catch (_) {}
+  }, 1800);
 
   const active = listEl.querySelector('.card.active');
   if (active) active.scrollIntoView({ block: 'center' });
