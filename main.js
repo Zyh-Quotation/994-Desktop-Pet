@@ -292,9 +292,16 @@ function doEvolve(ev) {
   setTimeout(() => tryEvolve(), 9000);   // 三段进化可能接着来
 }
 
+function notifySettings() {
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    try { settingsWin.webContents.send('cfg:changed'); } catch (_) {}
+  }
+}
+
 function markMet(dex) {
   if (!Number.isFinite(dex) || dexMet.includes(dex)) return;
   dexMet.push(dex);
+  notifySettings();
   saveState();
   checkAchievements();
 }
@@ -1774,6 +1781,7 @@ function setLoginAtStart(on) {
 }
 
 function switchSpecies(dex) {
+  notifySettings();
   if (!SPECIES.some(s => s.dex === dex)) return;
   speciesDex = dex;
   if (alt > 1 && !canFlyNow()) { alt = 0; altTarget = 0; y = groundYFor(); }

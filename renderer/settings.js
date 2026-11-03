@@ -402,6 +402,16 @@ if (bagCheckin) {
   }
 }
 
+async function reload() {
+  conf = await window.cfg.get();
+  current = conf.current;
+  unlockedDex = new Set(conf.dexMet || []);
+  if (countEl) countEl.textContent = `已解锁 ${unlockedDex.size} / ${conf.species.length}`;
+  renderOpts(conf);
+  build();
+  applyFilter();
+}
+
 async function init() {
   conf = await window.cfg.get();
   current = conf.current;
@@ -416,6 +426,8 @@ async function init() {
   renderOpts(conf);
   build();
   applyFilter();
+
+  window.cfg.onChanged && window.cfg.onChanged(() => { reload().catch(() => {}); });
 
   const active = listEl.querySelector('.card.active');
   if (active) active.scrollIntoView({ block: 'center' });
