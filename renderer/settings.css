@@ -255,3 +255,12 @@ html.dark .upd-btn { background: #2c2c2e; color: #eee; }
   font-size: 11px; color: var(--muted); line-height: 1.7;
 }
 .ach-list .on { color: var(--text); }
+
+.card { position: relative; }
+.card-fav {
+  position: absolute; top: 4px; right: 7px;
+  font-size: 15px; line-height: 1; color: #c7c7cc;
+  transition: color .15s, transform .12s; cursor: pointer; padding: 2px;
+}
+.card-fav:hover { transform: scale(1.18); }
+.card-fav.on { color: #ff3b5c; }

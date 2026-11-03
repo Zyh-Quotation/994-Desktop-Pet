@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('cfg', {
   setSound: on => ipcRenderer.invoke('cfg:setSound', on),
   checkUpdate: () => ipcRenderer.invoke('cfg:checkUpdate'),
   setOpt: (key, value) => ipcRenderer.invoke('cfg:setOpt', key, value),
+  setFav: (dex, on) => ipcRenderer.invoke('cfg:setFav', dex, on),
   action: name => ipcRenderer.invoke('cfg:action', name),
   close: () => ipcRenderer.send('cfg:close')
 });

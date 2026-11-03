@@ -206,7 +206,7 @@ function natureFor(dex) {
   h ^= h >>> 15;
   h = Math.imul(h, 0x2c1b3c6d) >>> 0;
   h ^= h >>> 12;
-  return NATURES[h % NATURES.length];
+  return NATURES[(h >>> 0) % NATURES.length];
 }
 let currentNature = NATURES[0];
 let walkedPx = 0;        // 走了多少像素，攒够了给颗蛋
@@ -216,6 +216,7 @@ let guestWin = null;     // 串门的另一只
 let guest = null;        // { dex, x, dir, until, phase: 'in'|'stay'|'out' }
 let nextGuestAt = 0;
 let guestEnabled = true;
+let favorites = [];       // 收藏的图鉴编号
 
 const ACHIEVEMENTS = [
   { id: 'first', name: '初次见面', en: 'First meeting', desc: '遇见第一只宝可梦', test: () => dexMet.length >= 1 },
@@ -610,7 +611,7 @@ function autoShinyFor(dex) {
   h ^= h >>> 13;
   h = Math.imul(h, 0xc2b2ae35) >>> 0;
   h ^= h >>> 16;
-  return (h % 128) === 0;
+  return ((h >>> 0) % 128) === 0;
 }
 function shinyFor(dex) {
   if (shinyMode === 'always') return true;
@@ -648,6 +649,7 @@ function loadState() {
     if (d.starAsked === true) starAsked = true;
     if (d.focusMode === true) focusMode = true;
     if (d.guestEnabled === false) guestEnabled = false;
+    if (Array.isArray(d.favorites)) favorites = d.favorites.filter(n => Number.isFinite(n));
     if (Array.isArray(d.dexMet)) dexMet = d.dexMet.filter(n => Number.isFinite(n));
     if (Array.isArray(d.shinyMet)) shinyMet = d.shinyMet.filter(n => Number.isFinite(n));
     if (d.counters && typeof d.counters === 'object') counters = { ...counters, ...d.counters };
@@ -663,7 +665,7 @@ function saveState() {
   try {
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
     fs.writeFileSync(stateFile(), JSON.stringify({
-      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, guestEnabled, savedAt: new Date().toISOString()
+      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, guestEnabled, favorites, savedAt: new Date().toISOString()
     }));
   } catch (e) { console.error('saveState failed:', e.message); }
 }
@@ -833,7 +835,7 @@ function nextRandomState(t) {
     if (Math.random() < 0.3) bubble(pick(['外面在下雨…', '不想出去', '好冷…']), 1800);
     return;
   }
-  if (night && Math.random() < 0.45 * (currentNature.sleepMult || 1) && Math.random() < 0.9) {
+  if (night && Math.random() < 0.45 * ((currentNature || NATURES[0]).sleepMult || 1) && Math.random() < 0.9) {
     setState('sleep', 10000 + Math.random() * 12000);
     if (Math.random() < 0.5) bubble('Zzz…', 2200);
     return;
@@ -861,7 +863,7 @@ function decayAndNag(t, dt) {
     stats.mood = Math.min(100, stats.mood + dt * 0.8);
     stats.hunger = Math.max(0, stats.hunger - dt * 0.01);
   } else {
-    stats.hunger = Math.max(0, stats.hunger - dt * 0.045 * (currentNature.hungerMult || 1));
+    stats.hunger = Math.max(0, stats.hunger - dt * 0.045 * ((currentNature || NATURES[0]).hungerMult || 1));
     stats.mood = Math.max(0, stats.mood - dt * 0.03);
   }
   if (stats.hunger < 30 && t > hungerNagAt) {
@@ -992,14 +994,14 @@ function tickStep() {
   } else {
     if (!inBall && t >= stateUntil) nextRandomState(t);
     y = groundY;
-    if (state === 'walk' && currentNature.flee) {
+    if (state === 'walk' && currentNature && currentNature.flee) {
       const cur = screen.getCursorScreenPoint();
       const dx = cur.x - (x + winW / 2);
       if (Math.abs(dx) < 130 && Math.abs(cur.y - (y + winH / 2)) < 190) dir = dx > 0 ? -1 : 1;
     }
     if (state === 'walk') {
-      x += dir * speed * (currentNature.speed || 1) * dt;
-      walkedPx += Math.abs(speed * (currentNature.speed || 1) * dt);
+      x += dir * speed * ((currentNature || NATURES[0]).speed || 1) * dt;
+      walkedPx += Math.abs(speed * ((currentNature || NATURES[0]).speed || 1) * dt);
       if (walkedPx > EGG_AT && !hasEgg && !inBall) { walkedPx = 0; spawnEgg(); }
       const wa = waFor(x + winW / 2, y + winH / 2);
       if (x <= wa.x && !neighborOf(wa, -1)) { x = wa.x; dir = 1; }
@@ -1234,7 +1236,7 @@ function petMenuTemplate() {
   const L = (zh, en) => (lang === 'en' ? en : zh);
   return [
     {
-      label: `${speciesInfo().name} · ${L(currentNature.zh, currentNature.en)} · Lv.${level} · ${L('饱食度', 'Hunger')} ${Math.round(stats.hunger)} · ${L('心情', 'Mood')} ${Math.round(stats.mood)}`,
+      label: `${speciesInfo().name} · ${L((currentNature || NATURES[0]).zh, (currentNature || NATURES[0]).en)} · Lv.${level} · ${L('饱食度', 'Hunger')} ${Math.round(stats.hunger)} · ${L('心情', 'Mood')} ${Math.round(stats.mood)}`,
       enabled: false
     },
     { type: 'separator' },
@@ -1678,6 +1680,13 @@ function createSettingsWindow() {
         try { await settingsWin.webContents.executeJavaScript("document.getElementById('tab-opts').click()"); } catch (_) {}
         await new Promise(r => setTimeout(r, 600));
       }
+      if (process.env.PET_SETTINGS === '3') {
+        try {
+          await settingsWin.webContents.executeJavaScript(
+            "const f=document.querySelector('.card-fav'); if(f) f.click();");
+        } catch (_) {}
+        await new Promise(r => setTimeout(r, 900));
+      }
       captureTo(settingsWin, 'settings-capture.png');
     });
   }
@@ -1693,8 +1702,8 @@ function cfgSnapshot() {
     current: speciesDex,
     sizeKey, soundOn,
     loginAtStart: loginAtStartEnabled(),
-    shinyMode, rotateMin, lang, focusMode, guestEnabled,
-    nature: { zh: currentNature.zh, en: currentNature.en },
+    shinyMode, rotateMin, lang, focusMode, guestEnabled, favorites,
+    nature: { zh: (currentNature || NATURES[0]).zh, en: (currentNature || NATURES[0]).en },
     pomo: pomo ? { phase: pomo.phase, left: Math.max(0, pomo.until - Date.now()) } : null,
     level, exp,
     met: dexMet.length, shinyMet: shinyMet.length, total: SPECIES.length,
@@ -1741,6 +1750,15 @@ ipcMain.handle('cfg:checkUpdate', () => checkUpdate(true));
 ipcMain.handle('cfg:setSound', (_e, on) => { soundOn = !!on; saveState(); if (soundOn) playCry(speciesDex, true); refreshTray(); return { soundOn }; });
 ipcMain.handle('cfg:setLogin', (_e, on) => ({ loginAtStart: setLoginAtStart(!!on) }));
 ipcMain.handle('cfg:setSize', (_e, k) => { setSize(k); return { sizeKey }; });
+ipcMain.handle('cfg:setFav', (_e, dex, on) => {
+  const d = Number(dex);
+  if (Number.isFinite(d)) {
+    if (on && !favorites.includes(d)) favorites.push(d);
+    if (!on) favorites = favorites.filter(x => x !== d);
+    saveState();
+  }
+  return { favorites };
+});
 ipcMain.on('cfg:close', () => { if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close(); });
 
 // ---------- 生命周期 ----------

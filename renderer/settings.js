@@ -42,6 +42,7 @@ function tint(hex, alpha) {
 let conf = null;
 let current = 175;
 let filter = '全部';
+let favorites = new Set();
 let query = '';
 let genFilter = 0;
 let built = false;
@@ -80,7 +81,22 @@ function makeCard(sp) {
   types.className = 'card-types';
   types.textContent = sp.types.join('·');
 
-  b.append(img, name, types);
+  const fav = document.createElement('span');
+  fav.className = 'card-fav' + (favorites.has(sp.dex) ? ' on' : '');
+  fav.textContent = favorites.has(sp.dex) ? '♥' : '♡';
+  fav.title = '收藏';
+  b.append(img, name, types, fav);
+  fav.onclick = async e => {
+    e.preventDefault();
+    e.stopPropagation();
+    const r = await window.cfg.setFav(sp.dex, !favorites.has(sp.dex));
+    favorites = new Set(r.favorites || []);
+    fav.classList.toggle('on', favorites.has(sp.dex));
+    fav.textContent = favorites.has(sp.dex) ? '♥' : '♡';
+    const chip = chipsEl.querySelector('[data-type="收藏"]');
+    if (chip) chip.textContent = `♥ 收藏 ${favorites.size || ''}`.trim();
+    if (filter === '收藏') applyFilter();
+  };
   b.onclick = async () => {
     await window.cfg.setSpecies(sp.dex);
     current = sp.dex;
@@ -118,13 +134,13 @@ function buildChips() {
   const order = ['一般', '火', '水', '电', '草', '冰', '格斗', '毒', '地面', '飞行',
     '超能力', '虫', '岩石', '幽灵', '龙', '恶', '钢', '妖精'];
   const present = new Set(conf.species.flatMap(s => s.types || []));
-  const types = ['全部', '传说', ...order.filter(t => present.has(t))];
+  const types = ['全部', '收藏', '传说', ...order.filter(t => present.has(t))];
   chipsEl.innerHTML = '';
   for (const t of types) {
     const color = t === '传说' ? LEGEND_COLOR : (TYPE_COLOR[t] || ALL_COLOR);
     const c = document.createElement('button');
     c.className = 'chip' + (t === filter ? ' active' : '');
-    c.textContent = t;
+    c.textContent = t === '收藏' ? `♥ 收藏${favorites.size ? ' ' + favorites.size : ''}` : t;
     c.dataset.type = t;
     c.style.setProperty('--chip', color);
     c.style.setProperty('--chip-tint', tint(color, .13));
@@ -272,6 +288,7 @@ function matches(sp) {
 function cardVisible(line, sp) {
   if (genFilter && sp.gen !== genFilter) return false;
   if (!matches(sp)) return false;
+  if (filter === '收藏') return favorites.has(sp.dex);
   if (line.special === 'legend') return filter === '传说';
   if (filter === '传说') return false;
   return filter === '全部' || line.type === filter;
@@ -347,6 +364,7 @@ async function init() {
   login.checked = !!conf.loginAtStart;
   sound.checked = conf.soundOn !== false;
   if (verEl) verEl.textContent = conf.version || '?';
+  favorites = new Set(conf.favorites || []);
   markSizes(conf.sizeKey);
   renderOpts(conf);
   build();
