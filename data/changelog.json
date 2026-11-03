@@ -9,6 +9,18 @@
     },
     "fix": [
       {
+        "zh": "点「检查更新」发现新版本后不再弹窗确认，直接后台下载并覆盖安装；更新说明改为重启后的首次启动展示",
+        "en": "Check for updates now downloads and installs directly instead of asking for confirmation; release notes still show on first launch after the update",
+        "ja": "「更新をチェック」で新バージョンを見つけたら確認なしで直接ダウンロード＆上書きインストール。更新内容は更新後の初回起動時に表示",
+        "ko": "「업데이트 확인」에서 새 버전을 찾으면 확인 창 없이 바로 다운로드해 덮어쓰기 설치합니다. 업데이트 내용은 업데이트 후 첫 실행 때 표시"
+      },
+      {
+        "zh": "从开发链接版覆盖为正式包时自动迁移存档，更新后进度和设置原样保留",
+        "en": "When overwriting a dev-linked install with the packaged app, the save file is migrated automatically so progress and settings survive",
+        "ja": "開発リンク版を正式パッケージで上書きする際、セーブデータを自動移行。更新後も進行状況と設定をそのまま保持",
+        "ko": "개발 링크 버전을 정식 패키지로 덮어쓸 때 저장 파일을 자동으로 옮겨 진행 상황과 설정이 그대로 유지됩니다"
+      },
+      {
         "zh": "存档加版本号：检测到另一个实例写入了更新的存档时，本实例不再覆盖（此前旧实例退出时的保存可能把新进度冲回旧快照）；备份改为保留两代（.bak / .bak2）",
         "en": "Saves now carry a revision: if another instance wrote a newer save, this instance skips writing instead of overwriting it (a stale instance quitting could previously roll progress back); two backup generations are kept (.bak / .bak2)",
         "ja": "セーブにリビジョンを追加。別インスタンスが新しいセーブを書いた場合は上書きせずスキップ（以前は旧インスタンス終了時の保存で進行状況が巻き戻る可能性がありました）。バックアップは2世代保持（.bak / .bak2）",

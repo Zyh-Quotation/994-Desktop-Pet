@@ -2705,15 +2705,12 @@ async function checkUpdate(manual = true) {
     const newer = cmpVer(m.version, cur) > 0;
     console.log('[update] 远端', m.version, '本地', cur, '需更新?', newer);
     if (newer) {
-      if (manual) {
-        availableUpdate = m;
-        updateSnoozeUntil = 0;
-        showUpdateNotes(updatePayload('available', m.version, m.notes, m.publishedAt));
-        bubble(`发现 v${m.version}，请确认更新内容`, 3200);
-      } else {
-        markPendingUpdate(m);
-        installUpdate(m);
-      }
+      // 手动 / 自动一致：发现新版本直接下载并覆盖安装，不再弹窗确认。
+      // 更新说明在重启后的首次启动由 maybeShowWhatsNew() 展示（「更新完成」窗口）
+      availableUpdate = m;
+      updateSnoozeUntil = 0;
+      markPendingUpdate(m);
+      installUpdate(m);
     } else if (manual) {
       bubble(`已是最新 v${cur}`, 2400);
     }

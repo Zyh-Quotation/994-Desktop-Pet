@@ -41,8 +41,30 @@ ditto -x -k "$TMP/update.zip" "$TMP/unpack"
 NEW_APP=$(find "$TMP/unpack" -maxdepth 2 -name '*.app' -type d -print -quit)
 [ -n "$NEW_APP" ] || { echo "❌ 压缩包里没有 .app"; exit 1; }
 
-# 存档在 ~/Library/Application Support/神奇宝贝，不在 app 包里，
-# 替换 bundle 不会动它，这里不需要额外搬运。
+# 存档位置取决于旧包形态：
+#   自包含正式包 → ~/Library/Application Support/神奇宝贝
+#   开发链接版（Resources/app 软链到 ~/Applications/桌宠）→ 项目目录的 userdata/
+# 覆盖成自包含新包后存档位置会切换，这里把旧存档搬过去，避免"更新完数据没了"。
+NEW_SUPPORT="$HOME/Library/Application Support/神奇宝贝"
+DEV_SAVE_DIR="$HOME/Applications/桌宠/userdata"
+migrate_save() {
+  mkdir -p "$NEW_SUPPORT"
+  for f in pet-state.json pet-state.json.bak pet-state.json.bak2; do
+    [ -f "$DEV_SAVE_DIR/$f" ] && cp "$DEV_SAVE_DIR/$f" "$NEW_SUPPORT/$f"
+  done
+  echo "✅ 已把开发版存档迁移到 $NEW_SUPPORT"
+  return 0
+}
+if [ -f "$DEV_SAVE_DIR/pet-state.json" ]; then
+  if [ ! -f "$NEW_SUPPORT/pet-state.json" ]; then
+    migrate_save
+  elif [ "$(stat -f %m "$DEV_SAVE_DIR/pet-state.json")" -gt "$(stat -f %m "$NEW_SUPPORT/pet-state.json")" ]; then
+    # 两边都有：开发版的修改时间较新才覆盖
+    migrate_save
+  fi
+fi
+
+pkill -f "$APP/Contents/MacOS/" 2>/dev/null || true
 rm -rf "$APP.bak"
 mv "$APP" "$APP.bak"
 # 保留签名/权限/扩展属性；cp -R 可能破坏代码签名
