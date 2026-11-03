@@ -4,6 +4,7 @@ const timerEl = document.getElementById('timer');
 const statEl = document.getElementById('stat');
 const hatchBtn = document.getElementById('hatch');
 const logEl = document.getElementById('log');
+const rarityEl = document.getElementById('rarity');
 const subEl = document.getElementById('sub');
 
 // 走动速度约 45px/s，估算剩余时间
@@ -25,7 +26,15 @@ function render(d) {
   ring.style.setProperty('--p', Math.round(pct * 100) + '%');
   ring.classList.toggle('ready', !!d.hasEgg);
   eggEl.textContent = '🥚';
-  eggEl.style.filter = d.hasEgg ? 'none' : 'grayscale(1) opacity(.22)';
+  eggEl.className = 'egg ' + (d.rarity || 'common');
+  eggEl.style.filter = d.hasEgg ? '' : 'grayscale(1) opacity(.22)';
+  if (rarityEl) {
+    const en = window.I18N && window.I18N.lang === 'en';
+    const map = { common: ['普通', 'Common'], rare: ['稀有', 'Rare'], legendary: ['传说', 'Legendary'], shiny: ['异色', 'Shiny'] };
+    const [zh, e] = map[d.rarity] || map.common;
+    rarityEl.className = 'rarity ' + (d.rarity || 'common');
+    rarityEl.textContent = d.hasEgg ? `✦ ${en ? e : zh} ✦` : '';
+  }
 
   if (d.hasEgg) {
     timerEl.innerHTML = '孵化 <small>点下面的按钮</small>';
@@ -58,11 +67,32 @@ async function refresh() {
 hatchBtn.onclick = async () => {
   hatchBtn.disabled = true;
   hatchBtn.textContent = '孵化中…';
-  await window.egg.hatch();
+  let r = null;
+  try { r = await window.egg.hatch(); } catch (_) {}
+  if (!r || !r.ok) {
+    // 蛋已经在桌面上被点掉了 / 主进程状态不同步：别把按钮永远卡在「孵化中」
+    hatchBtn.textContent = '没有蛋可以孵';
+    setTimeout(() => refresh().catch(() => {}), 200);
+    return;
+  }
   setTimeout(refresh, 1400);
 };
 
 document.getElementById('close').onclick = () => window.egg.close();
 
+// 皮肤 / 辅助功能
+try {
+  document.documentElement.dataset.skin = window.PET_SKIN || 'default';
+  const a = window.PET_ACCESS || {};
+  document.body.classList.toggle('reduce-motion', !!a.reduceMotion);
+  document.body.classList.toggle('high-contrast', !!a.highContrast);
+} catch (_) {}
+if (window.egg.onSkin) window.egg.onSkin(s => { document.documentElement.dataset.skin = s || 'default'; });
+if (window.egg.onAccess) window.egg.onAccess(a => {
+  document.body.classList.toggle('reduce-motion', !!a.reduceMotion);
+  document.body.classList.toggle('high-contrast', !!a.highContrast);
+});
+
 refresh().catch(e => console.error('[egg]', e));
-setInterval(() => { if (!last || !last.hasEgg) refresh().catch(() => {}); }, 2500);
+// 一直刷新：蛋可能在桌面上被点掉、或走路进度在涨，页面要跟上
+setInterval(() => refresh().catch(() => {}), 2500);

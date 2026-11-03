@@ -12,6 +12,8 @@ const ROOT = path.join(__dirname, '..');
 const OUT_DIR = path.join(ROOT, 'release');
 const APP = path.join(OUT_DIR, '神奇宝贝.app');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+let changelog = {};
+try { changelog = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'changelog.json'), 'utf8')); } catch (_) {}
 const NAME = `pokepet-${pkg.version}.zip`;
 const ZIP = path.join(OUT_DIR, NAME);
 
@@ -34,6 +36,9 @@ fs.rmSync(STAGE, { recursive: true, force: true });
 
 const sha256 = crypto.createHash('sha256').update(fs.readFileSync(ZIP)).digest('hex');
 const size = fs.statSync(ZIP).size;
+if (!changelog[pkg.version]) {
+  console.warn(`⚠️ data/changelog.json 里没有 v${pkg.version} 的说明，更新弹窗会缺内容`);
+}
 const manifest = {
   version: pkg.version,
   name: pkg.name,
@@ -41,7 +46,7 @@ const manifest = {
   url: process.env.RELEASE_URL || `https://example.com/pokepet/${NAME}`,
   sha256,
   size,
-  notes: process.env.RELEASE_NOTES || '',
+  notes: changelog[pkg.version] || process.env.RELEASE_NOTES || '',
   publishedAt: new Date().toISOString()
 };
 // Intel 版如果已经打好（tools/build-app-intel.sh），一并写进清单，
@@ -59,6 +64,22 @@ if (fs.existsSync(INTEL)) {
       sha256: crypto.createHash('sha256').update(ib).digest('hex'),
       size: ib.length
     }
+  };
+}
+// Windows 便携包（可选）：tools/build-win.sh 生成的 zip 一并写入清单
+const WIN = path.join(OUT_DIR, `pokepet-${pkg.version}-win-x64.zip`);
+if (fs.existsSync(WIN)) {
+  const wb = fs.readFileSync(WIN);
+  const wName = path.basename(WIN);
+  const wBase = manifest.url.replace(/[^/]+$/, '');
+  manifest.builds = manifest.builds || {
+    arm64: { file: NAME, url: manifest.url, sha256, size }
+  };
+  manifest.builds.win = {
+    file: wName,
+    url: wBase + wName,
+    sha256: crypto.createHash('sha256').update(wb).digest('hex'),
+    size: wb.length
   };
 }
 

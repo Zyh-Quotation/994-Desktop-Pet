@@ -37,17 +37,22 @@
   #go { background: #e63b3b; color: #fff; font-weight: 600; }
   #go:hover { background: #d33232; }
 
-  /* ── 深色模式 ── */
+  /* ── 深色模式：只改卡片，body 必须保持透明（否则圆角外会露出黑边）── */
   @media (prefers-color-scheme: dark) {
-    body {
-      background: #141416 !important;
-      color: #f5f5f7 !important;
+    #card {
+      background: rgba(35, 35, 37, .97) !important;
+      border-color: rgba(255, 255, 255, .08) !important;
     }
-    .card, .sheet { background: #232325 !important; }
-    .sub, small, .muted { color: #98989d !important; }
+    h1 { color: #f5f5f7 !important; }
+    p { color: #c7c7cc !important; }
+    p.sub { color: #f5f5f7 !important; }
+    #later { background: rgba(255, 255, 255, .12) !important; color: #f5f5f7 !important; }
+    #later:hover { background: rgba(255, 255, 255, .18) !important; }
   }
 </style>
+  <script src="i18n-extra.js"></script>
   <script src="i18n.js"></script>
+  <link rel="stylesheet" href="skins.css">
 </head>
 <body>
 <div id="card">
@@ -64,5 +69,6 @@
   document.getElementById('go').onclick = () => window.star.go();
   document.getElementById('later').onclick = () => window.star.later();
 </script>
+<script src="theme-boot.js"></script>
 </body>
 </html>

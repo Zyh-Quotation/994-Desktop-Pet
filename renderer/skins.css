@@ -1,0 +1,22 @@
+/* 主题皮肤：只改强调色和一层很淡的色调，不破坏深色模式/透明窗口 */
+html[data-skin="sakura"]  { --accent: #d94f7a; --accent-soft: rgba(217,79,122,.14); --skin-tint: rgba(255,190,210,.10); }
+html[data-skin="ocean"]   { --accent: #2f8fdb; --accent-soft: rgba(47,143,219,.14); --skin-tint: rgba(120,200,255,.10); }
+html[data-skin="forest"]  { --accent: #3d9a66; --accent-soft: rgba(61,154,102,.14); --skin-tint: rgba(130,220,160,.10); }
+html[data-skin="festival"]{ --accent: #e08a1e; --accent-soft: rgba(224,138,30,.16); --skin-tint: rgba(255,205,120,.12); }
+@media (prefers-color-scheme: dark) {
+  html[data-skin="sakura"]  { --accent: #ff7fa3; --accent-soft: rgba(255,127,163,.18); --skin-tint: rgba(255,120,160,.07); }
+  html[data-skin="ocean"]   { --accent: #63b8ff; --accent-soft: rgba(99,184,255,.18); --skin-tint: rgba(70,160,240,.07); }
+  html[data-skin="forest"]  { --accent: #67d095; --accent-soft: rgba(103,208,149,.18); --skin-tint: rgba(70,200,130,.07); }
+  html[data-skin="festival"]{ --accent: #ffb454; --accent-soft: rgba(255,180,84,.18); --skin-tint: rgba(255,170,60,.07); }
+}
+html[data-skin] body.settings {
+  background-image: radial-gradient(120% 55% at 50% 0%, var(--skin-tint, transparent), transparent 70%);
+  background-attachment: fixed;
+}
+html[data-skin="sakura"] header h1,
+html[data-skin="ocean"] header h1,
+html[data-skin="forest"] header h1,
+html[data-skin="festival"] header h1 {
+  background: linear-gradient(90deg, var(--accent), var(--text));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}

@@ -1,0 +1,2123 @@
+{
+  "generatedAt": "2026-11-03T08:58:19.936Z",
+  "count": 131,
+  "forms": {
+    "3": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "3-mega",
+          "name": "Mega Venusaur",
+          "nameZh": "超级妙蛙花",
+          "types": [
+            "草",
+            "毒"
+          ],
+          "sprite": "venusaur-mega",
+          "formId": 10033
+        }
+      ],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "3-gmax",
+          "name": "Gigantamax Venusaur",
+          "nameZh": "超极巨化妙蛙花",
+          "types": [
+            "草",
+            "毒"
+          ],
+          "sprite": "venusaur-gmax",
+          "formId": 10195
+        }
+      ]
+    },
+    "6": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "6-mega-x",
+          "name": "Mega Charizard X",
+          "nameZh": "超级喷火龙X",
+          "types": [
+            "火",
+            "龙"
+          ],
+          "sprite": "charizard-mega-x",
+          "formId": 10034
+        },
+        {
+          "kind": "mega",
+          "file": "6-mega-y",
+          "name": "Mega Charizard Y",
+          "nameZh": "超级喷火龙Y",
+          "types": [
+            "火",
+            "飞行"
+          ],
+          "sprite": "charizard-mega-y",
+          "formId": 10035
+        }
+      ],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "6-gmax",
+          "name": "Gigantamax Charizard",
+          "nameZh": "超极巨化喷火龙",
+          "types": [
+            "火",
+            "飞行"
+          ],
+          "sprite": "charizard-gmax",
+          "formId": 10196
+        }
+      ]
+    },
+    "9": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "9-mega",
+          "name": "Mega Blastoise",
+          "nameZh": "超级水箭龟",
+          "types": [
+            "水"
+          ],
+          "sprite": "blastoise-mega",
+          "formId": 10036
+        }
+      ],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "9-gmax",
+          "name": "Gigantamax Blastoise",
+          "nameZh": "超极巨化水箭龟",
+          "types": [
+            "水"
+          ],
+          "sprite": "blastoise-gmax",
+          "formId": 10197
+        }
+      ]
+    },
+    "12": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "12-gmax",
+          "name": "Gigantamax Butterfree",
+          "nameZh": "超极巨化巴大蝶",
+          "types": [
+            "虫",
+            "飞行"
+          ],
+          "sprite": "butterfree-gmax",
+          "formId": 10198
+        }
+      ]
+    },
+    "15": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "15-mega",
+          "name": "Mega Beedrill",
+          "nameZh": "超级大针蜂",
+          "types": [
+            "虫",
+            "毒"
+          ],
+          "sprite": "beedrill-mega",
+          "formId": 10090
+        }
+      ],
+      "gmax": []
+    },
+    "18": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "18-mega",
+          "name": "Mega Pidgeot",
+          "nameZh": "超级大比鸟",
+          "types": [
+            "一般",
+            "飞行"
+          ],
+          "sprite": "pidgeot-mega",
+          "formId": 10073
+        }
+      ],
+      "gmax": []
+    },
+    "25": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "25-gmax",
+          "name": "Gigantamax Pikachu",
+          "nameZh": "超极巨化皮卡丘",
+          "types": [
+            "电"
+          ],
+          "sprite": "pikachu-gmax",
+          "formId": 10199
+        }
+      ]
+    },
+    "26": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "26-mega-x",
+          "name": "Mega Raichu X",
+          "nameZh": "超级雷丘X",
+          "types": [
+            "电"
+          ],
+          "sprite": "raichu-mega-x",
+          "formId": 10304
+        },
+        {
+          "kind": "mega",
+          "file": "26-mega-y",
+          "name": "Mega Raichu Y",
+          "nameZh": "超级雷丘Y",
+          "types": [
+            "电"
+          ],
+          "sprite": "raichu-mega-y",
+          "formId": 10305
+        }
+      ],
+      "gmax": []
+    },
+    "36": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "36-mega",
+          "name": "Mega Clefable",
+          "nameZh": "超级皮可西",
+          "types": [
+            "妖精",
+            "飞行"
+          ],
+          "sprite": "clefable-mega",
+          "formId": 10278
+        }
+      ],
+      "gmax": []
+    },
+    "52": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "52-gmax",
+          "name": "Gigantamax Meowth",
+          "nameZh": "超极巨化喵喵",
+          "types": [
+            "一般"
+          ],
+          "sprite": "meowth-gmax",
+          "formId": 10200
+        }
+      ]
+    },
+    "65": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "65-mega",
+          "name": "Mega Alakazam",
+          "nameZh": "超级胡地",
+          "types": [
+            "超能力"
+          ],
+          "sprite": "alakazam-mega",
+          "formId": 10037
+        }
+      ],
+      "gmax": []
+    },
+    "68": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "68-gmax",
+          "name": "Gigantamax Machamp",
+          "nameZh": "超极巨化怪力",
+          "types": [
+            "格斗"
+          ],
+          "sprite": "machamp-gmax",
+          "formId": 10201
+        }
+      ]
+    },
+    "71": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "71-mega",
+          "name": "Mega Victreebel",
+          "nameZh": "超级大食花",
+          "types": [
+            "草",
+            "毒"
+          ],
+          "sprite": "victreebel-mega",
+          "formId": 10279
+        }
+      ],
+      "gmax": []
+    },
+    "80": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "80-mega",
+          "name": "Mega Slowbro",
+          "nameZh": "超级呆壳兽",
+          "types": [
+            "水",
+            "超能力"
+          ],
+          "sprite": "slowbro-mega",
+          "formId": 10071
+        }
+      ],
+      "gmax": []
+    },
+    "94": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "94-mega",
+          "name": "Mega Gengar",
+          "nameZh": "超级耿鬼",
+          "types": [
+            "幽灵",
+            "毒"
+          ],
+          "sprite": "gengar-mega",
+          "formId": 10038
+        }
+      ],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "94-gmax",
+          "name": "Gigantamax Gengar",
+          "nameZh": "超极巨化耿鬼",
+          "types": [
+            "幽灵",
+            "毒"
+          ],
+          "sprite": "gengar-gmax",
+          "formId": 10202
+        }
+      ]
+    },
+    "99": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "99-gmax",
+          "name": "Gigantamax Kingler",
+          "nameZh": "超极巨化巨钳蟹",
+          "types": [
+            "水"
+          ],
+          "sprite": "kingler-gmax",
+          "formId": 10203
+        }
+      ]
+    },
+    "115": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "115-mega",
+          "name": "Mega Kangaskhan",
+          "nameZh": "超级袋兽",
+          "types": [
+            "一般"
+          ],
+          "sprite": "kangaskhan-mega",
+          "formId": 10039
+        }
+      ],
+      "gmax": []
+    },
+    "121": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "121-mega",
+          "name": "Mega Starmie",
+          "nameZh": "超级宝石海星",
+          "types": [
+            "水",
+            "超能力"
+          ],
+          "sprite": "starmie-mega",
+          "formId": 10280
+        }
+      ],
+      "gmax": []
+    },
+    "127": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "127-mega",
+          "name": "Mega Pinsir",
+          "nameZh": "超级凯罗斯",
+          "types": [
+            "虫",
+            "飞行"
+          ],
+          "sprite": "pinsir-mega",
+          "formId": 10040
+        }
+      ],
+      "gmax": []
+    },
+    "130": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "130-mega",
+          "name": "Mega Gyarados",
+          "nameZh": "超级暴鲤龙",
+          "types": [
+            "水",
+            "恶"
+          ],
+          "sprite": "gyarados-mega",
+          "formId": 10041
+        }
+      ],
+      "gmax": []
+    },
+    "131": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "131-gmax",
+          "name": "Gigantamax Lapras",
+          "nameZh": "超极巨化拉普拉斯",
+          "types": [
+            "水",
+            "冰"
+          ],
+          "sprite": "lapras-gmax",
+          "formId": 10204
+        }
+      ]
+    },
+    "133": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "133-gmax",
+          "name": "Gigantamax Eevee",
+          "nameZh": "超极巨化伊布",
+          "types": [
+            "一般"
+          ],
+          "sprite": "eevee-gmax",
+          "formId": 10205
+        }
+      ]
+    },
+    "142": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "142-mega",
+          "name": "Mega Aerodactyl",
+          "nameZh": "超级化石翼龙",
+          "types": [
+            "岩石",
+            "飞行"
+          ],
+          "sprite": "aerodactyl-mega",
+          "formId": 10042
+        }
+      ],
+      "gmax": []
+    },
+    "143": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "143-gmax",
+          "name": "Gigantamax Snorlax",
+          "nameZh": "超极巨化卡比兽",
+          "types": [
+            "一般"
+          ],
+          "sprite": "snorlax-gmax",
+          "formId": 10206
+        }
+      ]
+    },
+    "149": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "149-mega",
+          "name": "Mega Dragonite",
+          "nameZh": "超级快龙",
+          "types": [
+            "龙",
+            "飞行"
+          ],
+          "sprite": "dragonite-mega",
+          "formId": 10281
+        }
+      ],
+      "gmax": []
+    },
+    "150": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "150-mega-x",
+          "name": "Mega Mewtwo X",
+          "nameZh": "超级超梦X",
+          "types": [
+            "超能力",
+            "格斗"
+          ],
+          "sprite": "mewtwo-mega-x",
+          "formId": 10043
+        },
+        {
+          "kind": "mega",
+          "file": "150-mega-y",
+          "name": "Mega Mewtwo Y",
+          "nameZh": "超级超梦Y",
+          "types": [
+            "超能力"
+          ],
+          "sprite": "mewtwo-mega-y",
+          "formId": 10044
+        }
+      ],
+      "gmax": []
+    },
+    "154": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "154-mega",
+          "name": "Mega Meganium",
+          "nameZh": "超级大竺葵",
+          "types": [
+            "草",
+            "妖精"
+          ],
+          "sprite": "meganium-mega",
+          "formId": 10282
+        }
+      ],
+      "gmax": []
+    },
+    "160": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "160-mega",
+          "name": "Mega Feraligatr",
+          "nameZh": "超级大力鳄",
+          "types": [
+            "水",
+            "龙"
+          ],
+          "sprite": "feraligatr-mega",
+          "formId": 10283
+        }
+      ],
+      "gmax": []
+    },
+    "181": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "181-mega",
+          "name": "Mega Ampharos",
+          "nameZh": "超级电龙",
+          "types": [
+            "电",
+            "龙"
+          ],
+          "sprite": "ampharos-mega",
+          "formId": 10045
+        }
+      ],
+      "gmax": []
+    },
+    "208": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "208-mega",
+          "name": "Mega Steelix",
+          "nameZh": "超级大钢蛇",
+          "types": [
+            "钢",
+            "地面"
+          ],
+          "sprite": "steelix-mega",
+          "formId": 10072
+        }
+      ],
+      "gmax": []
+    },
+    "212": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "212-mega",
+          "name": "Mega Scizor",
+          "nameZh": "超级巨钳螳螂",
+          "types": [
+            "虫",
+            "钢"
+          ],
+          "sprite": "scizor-mega",
+          "formId": 10046
+        }
+      ],
+      "gmax": []
+    },
+    "214": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "214-mega",
+          "name": "Mega Heracross",
+          "nameZh": "超级赫拉克罗斯",
+          "types": [
+            "虫",
+            "格斗"
+          ],
+          "sprite": "heracross-mega",
+          "formId": 10047
+        }
+      ],
+      "gmax": []
+    },
+    "227": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "227-mega",
+          "name": "Mega Skarmory",
+          "nameZh": "超级盔甲鸟",
+          "types": [
+            "钢",
+            "飞行"
+          ],
+          "sprite": "skarmory-mega",
+          "formId": 10284
+        }
+      ],
+      "gmax": []
+    },
+    "229": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "229-mega",
+          "name": "Mega Houndoom",
+          "nameZh": "超级黑鲁加",
+          "types": [
+            "恶",
+            "火"
+          ],
+          "sprite": "houndoom-mega",
+          "formId": 10048
+        }
+      ],
+      "gmax": []
+    },
+    "248": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "248-mega",
+          "name": "Mega Tyranitar",
+          "nameZh": "超级班基拉斯",
+          "types": [
+            "岩石",
+            "恶"
+          ],
+          "sprite": "tyranitar-mega",
+          "formId": 10049
+        }
+      ],
+      "gmax": []
+    },
+    "254": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "254-mega",
+          "name": "Mega Sceptile",
+          "nameZh": "超级蜥蜴王",
+          "types": [
+            "草",
+            "龙"
+          ],
+          "sprite": "sceptile-mega",
+          "formId": 10065
+        }
+      ],
+      "gmax": []
+    },
+    "257": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "257-mega",
+          "name": "Mega Blaziken",
+          "nameZh": "超级火焰鸡",
+          "types": [
+            "火",
+            "格斗"
+          ],
+          "sprite": "blaziken-mega",
+          "formId": 10050
+        }
+      ],
+      "gmax": []
+    },
+    "260": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "260-mega",
+          "name": "Mega Swampert",
+          "nameZh": "超级巨沼怪",
+          "types": [
+            "水",
+            "地面"
+          ],
+          "sprite": "swampert-mega",
+          "formId": 10064
+        }
+      ],
+      "gmax": []
+    },
+    "282": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "282-mega",
+          "name": "Mega Gardevoir",
+          "nameZh": "超级沙奈朵",
+          "types": [
+            "超能力",
+            "妖精"
+          ],
+          "sprite": "gardevoir-mega",
+          "formId": 10051
+        }
+      ],
+      "gmax": []
+    },
+    "302": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "302-mega",
+          "name": "Mega Sableye",
+          "nameZh": "超级勾魂眼",
+          "types": [
+            "恶",
+            "幽灵"
+          ],
+          "sprite": "sableye-mega",
+          "formId": 10066
+        }
+      ],
+      "gmax": []
+    },
+    "303": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "303-mega",
+          "name": "Mega Mawile",
+          "nameZh": "超级大嘴娃",
+          "types": [
+            "钢",
+            "妖精"
+          ],
+          "sprite": "mawile-mega",
+          "formId": 10052
+        }
+      ],
+      "gmax": []
+    },
+    "306": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "306-mega",
+          "name": "Mega Aggron",
+          "nameZh": "超级波士可多拉",
+          "types": [
+            "钢"
+          ],
+          "sprite": "aggron-mega",
+          "formId": 10053
+        }
+      ],
+      "gmax": []
+    },
+    "308": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "308-mega",
+          "name": "Mega Medicham",
+          "nameZh": "超级恰雷姆",
+          "types": [
+            "格斗",
+            "超能力"
+          ],
+          "sprite": "medicham-mega",
+          "formId": 10054
+        }
+      ],
+      "gmax": []
+    },
+    "310": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "310-mega",
+          "name": "Mega Manectric",
+          "nameZh": "超级雷电兽",
+          "types": [
+            "电"
+          ],
+          "sprite": "manectric-mega",
+          "formId": 10055
+        }
+      ],
+      "gmax": []
+    },
+    "319": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "319-mega",
+          "name": "Mega Sharpedo",
+          "nameZh": "超级巨牙鲨",
+          "types": [
+            "水",
+            "恶"
+          ],
+          "sprite": "sharpedo-mega",
+          "formId": 10070
+        }
+      ],
+      "gmax": []
+    },
+    "323": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "323-mega",
+          "name": "Mega Camerupt",
+          "nameZh": "超级喷火驼",
+          "types": [
+            "火",
+            "地面"
+          ],
+          "sprite": "camerupt-mega",
+          "formId": 10087
+        }
+      ],
+      "gmax": []
+    },
+    "334": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "334-mega",
+          "name": "Mega Altaria",
+          "nameZh": "超级七夕青鸟",
+          "types": [
+            "龙",
+            "妖精"
+          ],
+          "sprite": "altaria-mega",
+          "formId": 10067
+        }
+      ],
+      "gmax": []
+    },
+    "354": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "354-mega",
+          "name": "Mega Banette",
+          "nameZh": "超级诅咒娃娃",
+          "types": [
+            "幽灵"
+          ],
+          "sprite": "banette-mega",
+          "formId": 10056
+        }
+      ],
+      "gmax": []
+    },
+    "358": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "358-mega",
+          "name": "Mega Chimecho",
+          "nameZh": "超级风铃铃",
+          "types": [
+            "超能力",
+            "钢"
+          ],
+          "sprite": "chimecho-mega",
+          "formId": 10306
+        }
+      ],
+      "gmax": []
+    },
+    "359": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "359-mega",
+          "name": "Mega Absol",
+          "nameZh": "超级阿勃梭鲁",
+          "types": [
+            "恶"
+          ],
+          "sprite": "absol-mega",
+          "formId": 10057
+        },
+        {
+          "kind": "mega",
+          "file": "359-mega-z",
+          "name": "Mega Absol Z",
+          "nameZh": "超级阿勃梭鲁Z",
+          "types": [
+            "恶",
+            "幽灵"
+          ],
+          "sprite": "absol-mega-z",
+          "formId": 10307
+        }
+      ],
+      "gmax": []
+    },
+    "362": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "362-mega",
+          "name": "Mega Glalie",
+          "nameZh": "超级冰鬼护",
+          "types": [
+            "冰"
+          ],
+          "sprite": "glalie-mega",
+          "formId": 10074
+        }
+      ],
+      "gmax": []
+    },
+    "373": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "373-mega",
+          "name": "Mega Salamence",
+          "nameZh": "超级暴飞龙",
+          "types": [
+            "龙",
+            "飞行"
+          ],
+          "sprite": "salamence-mega",
+          "formId": 10089
+        }
+      ],
+      "gmax": []
+    },
+    "376": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "376-mega",
+          "name": "Mega Metagross",
+          "nameZh": "超级巨金怪",
+          "types": [
+            "钢",
+            "超能力"
+          ],
+          "sprite": "metagross-mega",
+          "formId": 10076
+        }
+      ],
+      "gmax": []
+    },
+    "380": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "380-mega",
+          "name": "Mega Latias",
+          "nameZh": "超级拉帝亚斯",
+          "types": [
+            "龙",
+            "超能力"
+          ],
+          "sprite": "latias-mega",
+          "formId": 10062
+        }
+      ],
+      "gmax": []
+    },
+    "381": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "381-mega",
+          "name": "Mega Latios",
+          "nameZh": "超级拉帝欧斯",
+          "types": [
+            "龙",
+            "超能力"
+          ],
+          "sprite": "latios-mega",
+          "formId": 10063
+        }
+      ],
+      "gmax": []
+    },
+    "384": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "384-mega",
+          "name": "Mega Rayquaza",
+          "nameZh": "超级烈空坐",
+          "types": [
+            "龙",
+            "飞行"
+          ],
+          "sprite": "rayquaza-mega",
+          "formId": 10079
+        }
+      ],
+      "gmax": []
+    },
+    "398": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "398-mega",
+          "name": "Mega Staraptor",
+          "nameZh": "超级姆克鹰",
+          "types": [
+            "格斗",
+            "飞行"
+          ],
+          "sprite": "staraptor-mega",
+          "formId": 10308
+        }
+      ],
+      "gmax": []
+    },
+    "428": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "428-mega",
+          "name": "Mega Lopunny",
+          "nameZh": "超级长耳兔",
+          "types": [
+            "一般",
+            "格斗"
+          ],
+          "sprite": "lopunny-mega",
+          "formId": 10088
+        }
+      ],
+      "gmax": []
+    },
+    "445": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "445-mega",
+          "name": "Mega Garchomp",
+          "nameZh": "超级烈咬陆鲨",
+          "types": [
+            "龙",
+            "地面"
+          ],
+          "sprite": "garchomp-mega",
+          "formId": 10058
+        },
+        {
+          "kind": "mega",
+          "file": "445-mega-z",
+          "name": "Mega Garchomp Z",
+          "nameZh": "超级烈咬陆鲨Z",
+          "types": [
+            "龙"
+          ],
+          "sprite": "garchomp-mega-z",
+          "formId": 10309
+        }
+      ],
+      "gmax": []
+    },
+    "448": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "448-mega",
+          "name": "Mega Lucario",
+          "nameZh": "超级路卡利欧",
+          "types": [
+            "格斗",
+            "钢"
+          ],
+          "sprite": "lucario-mega",
+          "formId": 10059
+        },
+        {
+          "kind": "mega",
+          "file": "448-mega-z",
+          "name": "Mega Lucario Z",
+          "nameZh": "超级路卡利欧Z",
+          "types": [
+            "格斗",
+            "钢"
+          ],
+          "sprite": "lucario-mega-z",
+          "formId": 10310
+        }
+      ],
+      "gmax": []
+    },
+    "460": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "460-mega",
+          "name": "Mega Abomasnow",
+          "nameZh": "超级暴雪王",
+          "types": [
+            "草",
+            "冰"
+          ],
+          "sprite": "abomasnow-mega",
+          "formId": 10060
+        }
+      ],
+      "gmax": []
+    },
+    "475": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "475-mega",
+          "name": "Mega Gallade",
+          "nameZh": "超级艾路雷朵",
+          "types": [
+            "超能力",
+            "格斗"
+          ],
+          "sprite": "gallade-mega",
+          "formId": 10068
+        }
+      ],
+      "gmax": []
+    },
+    "478": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "478-mega",
+          "name": "Mega Froslass",
+          "nameZh": "超级雪妖女",
+          "types": [
+            "冰",
+            "幽灵"
+          ],
+          "sprite": "froslass-mega",
+          "formId": 10285
+        }
+      ],
+      "gmax": []
+    },
+    "485": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "485-mega",
+          "name": "Mega Heatran",
+          "nameZh": "超级席多蓝恩",
+          "types": [
+            "火",
+            "钢"
+          ],
+          "sprite": "heatran-mega",
+          "formId": 10311
+        }
+      ],
+      "gmax": []
+    },
+    "491": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "491-mega",
+          "name": "Mega Darkrai",
+          "nameZh": "超级达克莱伊",
+          "types": [
+            "恶"
+          ],
+          "sprite": "darkrai-mega",
+          "formId": 10312
+        }
+      ],
+      "gmax": []
+    },
+    "500": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "500-mega",
+          "name": "Mega Emboar",
+          "nameZh": "超级炎武王",
+          "types": [
+            "火",
+            "格斗"
+          ],
+          "sprite": "emboar-mega",
+          "formId": 10286
+        }
+      ],
+      "gmax": []
+    },
+    "530": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "530-mega",
+          "name": "Mega Excadrill",
+          "nameZh": "超级龙头地鼠",
+          "types": [
+            "地面",
+            "钢"
+          ],
+          "sprite": "excadrill-mega",
+          "formId": 10287
+        }
+      ],
+      "gmax": []
+    },
+    "531": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "531-mega",
+          "name": "Mega Audino",
+          "nameZh": "超级差不多娃娃",
+          "types": [
+            "一般",
+            "妖精"
+          ],
+          "sprite": "audino-mega",
+          "formId": 10069
+        }
+      ],
+      "gmax": []
+    },
+    "545": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "545-mega",
+          "name": "Mega Scolipede",
+          "nameZh": "超级蜈蚣王",
+          "types": [
+            "虫",
+            "毒"
+          ],
+          "sprite": "scolipede-mega",
+          "formId": 10288
+        }
+      ],
+      "gmax": []
+    },
+    "560": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "560-mega",
+          "name": "Mega Scrafty",
+          "nameZh": "超级头巾混混",
+          "types": [
+            "恶",
+            "格斗"
+          ],
+          "sprite": "scrafty-mega",
+          "formId": 10289
+        }
+      ],
+      "gmax": []
+    },
+    "569": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "569-gmax",
+          "name": "Gigantamax Garbodor",
+          "nameZh": "超极巨化灰尘山",
+          "types": [
+            "毒"
+          ],
+          "sprite": "garbodor-gmax",
+          "formId": 10207
+        }
+      ]
+    },
+    "604": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "604-mega",
+          "name": "Mega Eelektross",
+          "nameZh": "超级麻麻鳗鱼王",
+          "types": [
+            "电"
+          ],
+          "sprite": "eelektross-mega",
+          "formId": 10290
+        }
+      ],
+      "gmax": []
+    },
+    "609": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "609-mega",
+          "name": "Mega Chandelure",
+          "nameZh": "超级水晶灯火灵",
+          "types": [
+            "幽灵",
+            "火"
+          ],
+          "sprite": "chandelure-mega",
+          "formId": 10291
+        }
+      ],
+      "gmax": []
+    },
+    "623": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "623-mega",
+          "name": "Mega Golurk",
+          "nameZh": "超级泥偶巨人",
+          "types": [
+            "地面",
+            "幽灵"
+          ],
+          "sprite": "golurk-mega",
+          "formId": 10313
+        }
+      ],
+      "gmax": []
+    },
+    "652": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "652-mega",
+          "name": "Mega Chesnaught",
+          "nameZh": "超级布里卡隆",
+          "types": [
+            "草",
+            "格斗"
+          ],
+          "sprite": "chesnaught-mega",
+          "formId": 10292
+        }
+      ],
+      "gmax": []
+    },
+    "655": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "655-mega",
+          "name": "Mega Delphox",
+          "nameZh": "超级妖火红狐",
+          "types": [
+            "火",
+            "超能力"
+          ],
+          "sprite": "delphox-mega",
+          "formId": 10293
+        }
+      ],
+      "gmax": []
+    },
+    "658": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "658-mega",
+          "name": "Mega Greninja",
+          "nameZh": "超级甲贺忍蛙",
+          "types": [
+            "水",
+            "恶"
+          ],
+          "sprite": "greninja-mega",
+          "formId": 10294
+        }
+      ],
+      "gmax": []
+    },
+    "668": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "668-pyroar-mega",
+          "name": "Mega Pyroar",
+          "nameZh": "超级火炎狮",
+          "types": [
+            "火",
+            "一般"
+          ],
+          "sprite": "pyroar-mega",
+          "formId": 10295
+        }
+      ],
+      "gmax": []
+    },
+    "670": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "670-mega",
+          "name": "Mega Floette",
+          "nameZh": "超级花叶蒂",
+          "types": [
+            "妖精"
+          ],
+          "sprite": "floette-mega",
+          "formId": 10296
+        }
+      ],
+      "gmax": []
+    },
+    "678": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "678-mega",
+          "name": "Mega Meowstic",
+          "nameZh": "超级超能妙喵",
+          "types": [
+            "超能力"
+          ],
+          "sprite": "meowstic-male-mega",
+          "formId": 10314
+        },
+        {
+          "kind": "mega",
+          "file": "678-meowstic-female-mega",
+          "name": "Mega Meowstic",
+          "nameZh": "超级超能妙喵",
+          "types": [
+            "超能力"
+          ],
+          "sprite": "meowstic-female-mega",
+          "formId": 10326
+        }
+      ],
+      "gmax": []
+    },
+    "687": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "687-mega",
+          "name": "Mega Malamar",
+          "nameZh": "超级乌贼王",
+          "types": [
+            "恶",
+            "超能力"
+          ],
+          "sprite": "malamar-mega",
+          "formId": 10297
+        }
+      ],
+      "gmax": []
+    },
+    "689": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "689-mega",
+          "name": "Mega Barbaracle",
+          "nameZh": "超级龟足巨铠",
+          "types": [
+            "岩石",
+            "格斗"
+          ],
+          "sprite": "barbaracle-mega",
+          "formId": 10298
+        }
+      ],
+      "gmax": []
+    },
+    "691": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "691-mega",
+          "name": "Mega Dragalge",
+          "nameZh": "超级毒藻龙",
+          "types": [
+            "毒",
+            "龙"
+          ],
+          "sprite": "dragalge-mega",
+          "formId": 10299
+        }
+      ],
+      "gmax": []
+    },
+    "701": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "701-mega",
+          "name": "Mega Hawlucha",
+          "nameZh": "超级摔角鹰人",
+          "types": [
+            "格斗",
+            "飞行"
+          ],
+          "sprite": "hawlucha-mega",
+          "formId": 10300
+        }
+      ],
+      "gmax": []
+    },
+    "718": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "718-zygarde-mega",
+          "name": "Mega Zygarde",
+          "nameZh": "超级基格尔德",
+          "types": [
+            "龙",
+            "地面"
+          ],
+          "sprite": "zygarde-mega",
+          "formId": 10301
+        }
+      ],
+      "gmax": []
+    },
+    "719": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "719-mega",
+          "name": "Mega Diancie",
+          "nameZh": "超级蒂安希",
+          "types": [
+            "岩石",
+            "妖精"
+          ],
+          "sprite": "diancie-mega",
+          "formId": 10075
+        }
+      ],
+      "gmax": []
+    },
+    "740": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "740-mega",
+          "name": "Mega Crabominable",
+          "nameZh": "超级好胜毛蟹",
+          "types": [
+            "格斗",
+            "冰"
+          ],
+          "sprite": "crabominable-mega",
+          "formId": 10315
+        }
+      ],
+      "gmax": []
+    },
+    "768": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "768-mega",
+          "name": "Mega Golisopod",
+          "nameZh": "超级具甲武者",
+          "types": [
+            "虫",
+            "钢"
+          ],
+          "sprite": "golisopod-mega",
+          "formId": 10316
+        }
+      ],
+      "gmax": []
+    },
+    "780": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "780-mega",
+          "name": "Mega Drampa",
+          "nameZh": "超级老翁龙",
+          "types": [
+            "一般",
+            "龙"
+          ],
+          "sprite": "drampa-mega",
+          "formId": 10302
+        }
+      ],
+      "gmax": []
+    },
+    "801": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "801-mega",
+          "name": "Mega Magearna",
+          "nameZh": "超级玛机雅娜",
+          "types": [
+            "钢",
+            "妖精"
+          ],
+          "sprite": "magearna-mega",
+          "formId": 10317
+        },
+        {
+          "kind": "mega",
+          "file": "801-original-mega",
+          "name": "Mega Original Magearna",
+          "nameZh": "超级玛机雅娜",
+          "types": [
+            "钢",
+            "妖精"
+          ],
+          "sprite": "magearna-original-mega",
+          "formId": 10318
+        }
+      ],
+      "gmax": []
+    },
+    "807": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "807-mega",
+          "name": "Mega Zeraora",
+          "nameZh": "超级捷拉奥拉",
+          "types": [
+            "电"
+          ],
+          "sprite": "zeraora-mega",
+          "formId": 10319
+        }
+      ],
+      "gmax": []
+    },
+    "809": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "809-gmax",
+          "name": "Gigantamax Melmetal",
+          "nameZh": "超极巨化美录梅塔",
+          "types": [
+            "钢"
+          ],
+          "sprite": "melmetal-gmax",
+          "formId": 10208
+        }
+      ]
+    },
+    "812": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "812-gmax",
+          "name": "Gigantamax Rillaboom",
+          "nameZh": "超极巨化轰擂金刚猩",
+          "types": [
+            "草"
+          ],
+          "sprite": "rillaboom-gmax",
+          "formId": 10209
+        }
+      ]
+    },
+    "815": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "815-gmax",
+          "name": "Gigantamax Cinderace",
+          "nameZh": "超极巨化闪焰王牌",
+          "types": [
+            "火"
+          ],
+          "sprite": "cinderace-gmax",
+          "formId": 10210
+        }
+      ]
+    },
+    "818": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "818-gmax",
+          "name": "Gigantamax Inteleon",
+          "nameZh": "超极巨化千面避役",
+          "types": [
+            "水"
+          ],
+          "sprite": "inteleon-gmax",
+          "formId": 10211
+        }
+      ]
+    },
+    "823": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "823-gmax",
+          "name": "Gigantamax Corviknight",
+          "nameZh": "超极巨化钢铠鸦",
+          "types": [
+            "飞行",
+            "钢"
+          ],
+          "sprite": "corviknight-gmax",
+          "formId": 10212
+        }
+      ]
+    },
+    "826": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "826-gmax",
+          "name": "Gigantamax Orbeetle",
+          "nameZh": "超极巨化以欧路普",
+          "types": [
+            "虫",
+            "超能力"
+          ],
+          "sprite": "orbeetle-gmax",
+          "formId": 10213
+        }
+      ]
+    },
+    "834": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "834-gmax",
+          "name": "Gigantamax Drednaw",
+          "nameZh": "超极巨化暴噬龟",
+          "types": [
+            "水",
+            "岩石"
+          ],
+          "sprite": "drednaw-gmax",
+          "formId": 10214
+        }
+      ]
+    },
+    "839": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "839-gmax",
+          "name": "Gigantamax Coalossal",
+          "nameZh": "超极巨化巨炭山",
+          "types": [
+            "岩石",
+            "火"
+          ],
+          "sprite": "coalossal-gmax",
+          "formId": 10215
+        }
+      ]
+    },
+    "841": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "841-gmax",
+          "name": "Gigantamax Flapple",
+          "nameZh": "超极巨化苹裹龙",
+          "types": [
+            "草",
+            "龙"
+          ],
+          "sprite": "flapple-gmax",
+          "formId": 10216
+        }
+      ]
+    },
+    "842": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "842-gmax",
+          "name": "Gigantamax Appletun",
+          "nameZh": "超极巨化丰蜜龙",
+          "types": [
+            "草",
+            "龙"
+          ],
+          "sprite": "appletun-gmax",
+          "formId": 10217
+        }
+      ]
+    },
+    "844": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "844-gmax",
+          "name": "Gigantamax Sandaconda",
+          "nameZh": "超极巨化沙螺蟒",
+          "types": [
+            "地面"
+          ],
+          "sprite": "sandaconda-gmax",
+          "formId": 10218
+        }
+      ]
+    },
+    "849": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "849-gmax",
+          "name": "Gigantamax Amped Toxtricity",
+          "nameZh": "超极巨化颤弦蝾螈",
+          "types": [
+            "电",
+            "毒"
+          ],
+          "sprite": "toxtricity-amped-gmax",
+          "formId": 10219
+        },
+        {
+          "kind": "gmax",
+          "file": "849-toxtricity-low-key-gmax",
+          "name": "Gigantamax Low Key Toxtricity",
+          "nameZh": "超极巨化颤弦蝾螈",
+          "types": [
+            "电",
+            "毒"
+          ],
+          "sprite": "toxtricity-low-key-gmax",
+          "formId": 10228
+        }
+      ]
+    },
+    "851": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "851-gmax",
+          "name": "Gigantamax Centiskorch",
+          "nameZh": "超极巨化焚焰蚣",
+          "types": [
+            "火",
+            "虫"
+          ],
+          "sprite": "centiskorch-gmax",
+          "formId": 10220
+        }
+      ]
+    },
+    "858": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "858-gmax",
+          "name": "Gigantamax Hatterene",
+          "nameZh": "超极巨化布莉姆温",
+          "types": [
+            "超能力",
+            "妖精"
+          ],
+          "sprite": "hatterene-gmax",
+          "formId": 10221
+        }
+      ]
+    },
+    "861": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "861-gmax",
+          "name": "Gigantamax Grimmsnarl",
+          "nameZh": "超极巨化长毛巨魔",
+          "types": [
+            "恶",
+            "妖精"
+          ],
+          "sprite": "grimmsnarl-gmax",
+          "formId": 10222
+        }
+      ]
+    },
+    "869": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "869-gmax",
+          "name": "Gigantamax Alcremie",
+          "nameZh": "超极巨化霜奶仙",
+          "types": [
+            "妖精"
+          ],
+          "sprite": "alcremie-gmax",
+          "formId": 10223
+        }
+      ]
+    },
+    "870": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "870-mega",
+          "name": "Mega Falinks",
+          "nameZh": "超级列阵兵",
+          "types": [
+            "格斗"
+          ],
+          "sprite": "falinks-mega",
+          "formId": 10303
+        }
+      ],
+      "gmax": []
+    },
+    "879": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "879-gmax",
+          "name": "Gigantamax Copperajah",
+          "nameZh": "超极巨化大王铜象",
+          "types": [
+            "钢"
+          ],
+          "sprite": "copperajah-gmax",
+          "formId": 10224
+        }
+      ]
+    },
+    "884": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "884-gmax",
+          "name": "Gigantamax Duraludon",
+          "nameZh": "超极巨化铝钢龙",
+          "types": [
+            "钢",
+            "龙"
+          ],
+          "sprite": "duraludon-gmax",
+          "formId": 10225
+        }
+      ]
+    },
+    "892": {
+      "mega": [],
+      "gmax": [
+        {
+          "kind": "gmax",
+          "file": "892-gmax",
+          "name": "Gigantamax Single Strike Urshifu",
+          "nameZh": "超极巨化武道熊师（一击流）",
+          "types": [
+            "格斗",
+            "恶"
+          ],
+          "sprite": "urshifu-single-strike-gmax",
+          "formId": 10226
+        },
+        {
+          "kind": "gmax",
+          "file": "892-urshifu-rapid-strike-gmax",
+          "name": "Gigantamax Rapid Strike Urshifu",
+          "nameZh": "超极巨化武道熊师（连击流）",
+          "types": [
+            "格斗",
+            "水"
+          ],
+          "sprite": "urshifu-rapid-strike-gmax",
+          "formId": 10227
+        }
+      ]
+    },
+    "952": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "952-mega",
+          "name": "Mega Scovillain",
+          "nameZh": "超级狠辣椒",
+          "types": [
+            "草",
+            "火"
+          ],
+          "sprite": "scovillain-mega",
+          "formId": 10320
+        }
+      ],
+      "gmax": []
+    },
+    "970": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "970-mega",
+          "name": "Mega Glimmora",
+          "nameZh": "超级晶光花",
+          "types": [
+            "岩石",
+            "毒"
+          ],
+          "sprite": "glimmora-mega",
+          "formId": 10321
+        }
+      ],
+      "gmax": []
+    },
+    "978": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "978-mega",
+          "name": "Mega Curly Tatsugiri",
+          "nameZh": "超级米立龙",
+          "types": [
+            "龙",
+            "水"
+          ],
+          "sprite": "tatsugiri-curly-mega",
+          "formId": 10322
+        },
+        {
+          "kind": "mega",
+          "file": "978-tatsugiri-droopy-mega",
+          "name": "Mega Droopy Tatsugiri",
+          "nameZh": "超级米立龙",
+          "types": [
+            "龙",
+            "水"
+          ],
+          "sprite": "tatsugiri-droopy-mega",
+          "formId": 10323
+        },
+        {
+          "kind": "mega",
+          "file": "978-tatsugiri-stretchy-mega",
+          "name": "Mega Stretchy Tatsugiri",
+          "nameZh": "超级米立龙",
+          "types": [
+            "龙",
+            "水"
+          ],
+          "sprite": "tatsugiri-stretchy-mega",
+          "formId": 10324
+        }
+      ],
+      "gmax": []
+    },
+    "998": {
+      "mega": [
+        {
+          "kind": "mega",
+          "file": "998-mega",
+          "name": "Mega Baxcalibur",
+          "nameZh": "超级戟脊龙",
+          "types": [
+            "龙",
+            "冰"
+          ],
+          "sprite": "baxcalibur-mega",
+          "formId": 10325
+        }
+      ],
+      "gmax": []
+    }
+  }
+}

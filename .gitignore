@@ -11,6 +11,7 @@ tools/.cache/
 # 大体积素材，用 tools/fetch-*.js 补
 assets/pokemon/
 assets/cries/
+assets/forms/
 
 # 宣传中间产物
 promo/shot-*.png
@@ -30,3 +31,5 @@ report-shot.png
 game-shot.png
 ach-shot.png
 egg-shot.png
+lore-shot.png
+tools/csv/

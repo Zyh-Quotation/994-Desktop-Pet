@@ -1,0 +1,136 @@
+{
+  "0.6.1": {
+    "date": "2026-11-03",
+    "title": {
+      "zh": "变身演出、形态招式与四语言",
+      "en": "Form Cut-ins, Form Moves & Four Languages",
+      "ja": "変身演出・形態技・4言語",
+      "ko": "변신 연출, 형태 기술, 4개 언어"
+    },
+    "new": [
+      {
+        "zh": "超级进化 / 超极巨化加入专属变身演出：闪白、能量环、粒子爆散，以及形态名和专属招式横幅",
+        "en": "Mega Evolution and Gigantamax now get a cut-in: flash, energy rings, particles and a form/move banner",
+        "ja": "メガシンカ／キョダイマックスに専用演出を追加。閃光、エネルギーリング、粒子、形態名と専用技のバナー",
+        "ko": "메가진화/거대맥스 전용 연출 추가: 섬광, 에너지 링, 입자, 형태/기술 배너"
+      },
+      {
+        "zh": "131 个战斗形态都有专属招式：变身后使用「专属动作」就会放出该形态的招式，托盘和伙伴页也会显示",
+        "en": "All 131 battle forms have their own move — use Signature after transforming, and see it in the tray and Team page",
+        "ja": "131形態すべてに専用技を追加。変身後に「専用技」を使うとその形態の技を放ち、トレイとなかま画面にも表示",
+        "ko": "131개 배틀 폼 모두 전용 기술 보유. 변신 후 전용 기술을 쓰면 해당 형태의 기술이 나가고 트레이/파트너 화면에도 표시"
+      },
+      {
+        "zh": "新增日语 / 韩语界面，1025 只宝可梦和形态、招式都有日文 / 韩文名（长文介绍暂时用英文兜底）",
+        "en": "Added Japanese and Korean UI, with Japanese/Korean names for all 1025 Pokémon, forms and moves (long lore falls back to English)",
+        "ja": "日本語／韓国語UIを追加。1025匹のポケモン、形態、技に日本語／韓国語名を収録（長文図鑑は英語で代替）",
+        "ko": "일본어/한국어 UI 추가. 1025마리 포켓몬, 형태, 기술에 일본어/한국어 이름 제공 (긴 도감 설명은 영어로 대체)"
+      },
+      {
+        "zh": "形态专属招式会显示在伙伴页状态、右键菜单和更新提示里，变身后一眼能看到当前招式",
+        "en": "The active form move is shown in the Team status, context menu and transform notice",
+        "ja": "形態専用技をなかま画面、右クリックメニュー、変身通知に表示",
+        "ko": "형태 전용 기술을 파트너 상태, 우클릭 메뉴, 변신 알림에 표시"
+      },
+      {
+        "zh": "超级进化 / 超极巨化的冷却已取消，持续时间结束后可以立刻再次变身",
+        "en": "Mega Evolution and Gigantamax cooldowns are gone — transform again right after the form ends",
+        "ja": "メガシンカ／キョダイマックスのクールダウンを廃止。終了後すぐ再変身できます",
+        "ko": "메가진화/거대맥스 쿨다운 삭제. 종료 후 바로 다시 변신할 수 있습니다"
+      }
+    ],
+    "fix": [
+      {
+        "zh": "移除变身冷却倒计时、按钮禁用和存档里的冷却字段，老存档也不会再被冷却卡住",
+        "en": "Removed cooldown timers, disabled buttons and saved cooldown fields; old saves no longer get stuck",
+        "ja": "変身クールダウンのカウントダウン、ボタン無効化、セーブ内の冷却データを削除。古いセーブでも止まりません",
+        "ko": "변신 쿨다운 타이머, 버튼 비활성화, 저장된 쿨다운 필드를 제거. 기존 저장 데이터도 막히지 않습니다"
+      },
+      {
+        "zh": "修复日文 / 韩文界面里伙伴名、形态名和招式名偶尔退回中文的问题",
+        "en": "Fixed partner, form and move names sometimes falling back to Chinese in Japanese/Korean",
+        "ja": "日本語／韓国語UIでなかま名、形態名、技名が中国語に戻ることがある問題を修正",
+        "ko": "일본어/한국어 UI에서 파트너, 형태, 기술 이름이 중국어로 돌아가던 문제 수정"
+      },
+      {
+        "zh": "任务名、任务刷新倒计时、设置项和更新说明补全日文 / 韩文翻译",
+        "en": "Localized task names, reset countdowns, settings labels and update notes into Japanese and Korean",
+        "ja": "タスク名、更新までのカウントダウン、設定項目、更新情報の日本語／韓国語訳を追加",
+        "ko": "작업 이름, 갱신 카운트다운, 설정 항목, 업데이트 정보의 일본어/한국어 번역 추가"
+      },
+      {
+        "zh": "变身演出期间不再弹出普通气泡，避免形态横幅被「下午好～」之类的问候遮住",
+        "en": "Normal bubbles no longer overlap the transformation banner",
+        "ja": "変身演出中に通常の吹き出しが出ないようにし、形態バナーが隠れるのを防止",
+        "ko": "변신 연출 중 일반 말풍선이 겹치지 않도록 수정"
+      }
+    ]
+  },
+  "0.6.0": {
+    "date": "2026-11-03",
+    "title": {
+      "zh": "超级进化与体验大更新",
+      "en": "Mega Evolution & Polish"
+    },
+    "new": [
+      {
+        "zh": "超级进化 / 超极巨化：115 种宝可梦、131 个形态，右键、托盘或伙伴页一键变身，带光效、异色和自动恢复",
+        "en": "Mega Evolution and Gigantamax: 115 species and 131 forms, with auras, shiny forms and automatic revert"
+      },
+      {
+        "zh": "图鉴支持虚拟滚动，并可按编号、名称、属性、世代排序，1025 只翻起来更顺",
+        "en": "Virtual scrolling in the Dex, with sorting by number, name, type or generation"
+      },
+      {
+        "zh": "蛋加入普通 / 稀有 / 传说 / 异色稀有度，孵化结果和光效都会跟着变",
+        "en": "Egg rarities: Common, Rare, Legendary and Shiny, with matching hatch results and glows"
+      },
+      {
+        "zh": "通知中心：签到、孵蛋、任务、成就和健康提醒都会入档，可标记已读、清空并持久保存",
+        "en": "Notification center for check-ins, eggs, tasks, badges and health reminders, with read/clear and persistence"
+      },
+      {
+        "zh": "成就墙扩到 30 枚，并加入一整年的签到 / 活动热力图",
+        "en": "A 30-badge achievement wall plus a full-year check-in and activity heatmap"
+      },
+      {
+        "zh": "每日 / 每周任务：走路、喂食、摸头、玩耍、招式、签到、孵蛋都能领经验和进化石",
+        "en": "Daily and weekly tasks for walking, feeding, petting, playing, moves, check-ins and hatching"
+      },
+      {
+        "zh": "伙伴队伍最多 12 只，支持改名、帽子和围巾；主题皮肤、节日自动换肤和辅助功能也更完整",
+        "en": "Teams of up to 12 with nicknames, hats and scarves, plus themes, festival skins and accessibility options"
+      },
+      {
+        "zh": "Windows 应用内更新：下载、校验 SHA256、替换并自动重启，失败会回滚",
+        "en": "In-app Windows updates with SHA256 verification, automatic restart and rollback on failure"
+      },
+      {
+        "zh": "版本更新弹窗：以后每次手动检查更新都会先列出新增功能和修复内容，确认后再下载；更新完成首次启动也会展示一次",
+        "en": "Update dialog: manual checks now list new features and fixes before downloading, and the first launch after an update shows them again"
+      }
+    ],
+    "fix": [
+      {
+        "zh": "修复叫声音量滑块不生效的问题",
+        "en": "Fixed the cry volume slider having no effect"
+      },
+      {
+        "zh": "修复设置页皮肤颜色不可见、部分主题背景异常的问题",
+        "en": "Fixed invisible skin tints and broken theme backgrounds in Settings"
+      },
+      {
+        "zh": "补全英文界面：进化条件、版本号、旧通知不再混入中文",
+        "en": "Completed English UI: evolution conditions, version labels and legacy notifications no longer mix in Chinese"
+      },
+      {
+        "zh": "修复老存档签到热力图空白、平铺图鉴刷新后跳回顶部的问题",
+        "en": "Fixed blank heatmaps for old saves and the flat Dex jumping back to the top after refresh"
+      },
+      {
+        "zh": "修复伙伴队伍自动补人、改名输入框被隐藏、超大形态气泡被裁切的问题",
+        "en": "Fixed team auto-fill, hidden rename input and clipped bubbles on giant forms"
+      }
+    ]
+  }
+}

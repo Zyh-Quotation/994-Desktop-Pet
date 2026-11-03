@@ -85,10 +85,15 @@ html, body {
 
 .foot { margin-top: 6px; font-size: 9px; color: var(--muted); text-align: right; }
 
-/* ── 深色模式 ── */
+/* ── 深色模式：只改卡片，body 保持透明，避免圆角外黑边 ── */
 @media (prefers-color-scheme: dark) {
-  .card, .sheet, body { background: #232325 !important; }
-  body { color: #f5f5f7 !important; }
-  .muted, .sub, small { color: #98989d !important; }
-  .tag { background: rgba(255,255,255,.1) !important; }
+  #card {
+    background: rgba(35, 35, 37, .97) !important;
+    border-color: rgba(255, 255, 255, .08) !important;
+  }
+  .name { color: #f5f5f7 !important; }
+  .dex, .genus, .meta, .foot { color: #98989d !important; }
+  .home { color: #e5e5ea !important; }
+  .flavor { color: #c7c7cc !important; }
+  .likes { background: rgba(255, 255, 255, .07) !important; color: #d1d1d6 !important; }
 }

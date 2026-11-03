@@ -1,8 +1,9 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, ipcMain, shell, dialog, nativeTheme } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, ipcMain, shell, dialog, nativeTheme, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const http = require('http');
+const crypto = require('crypto');
 
 // 在受限/无 GPU 环境下也能跑（桌宠小窗口对软件渲染无感）
 app.commandLine.appendSwitch('no-sandbox');
@@ -141,6 +142,7 @@ const GRAVITY = 1900;     // px/s²
 
 // ---------- 世界状态 ----------
 let win = null;
+let petBooted = false;   // 宠物窗口的一次性初始化是否已做过
 let tray = null;
 let petH = 96;        // 精灵显示高度
 let alt = 0;          // 当前离地高度（px），>0 表示在空中
@@ -167,6 +169,7 @@ let hungerNagAt = 0, moodNagAt = 0;
 let clickTimes = [];
 let shiny = false;                  // 当前这只是否用异色图
 let shinyMode = 'auto';             // auto（1/128 彩蛋）| always | never
+let shinyLocked = false;            // 异色蛋孵出的这只强制异色
 let lastTs = Date.now();
 let achCheckAt = 0;
 let expAt = 0;
@@ -182,15 +185,186 @@ let dexMet = [];                     // 遇见过的图鉴编号
 let shinyMet = [];                   // 见过异色的编号
 let counters = { sig: 0, feed: 0, play: 0, pet: 0, throw: 0, streak: 0, lastDay: '', checkIn: 0, lastCheckIn: '' };
 let unlocked = {};                   // 成就 id -> 解锁时间
-let lang = 'zh';  // zh | en
+let uiLang = 'zh'; // 界面语言：zh | en | ja | ko
+let lang = 'zh';   // 主进程文案语言：zh | en（ja/ko 用中文原文，交给 i18n 翻译）
 try {
   // 打包后才按系统语言判断；开发模式下 getLocale 不可靠，直接中文
-  if (app.isPackaged && !String(app.getLocale() || '').toLowerCase().startsWith('zh')) lang = 'en';
+  if (app.isPackaged) {
+    const loc = String(app.getLocale() || '').toLowerCase();
+    if (loc.startsWith('ja')) uiLang = 'ja';
+    else if (loc.startsWith('ko')) uiLang = 'ko';
+    else if (!loc.startsWith('zh')) uiLang = 'en';
+  }
 } catch (_) {}
+lang = uiLang === 'en' ? 'en' : 'zh';
 let rotateMin = 0;                   // 自动换宝可梦的间隔（分钟），0=关
 let rotateAt = 0;
 let level = 1;                       // 陪伴等级
 let exp = 0;                         // 经验，每 100 一级
+let lastSeenVersion = '';            // 上次启动时已展示过更新说明的版本
+let pendingUpdate = null;            // 更新前暂存的说明，供重启后的「更新完成」弹窗使用
+let hadStateFile = false;            // 本次启动前是否已有存档（区分首装与升级）
+let updateSnoozeUntil = 0;           // 用户点「稍后」后，自动检查暂不安装的截止时间
+
+// ---------- 通知中心 / 任务 / 活动日历 ----------
+let notifications = [];   // { id, t, kind, title, body, read }
+let notifySeq = 0;
+let notifySystem = false; // 是否同时发系统通知
+let tasksState = { day: '', week: '', daily: {}, weekly: {} };
+let checkins = [];        // 签到过的本地日期（YYYY-MM-DD）
+let activity = {};        // 日期 -> 当天互动次数，用于热力图
+let heatmapDays = 365;
+const TASK_DEFS = {
+  daily: [
+    { id: 'walk',  metric: 'walk',  target: 100,  reward: 40,  zh: '走 100 米', en: 'Walk 100 m', ja: '100メートル歩く', ko: '100미터 걷기' },
+    { id: 'feed',  metric: 'feed',  target: 3,    reward: 35,  zh: '喂食 3 次', en: 'Feed 3 times', ja: 'ごはんを3回', ko: '먹이 3회' },
+    { id: 'pet',   metric: 'pet',   target: 10,   reward: 30,  zh: '摸头 10 次', en: 'Pet 10 times', ja: 'なでる 10回', ko: '쓰다듬기 10회' },
+    { id: 'play',  metric: 'play',  target: 2,    reward: 30,  zh: '玩耍 2 次', en: 'Play 2 times', ja: '遊ぶ 2回', ko: '놀기 2회' },
+    { id: 'sig',   metric: 'sig',   target: 2,    reward: 30,  zh: '发动 2 次专属动作', en: 'Use a signature move twice', ja: '専用技を2回', ko: '전용 기술 2회' },
+    { id: 'checkin', metric: 'checkin', target: 1, reward: 20, zh: '完成签到', en: 'Check in', ja: 'チェックイン', ko: '출석 체크' }
+  ],
+  weekly: [
+    { id: 'walk',  metric: 'walk',  target: 800,  reward: 160, stones: 1, zh: '走 800 米', en: 'Walk 800 m', ja: '800メートル歩く', ko: '800미터 걷기' },
+    { id: 'feed',  metric: 'feed',  target: 20,   reward: 150, zh: '喂食 20 次', en: 'Feed 20 times', ja: 'ごはんを20回', ko: '먹이 20회' },
+    { id: 'sig',   metric: 'sig',   target: 20,   reward: 150, zh: '发动 20 次专属动作', en: 'Use signature moves 20 times', ja: '専用技を20回', ko: '전용 기술 20회' },
+    { id: 'hatch', metric: 'hatch', target: 1,    reward: 120, stones: 1, zh: '孵出 1 只', en: 'Hatch 1 egg', ja: '1匹孵化する', ko: '1마리 부화' },
+    { id: 'evolve', metric: 'evolve', target: 1,  reward: 120, zh: '进化 1 次', en: 'Evolve once', ja: '1回進化する', ko: '1회 진화' },
+    { id: 'newdex', metric: 'newdex', target: 5,  reward: 180, zh: '遇见 5 只新宝可梦', en: 'Meet 5 new Pokémon', ja: '新しいポケモンに5匹出会う', ko: '새 포켓몬 5마리 만나기' }
+  ]
+};
+function weekKey(d) {
+  const t = d instanceof Date ? d : new Date(d === undefined ? Date.now() : d);
+  const x = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));   // 周一为一周开始
+  return dayKey(x);
+}
+function defaultTaskBucket(defs) {
+  const o = {};
+  for (const d of defs) o[d.id] = { p: 0, claimed: false, notified: false };
+  return o;
+}
+function ensureTasks() {
+  const day = dayKey(), week = weekKey();
+  let changed = false;
+  if (tasksState.day !== day) {
+    tasksState.day = day;
+    tasksState.daily = defaultTaskBucket(TASK_DEFS.daily);
+    changed = true;
+  }
+  if (tasksState.week !== week) {
+    tasksState.week = week;
+    tasksState.weekly = defaultTaskBucket(TASK_DEFS.weekly);
+    changed = true;
+  }
+  return changed;
+}
+function taskProgress(freq, id) {
+  ensureTasks();
+  const b = tasksState[freq] && tasksState[freq][id];
+  return b ? b.p : 0;
+}
+function bumpTask(metric, n = 1) {
+  if (!metric || !(n > 0)) return;
+  ensureTasks();
+  for (const freq of ['daily', 'weekly']) {
+    for (const def of TASK_DEFS[freq]) {
+      if (def.metric !== metric) continue;
+      const b = tasksState[freq][def.id];
+      if (!b || b.p >= def.target) continue;
+      b.p = Math.min(def.target, b.p + n);
+      if (b.p >= def.target && !b.notified) {
+        b.notified = true;
+        pushNotice({
+          kind: 'task',
+          title: '任务完成', titleEn: 'Task complete', titleJa: 'タスク達成', titleKo: '작업 완료',
+          body: def.zh + ' —— 到设置里领奖励',
+          bodyEn: def.en + ' — claim your reward in Settings',
+          bodyJa: def.ja + ' — 設定で報酬を受け取れます',
+          bodyKo: def.ko + ' — 설정에서 보상을 받으세요'
+        });
+      }
+    }
+  }
+  saveSoon();
+}
+function taskSnapshot(freq) {
+  ensureTasks();
+  return TASK_DEFS[freq].map(def => {
+    const b = tasksState[freq][def.id] || { p: 0, claimed: false };
+    return {
+      id: def.id, zh: def.zh, en: def.en, ja: def.ja, ko: def.ko, target: def.target,
+      reward: def.reward, stones: def.stones || 0,
+      progress: Math.min(def.target, b.p), claimed: !!b.claimed
+    };
+  });
+}
+function claimTask(freq, id) {
+  if (!['daily', 'weekly'].includes(freq)) return false;
+  ensureTasks();
+  const def = (TASK_DEFS[freq] || []).find(d => d.id === id);
+  const b = tasksState[freq] && tasksState[freq][id];
+  if (!def || !b || b.claimed || b.p < def.target) return false;
+  b.claimed = true;
+  counters[freq === 'daily' ? 'tasksClaimed' : 'tasksWeeklyClaimed'] =
+    (counters[freq === 'daily' ? 'tasksClaimed' : 'tasksWeeklyClaimed'] || 0) + 1;
+  addExp(def.reward);
+  if (def.stones) addStone(def.stones);
+  pushNotice({
+    kind: 'reward',
+    title: '奖励已领取', titleEn: 'Reward claimed', titleJa: '報酬を受け取りました', titleKo: '보상 수령',
+    body: def.zh + ` · +${def.reward} 经验` + (def.stones ? ` · +${def.stones} 进化石` : ''),
+    bodyEn: def.en + ` · +${def.reward} EXP` + (def.stones ? ` · +${def.stones} stone` : ''),
+    bodyJa: def.ja + ` · +${def.reward} 経験値` + (def.stones ? ` · +${def.stones} 進化の石` : ''),
+    bodyKo: def.ko + ` · +${def.reward} 경험치` + (def.stones ? ` · +${def.stones} 진화의돌` : '')
+  });
+  saveState();
+  notifySettings();
+  return true;
+}
+function bumpActivity(n = 1) {
+  const d = dayKey();
+  activity[d] = (Number(activity[d]) || 0) + n;
+  // 只保留一年多一点
+  const keys = Object.keys(activity).sort();
+  while (keys.length > 420) delete activity[keys.shift()];
+}
+function pushNotice({ kind = 'info', title = '', body = '', titleEn = '', bodyEn = '', titleJa = '', bodyJa = '', titleKo = '', bodyKo = '', silent = false } = {}) {
+  const n = { id: ++notifySeq, t: Date.now(), kind, title: String(title || ''), body: String(body || ''),
+    titleEn: String(titleEn || ''), bodyEn: String(bodyEn || ''),
+    titleJa: String(titleJa || titleEn || title || ''), bodyJa: String(bodyJa || bodyEn || body || ''),
+    titleKo: String(titleKo || titleEn || title || ''), bodyKo: String(bodyKo || bodyEn || body || ''), read: false };
+  notifications.unshift(n);
+  if (notifications.length > 100) notifications.length = 100;
+  if (!silent && notifySystem) {
+    try {
+      if (Notification.isSupported()) {
+        const en = uiLang === 'en';
+        const title = uiLang === 'ja' ? n.titleJa : uiLang === 'ko' ? n.titleKo : en ? n.titleEn : n.title;
+        const body = uiLang === 'ja' ? n.bodyJa : uiLang === 'ko' ? n.bodyKo : en ? n.bodyEn : n.body;
+        const sys = new Notification({ title: title || n.title, body: body || n.body, silent: true });
+        sys.on('click', () => openSettingsTab('notify'));
+        sys.show();
+      }
+    } catch (_) {}
+  }
+  saveState();
+  notifySettings();
+  return n;
+}
+
+// 气泡里要拼「名字 · 属性」，i18n 只翻整段，这里给属性一个英文表
+const TYPE_EN = {
+  一般: 'Normal', 火: 'Fire', 水: 'Water', 电: 'Electric', 草: 'Grass', 冰: 'Ice',
+  格斗: 'Fighting', 毒: 'Poison', 地面: 'Ground', 飞行: 'Flying', 超能力: 'Psychic',
+  虫: 'Bug', 岩石: 'Rock', 幽灵: 'Ghost', 龙: 'Dragon', 恶: 'Dark', 钢: 'Steel', 妖精: 'Fairy'
+};
+const typeLabel = t => (lang === 'en' ? (TYPE_EN[t] || t) : t);
+const TYPE_COLOR_MAIN = {
+  一般: '#A8A878', 火: '#F08030', 水: '#6890F0', 电: '#F8D030', 草: '#78C850', 冰: '#98D8D8',
+  格斗: '#C03028', 毒: '#A040A0', 地面: '#E0C068', 飞行: '#A890F0', 超能力: '#F85888',
+  虫: '#A8B820', 岩石: '#B8A038', 幽灵: '#705898', 龙: '#7038F8', 恶: '#705848',
+  钢: '#B8B8D0', 妖精: '#EE99AC'
+};
 
 const NATURES = [
   { key: 'cheer',  zh: '开朗', en: 'Cheerful', speed: 1.25, sleepMult: .7 },
@@ -209,16 +383,71 @@ function natureFor(dex) {
 }
 let currentNature = NATURES[0];
 let walkedPx = 0;        // 走了多少像素，攒够了给颗蛋
+let walkTaskPx = 0;      // 任务进度：不足 1 米的部分
 const EGG_MIN = 22000;   // 约 8 分钟纯走路
 const EGG_MAX = 58000;   // 约 21 分钟
 const EGG_AT = Number(process.env.PET_EGG_AT || 0);   // 调试用固定值，0 表示随机
 let eggTarget = EGG_AT || (EGG_MIN + Math.floor(Math.random() * (EGG_MAX - EGG_MIN)));
 let hasEgg = false;
+let eggRarity = 'common';   // common | rare | legendary | shiny
+const EGG_RARITIES = {
+  common:    { weight: 70, label: '普通',   en: 'Common',    ja: 'ノーマル', ko: '노말' },
+  rare:      { weight: 20, label: '稀有',   en: 'Rare',      ja: 'レア',     ko: '레어' },
+  legendary: { weight: 7,  label: '传说',   en: 'Legendary', ja: '伝説',     ko: '전설' },
+  shiny:     { weight: 3,  label: '异色',   en: 'Shiny',     ja: '色違い',   ko: '이로치' }
+};
+// 稀有蛋的基础形态：准传说 / 稀有幼体
+const RARE_BASE = new Set([147, 246, 371, 374, 443, 633, 704, 782, 885, 996]);
+function rollEggRarity() {
+  // 连签 / 等级会稍微提高稀有与传说概率，但普通仍是大头
+  const boost = Math.min(15, (Number(counters.streak) || 1) + Math.floor(level / 10));
+  const weights = {
+    common: Math.max(45, EGG_RARITIES.common.weight - boost * 0.5),
+    rare: EGG_RARITIES.rare.weight + boost * 0.3,
+    legendary: EGG_RARITIES.legendary.weight + boost * 0.18,
+    shiny: EGG_RARITIES.shiny.weight + boost * 0.05
+  };
+  const total = Object.values(weights).reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (const k of Object.keys(weights)) { r -= weights[k]; if (r <= 0) return k; }
+  return 'common';
+}
 let guestWin = null;     // 串门的另一只
 let guest = null;        // { dex, x, dir, until, phase: 'in'|'stay'|'out' }
 let nextGuestAt = 0;
 let guestEnabled = true;
 let favorites = [];       // 收藏的图鉴编号
+let roster = [];          // 伙伴队伍 [{ dex, nickname, hat, scarf }]
+let nickname = '';        // 当前伙伴的昵称
+let hat = 'none';         // none | cap | tophat | crown
+let scarf = 'none';       // none | red | blue | green
+let battleForm = null;    // { kind: 'mega'|'gmax', entry, until } 仅本次运行有效
+const MAX_ROSTER = 12;
+function activeRosterEntry() { return roster.find(p => p.dex === speciesDex); }
+function syncRosterEntry() {
+  if (!SPECIES.some(sp => sp.dex === speciesDex)) return;
+  let e = activeRosterEntry();
+  if (!e) {
+    e = { dex: speciesDex, nickname: nickname || '', hat: hat || 'none', scarf: scarf || 'none' };
+    roster.unshift(e);
+  } else {
+    e.nickname = nickname || '';
+    e.hat = hat || 'none';
+    e.scarf = scarf || 'none';
+  }
+  // 队伍只保留 12 只；优先保留当前这只
+  if (roster.length > MAX_ROSTER) {
+    const active = activeRosterEntry();
+    roster = roster.filter(p => p === active).concat(roster.filter(p => p !== active)).slice(0, MAX_ROSTER);
+  }
+}
+function loadRosterLook(dex) {
+  const e = roster.find(p => p.dex === dex);
+  nickname = e ? (e.nickname || '') : '';
+  hat = e && ['none','cap','tophat','crown'].includes(e.hat) ? e.hat : 'none';
+  scarf = e && ['none','red','blue','green'].includes(e.scarf) ? e.scarf : 'none';
+}
+const petName = () => nickname || (battleForm ? formLabel(battleForm.entry) : nameOf(speciesDex));
 let firstLaunch = 0;      // 第一次打开的时间（生日）
 let sitWarnMin = 45;      // 坐多久提醒一次
 let waterWarnMin = 60;    // 多久提醒喝水
@@ -241,8 +470,62 @@ const ACHIEVEMENTS = [
   { id: 'pet500', name: '摸头狂魔', en: 'Head-pat pro', desc: '摸头 500 次', test: () => counters.pet >= 500 },
   { id: 'throw10', name: '投掷训练', en: 'Throw training', desc: '把宠物扔出去 10 次', test: () => counters.throw >= 10 },
   { id: 'streak7', name: '老朋友', en: 'Old friend', desc: '连续陪伴 7 天', test: () => counters.streak >= 7 },
-  { id: 'checkin7', name: '每日打卡', en: 'Daily regular', desc: '连续签到 7 天', test: () => counters.checkIn >= 7 }
+  { id: 'checkin7', name: '每日打卡', en: 'Daily regular', desc: '连续签到 7 天', test: () => counters.checkIn >= 7 },
+  { id: 'level10', name: '十级伙伴', en: 'Level 10', desc: '陪伴等级到 10 级', test: () => level >= 10, prog: () => [level, 10] },
+  { id: 'level25', name: '形影不离', en: 'Inseparable', desc: '陪伴等级到 25 级', test: () => level >= 25, prog: () => [level, 25] },
+  { id: 'level50', name: '传说训练家', en: 'Legendary trainer', desc: '陪伴等级到 50 级', test: () => level >= 50, prog: () => [level, 50] },
+  { id: 'hatch1', name: '破壳而出', en: 'First hatch', desc: '孵出第一只宝可梦', test: () => (counters.hatch || 0) >= 1, prog: () => [counters.hatch || 0, 1] },
+  { id: 'hatch10', name: '孵化专家', en: 'Egg expert', desc: '累计孵出 10 只', test: () => (counters.hatch || 0) >= 10, prog: () => [counters.hatch || 0, 10] },
+  { id: 'walk10k', name: '万里长征', en: 'Long walk', desc: '累计走 10 公里', test: () => (counters.walked || 0) >= 500000, prog: () => [Math.round((counters.walked || 0) / 50), 10000] },
+  { id: 'dex500', name: '半部图鉴', en: 'Half a dex', desc: '遇见 500 只', test: () => dexMet.length >= 500, prog: () => [dexMet.length, 500] },
+  { id: 'shiny3', name: '闪光收藏', en: 'Shiny stash', desc: '见过 3 只异色', test: () => shinyMet.length >= 3, prog: () => [shinyMet.length, 3] },
+  { id: 'feed200', name: '大厨', en: 'Chef', desc: '喂食 200 次', test: () => counters.feed >= 200, prog: () => [counters.feed || 0, 200] },
+  { id: 'pet1000', name: '摸头宗师', en: 'Pet master', desc: '摸头 1000 次', test: () => counters.pet >= 1000, prog: () => [counters.pet || 0, 1000] },
+  { id: 'sig500', name: '招式宗师', en: 'Move grandmaster', desc: '发动 500 次专属动作', test: () => counters.sig >= 500, prog: () => [counters.sig || 0, 500] },
+  { id: 'throw50', name: '投掷高手', en: 'Throw expert', desc: '把宠物扔出去 50 次', test: () => counters.throw >= 50, prog: () => [counters.throw || 0, 50] },
+  { id: 'checkin30', name: '月度全勤', en: 'Perfect month', desc: '连续签到 30 天', test: () => counters.checkIn >= 30, prog: () => [counters.checkIn || 0, 30] },
+  { id: 'streak30', name: '室友', en: 'Roommate', desc: '连续陪伴 30 天', test: () => counters.streak >= 30, prog: () => [counters.streak || 0, 30] },
+  { id: 'tasks10', name: '任务达人', en: 'Task runner', desc: '领取 10 个每日任务奖励', test: () => (counters.tasksClaimed || 0) >= 10, prog: () => [counters.tasksClaimed || 0, 10] },
+  { id: 'weekly4', name: '每周全勤', en: 'Weekly regular', desc: '领取 4 个每周任务奖励', test: () => (counters.tasksWeeklyClaimed || 0) >= 4, prog: () => [counters.tasksWeeklyClaimed || 0, 4] }
 ];
+
+// 成就名的日 / 韩文（描述也在同一张表里，避免设置页出现半句中文）
+const ACH_I18N = {
+  first: ['はじめての出会い', '첫 만남', 'はじめてのポケモンと出会う', '첫 포켓몬 만나기'],
+  dex10: ['お客さん', '손님', '10匹のポケモンと出会う', '포켓몬 10마리 만나기'],
+  dex50: ['旅慣れ', '견문이 넓음', '50匹のポケモンと出会う', '포켓몬 50마리 만나기'],
+  dex200: ['博物学者', '박물학자', '200匹のポケモンと出会う', '포켓몬 200마리 만나기'],
+  dex1025: ['図鑑コンプリート', '도감 완성', '1025匹すべてと出会う', '포켓몬 1025마리 모두 만나기'],
+  shiny1: ['色違いハンター', '이로치 헌터', '色違いを1匹見る', '이로치 1마리 보기'],
+  shiny8: ['色違いコレクター', '이로치 수집가', '元の色違いを8匹集める', '원래 이로치 8마리 모으기'],
+  sig10: ['駆け出し', '초보', '専用技を10回使う', '전용 기술 10회 사용'],
+  sig100: ['技マスター', '기술 마스터', '専用技を100回使う', '전용 기술 100회 사용'],
+  feed50: ['飼育員', '사육사', 'ごはんを50回あげる', '먹이 50회 주기'],
+  pet500: ['なでなで魔王', '쓰다듬기 마왕', '500回なでる', '500회 쓰다듬기'],
+  throw10: ['投げ練習', '던지기 훈련', '10回投げる', '10회 던지기'],
+  streak7: ['古い友達', '오랜 친구', '7日連続で一緒に過ごす', '7일 연속 함께하기'],
+  checkin7: ['毎日チェックイン', '매일 출석', '7日連続でチェックイン', '7일 연속 출석'],
+  level10: ['レベル10の相棒', '레벨 10 파트너', '一緒のレベルが10になる', '함께 레벨 10 달성'],
+  level25: ['いつも一緒', '그림자처럼', '一緒のレベルが25になる', '함께 레벨 25 달성'],
+  level50: ['伝説のトレーナー', '전설의 트레이너', '一緒のレベルが50になる', '함께 레벨 50 달성'],
+  hatch1: ['殻から出た', '껍질을 깨고', 'はじめてタマゴを孵す', '첫 알 부화'],
+  hatch10: ['孵化の専門家', '부화 전문가', '合計10匹孵化する', '누적 10마리 부화'],
+  walk10k: ['万里の道', '만리 길', '合計10km歩く', '누적 10km 걷기'],
+  dex500: ['図鑑の半分', '도감 절반', '500匹のポケモンと出会う', '포켓몬 500마리 만나기'],
+  shiny3: ['光るコレクション', '반짝이 컬렉션', '色違いを3匹見る', '이로치 3마리 보기'],
+  feed200: ['料理長', '요리사', 'ごはんを200回あげる', '먹이 200회 주기'],
+  pet1000: ['なでなで宗師', '쓰다듬기 종사', '1000回なでる', '1000회 쓰다듬기'],
+  sig500: ['技の宗師', '기술 종사', '専用技を500回使う', '전용 기술 500회 사용'],
+  throw50: ['投げの達人', '던지기 달인', '50回投げる', '50회 던지기'],
+  checkin30: ['皆勤賞', '개근상', '30日連続でチェックイン', '30일 연속 출석'],
+  streak30: ['ルームメイト', '룸메이트', '30日連続で一緒に過ごす', '30일 연속 함께하기'],
+  tasks10: ['タスクの達人', '작업 달인', 'デイリータスク報酬を10回受け取る', '일일 작업 보상 10회 받기'],
+  weekly4: ['週間皆勤', '주간 개근', 'ウィークリータスク報酬を4回受け取る', '주간 작업 보상 4회 받기']
+};
+for (const a of ACHIEVEMENTS) {
+  const t = ACH_I18N[a.id];
+  if (t) { a.ja = t[0]; a.ko = t[1]; a.descJa = t[2]; a.descKo = t[3]; }
+}
 
 function evolvesAt(how) {
   const m = /Lv\.(\d+)/.exec(how || '');
@@ -286,7 +569,10 @@ function tryEvolve() {
 function doEvolve(ev) {
   const to = byDex.get(ev.to);
   if (!to) return;
-  const fromName = (byDex.get(speciesDex) || {}).name || '它';
+  if (battleForm) clearForm(true, true);
+  const fromName = nameOf(speciesDex) || '它';
+  const evoEntry = activeRosterEntry();
+  if (evoEntry) evoEntry.dex = ev.to;
   speciesDex = ev.to;
   shiny = shinyFor(speciesDex);
   currentNature = natureFor(speciesDex);
@@ -295,12 +581,16 @@ function doEvolve(ev) {
   }
   markMet(speciesDex);
   markShiny(speciesDex);
+  bumpTask('evolve', 1);
+  bumpActivity(3);
   setState('happy', 1600);
   saveState();
   refreshTray();
   console.log(`[evolve] ${fromName} → ${to.name}（${ev.how}）`);
   setTimeout(() => {
-    bubble(`✨ ${fromName} 进化成 ${to.name}！`, 5200, true);
+    bubble(lang === 'en'
+      ? `✨ ${fromName} evolved into ${nameOf(speciesDex)}!`
+      : `✨ ${fromName} 进化成 ${nameOf(speciesDex)}！`, 5200, true);
     try { playCry(speciesDex, true); } catch (_) {}
   }, 900);
   setTimeout(() => tryEvolve(), 9000);   // 三段进化可能接着来
@@ -315,6 +605,8 @@ function notifySettings() {
 function markMet(dex) {
   if (!Number.isFinite(dex) || dexMet.includes(dex)) return;
   dexMet.push(dex);
+  bumpTask('newdex', 1);
+  bumpActivity(2);
   notifySettings();
   saveState();
   checkAchievements();
@@ -326,9 +618,9 @@ function markShiny(dex) {
   checkAchievements();
 }
 function updateStreak() {
-  const day = new Date().toISOString().slice(0, 10);
+  const day = dayKey();
   if (counters.lastDay === day) return;
-  const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const yest = dayKey(Date.now() - 86400000);
   counters.streak = counters.lastDay === yest ? (Number(counters.streak) || 0) + 1 : 1;
   counters.lastDay = day;
   saveState();
@@ -364,19 +656,21 @@ function spawnGuest() {
   guest = {
     dex: target.dex,
     x: fromLeft ? wa.x - size : wa.x + wa.width,
+    y: wa.y + wa.height - size,   // 记住所在屏幕的地面
     dir: fromLeft ? 1 : -1,
     phase: 'in',
     until: now() + 120000,
     size
   };
   nextGuestAt = now() + (12 + Math.random() * 18) * 60000;
-  bubble(lang === 'en' ? `${target.name} came by!` : `${target.name} 跑过来串门了`, 3000, true);
+  bubble(lang === 'en' ? `${nameOf(target.dex)} came by!` : `${nameOf(target.dex)} 跑过来串门了`, 3000, true);
 }
 
 function updateGuest(t, dt) {
   if (!guest) return;
-  const wa = waFor(guest.x + guest.size / 2, guest.y || 0);
+  const wa = waFor(guest.x + guest.size / 2, guest.y + guest.size / 2);
   const groundY = wa.y + wa.height - guest.size;
+  guest.y = groundY;
   if (!guestWin || guestWin.isDestroyed()) { guest = null; guestWin = null; return; }
 
   guest.x += guest.dir * 55 * dt;
@@ -403,8 +697,21 @@ function updateGuest(t, dt) {
 function spawnEgg() {
   if (hasEgg) return;
   hasEgg = true;
-  if (win && !win.isDestroyed()) win.webContents.send('egg');
-  bubble(lang === 'en' ? 'Huh? An egg appeared…' : '咦…这里怎么有个蛋？', 3200, true);
+  eggRarity = rollEggRarity();
+  saveState();   // 蛋要落盘，否则重启就白走了
+  notifySettings();
+  if (win && !win.isDestroyed()) win.webContents.send('egg', { rarity: eggRarity });
+  const rareWord = uiLang === 'ja' ? EGG_RARITIES[eggRarity].ja : uiLang === 'ko' ? EGG_RARITIES[eggRarity].ko : lang === 'en' ? EGG_RARITIES[eggRarity].en : EGG_RARITIES[eggRarity].label;
+  bubble(eggRarity === 'common'
+    ? (uiLang === 'ja' ? 'あれ…タマゴが落ちてる？' : uiLang === 'ko' ? '어라…알이 떨어져 있어?' : lang === 'en' ? 'Huh? An egg appeared…' : '咦…这里怎么有个蛋？')
+    : (uiLang === 'ja' ? `${rareWord}のタマゴ！` : uiLang === 'ko' ? `${rareWord} 알이야!` : lang === 'en' ? `A ${rareWord.toLowerCase()} egg!` : `是一颗${rareWord}的蛋！`), 3600, true);
+  pushNotice({
+    kind: 'egg',
+    title: lang === 'en' ? 'An egg appeared' : '捡到一颗蛋',
+    body: lang === 'en' ? `${rareWord} egg · click it to hatch` : `${rareWord}蛋 · 点它孵化`,
+    titleJa: 'タマゴを見つけた', titleKo: '알을 발견했어요',
+    bodyJa: `${rareWord}のタマゴ · クリックで孵化`, bodyKo: `${rareWord} 알 · 클릭해 부화`
+  });
   if (process.env.PET_EGG_CLICK) {
     setTimeout(() => { try { win.webContents.executeJavaScript("document.getElementById('egg').click()"); } catch (_) {} }, 3000);
   }
@@ -412,23 +719,44 @@ function spawnEgg() {
 
 function doHatch() {
   if (!hasEgg) return { ok: false };
+  const rarity = eggRarity || 'common';
   hasEgg = false;
   if (win && !win.isDestroyed()) win.webContents.send('egg-gone');
   // 蛋只孵基础形态：有 from 的说明是进化来的，不能从蛋里出
   const baseForms = SPECIES.filter(sp => !sp.from);
-  const unseen = baseForms.filter(sp => !dexMet.includes(sp.dex));
-  const pool = unseen.length ? unseen : baseForms;
+  let basePool = baseForms;
+  if (rarity === 'legendary') basePool = baseForms.filter(sp => sp.legend || sp.myth);
+  else if (rarity === 'rare') basePool = baseForms.filter(sp => RARE_BASE.has(sp.dex));
+  else if (rarity === 'shiny') basePool = baseForms.filter(sp => autoShinyFor(sp.dex));
+  if (!basePool.length) basePool = baseForms;
+  const unseen = basePool.filter(sp => !dexMet.includes(sp.dex));
+  const pool = unseen.length ? unseen : basePool;
   const target = pool[Math.floor(Math.random() * pool.length)];
-  switchSpecies(target.dex);
-  bubble(lang === 'en' ? `It hatched! ${target.name}!` : `蛋孵出来啦！是 ${target.name}！`, 4200, true);
+  switchSpecies(target.dex, { shiny: rarity === 'shiny' });
+  bubble(uiLang === 'ja'
+    ? `${rarity === 'common' ? '' : EGG_RARITIES[rarity].ja + 'の'}タマゴが孵った！${nameOf(target.dex)}！`
+    : uiLang === 'ko'
+      ? `${rarity === 'common' ? '' : EGG_RARITIES[rarity].ko + ' '}알이 부화했어요! ${nameOf(target.dex)}!`
+      : lang === 'en'
+        ? `${rarity === 'common' ? '' : EGG_RARITIES[rarity].en + ' '}It hatched! ${nameOf(target.dex)}!`
+        : `${rarity === 'common' ? '' : EGG_RARITIES[rarity].label}蛋孵出来啦！是 ${nameOf(target.dex)}！`, 4200, true);
   try { playCry(target.dex, true); } catch (_) {}
   counters.hatch = (counters.hatch || 0) + 1;
+  bumpTask('hatch', 1);
+  bumpActivity(4);
   walkedPx = 0;                       // 孵完重新攒下一颗
   eggTarget = EGG_AT || (EGG_MIN + Math.floor(Math.random() * (EGG_MAX - EGG_MIN)));
   addStone(1);
   saveState();
-  console.log('[hatch] 孵出', target.dex, target.name, '| 有前置进化?', !!target.from);
-  return { ok: true, dex: target.dex, name: target.name };
+  pushNotice({
+    kind: 'hatch',
+    title: lang === 'en' ? 'Egg hatched' : '孵蛋成功',
+    body: lang === 'en' ? `${nameOf(target.dex)} joined your team` : `孵出了 ${nameOf(target.dex)}`,
+    titleJa: 'タマゴが孵った', titleKo: '알 부화 성공',
+    bodyJa: `${nameOf(target.dex)}が仲間になりました`, bodyKo: `${nameOf(target.dex)}이(가) 팀에 합류했어요`
+  });
+  console.log('[hatch] 孵出', target.dex, target.name, '| 稀有度', rarity, '| 有前置进化?', !!target.from);
+  return { ok: true, dex: target.dex, name: nameOf(target.dex), rarity };
 }
 
 ipcMain.on('hatch', () => { doHatch(); });
@@ -439,11 +767,15 @@ function checkSitWater() {
   if (sitWarnMin > 0 && nowMs - lastSitAt > sitWarnMin * 60000) {
     lastSitAt = nowMs;
     bubble(lang === 'en' ? 'Been sitting a while — stretch!' : '坐挺久了吧？起来动一动', 3800, true);
+    pushNotice({ kind: 'health', title: lang === 'en' ? 'Time to stretch' : '久坐提醒', body: lang === 'en' ? 'You have been sitting for a while — stand up and move!' : '坐得有点久啦，起来活动一下' });
+    saveState();
     return;
   }
   if (waterWarnMin > 0 && nowMs - lastWaterAt > waterWarnMin * 60000) {
     lastWaterAt = nowMs;
     bubble(lang === 'en' ? 'Time for some water 💧' : '该喝口水啦 💧', 3200, true);
+    pushNotice({ kind: 'health', title: lang === 'en' ? 'Water break' : '喝水提醒', body: lang === 'en' ? 'Take a sip of water 💧' : '喝口水吧 💧' });
+    saveState();
   }
 }
 
@@ -462,7 +794,7 @@ function festivalToday() {
 function checkFestival() {
   const f = festivalToday();
   if (!f) return;
-  const key = new Date().toISOString().slice(0, 10);
+  const key = dayKey();
   if (counters.lastFestival === key) return;
   counters.lastFestival = key;
   addExp(80);
@@ -533,18 +865,32 @@ function useStone() {
 }
 
 function dailyCheckIn() {
-  const day = new Date().toISOString().slice(0, 10);
+  const day = dayKey();
   if (counters.lastCheckIn === day) return false;
-  const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const yest = dayKey(Date.now() - 86400000);
   counters.checkIn = counters.lastCheckIn === yest ? (Number(counters.checkIn) || 0) + 1 : 1;
   counters.lastCheckIn = day;
+  if (!checkins.includes(day)) { checkins.push(day); if (checkins.length > 420) checkins.shift(); }
+  bumpTask('checkin', 1);
+  bumpActivity(3);
   addExp(50);
   addStone(1);
+  pushNotice({
+    kind: 'checkin',
+    title: lang === 'en' ? 'Daily check-in' : '每日签到',
+    body: lang === 'en' ? `+50 EXP · ${counters.checkIn} days in a row` : `+50 经验 · 连续 ${counters.checkIn} 天`,
+    titleJa: 'デイリーチェックイン', titleKo: '일일 출석',
+    bodyJa: `+50経験値 · ${counters.checkIn}日連続`, bodyKo: `+50 경험치 · ${counters.checkIn}일 연속`
+  });
   saveState();
   setTimeout(() => {
-    bubble(lang === 'en'
-      ? `Daily check-in +50 EXP (${counters.checkIn} days in a row)`
-      : `今日签到 +50 经验（连续 ${counters.checkIn} 天）`, 3400, true);
+    bubble(uiLang === 'ja'
+      ? `今日のチェックイン +50経験値（${counters.checkIn}日連続）`
+      : uiLang === 'ko'
+        ? `오늘 출석 +50 경험치 (${counters.checkIn}일 연속)`
+        : lang === 'en'
+          ? `Daily check-in +50 EXP (${counters.checkIn} days in a row)`
+          : `今日签到 +50 经验（连续 ${counters.checkIn} 天）`, 3400, true);
   }, 3200);
   checkAchievements();
   return true;
@@ -571,7 +917,19 @@ function checkAchievements() {
   saveState();
   refreshTray();
   const a = fresh[0];
-  bubble(`🏆 成就解锁：${a.name}`, 4200, true);
+  for (const f of fresh) {
+    pushNotice({
+      kind: 'achievement',
+      title: '成就解锁', titleEn: 'Achievement unlocked', titleJa: '実績解除', titleKo: '업적 달성',
+      body: f.name, bodyEn: f.en || f.name,
+      bodyJa: f.descJa || f.ja || f.en || f.name, bodyKo: f.descKo || f.ko || f.en || f.name
+    });
+  }
+  bumpActivity(1);
+  bubble(uiLang === 'ja' ? `🏆 実績解除：${a.ja || a.en || a.name}`
+    : uiLang === 'ko' ? `🏆 업적 달성: ${a.ko || a.en || a.name}`
+    : lang === 'en' ? `🏆 Badge unlocked: ${a.en || a.name}`
+    : `🏆 成就解锁：${a.name}`, 4200, true);
   setTimeout(() => { try { playCry(speciesDex, true); } catch (_) {} }, 260);
 }
 
@@ -580,12 +938,30 @@ const DEX_FILE = path.join(__dirname, 'data', 'pokedex.json');
 const DEX_DATA = JSON.parse(fs.readFileSync(DEX_FILE, 'utf8'));
 // 英文名数据（data/names-en.json，形如 {"25":"Pikachu"}；没有也不影响中文）
 let EN_NAMES = {};
+let JA_NAMES = {};
+let KO_NAMES = {};
 try {
   EN_NAMES = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'names-en.json'), 'utf8')) || {};
 } catch (_) { EN_NAMES = {}; }
+try {
+  JA_NAMES = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'names-ja.json'), 'utf8')) || {};
+} catch (_) { JA_NAMES = {}; }
+try {
+  KO_NAMES = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'names-ko.json'), 'utf8')) || {};
+} catch (_) { KO_NAMES = {}; }
 
 const SPECIES = DEX_DATA.species;
 const byDex = new Map(SPECIES.map(s => [s.dex, s]));
+// 超级进化 / 超极巨化形态表（data/forms.json，由 tools/build-forms.js 生成）
+let FORM_DATA = {};
+try {
+  FORM_DATA = (JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'forms.json'), 'utf8')).forms) || {};
+} catch (e) { console.error('[main] 形态表读取失败:', e.message); }
+// 形态专属招式（data/form-moves.json，由 tools/build-form-moves.js 生成）
+let FORM_MOVES = {};
+try {
+  FORM_MOVES = (JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'form-moves.json'), 'utf8')).moves) || {};
+} catch (e) { console.error('[main] 形态招式表读取失败:', e.message); }
 // 进化表：from -> [{ to, how }]，伊布这种一个前身多条分支
 const EVO_MAP = (() => {
   const m = {};
@@ -595,6 +971,34 @@ const EVO_MAP = (() => {
   }
   return m;
 })();
+
+// 进化条件的中文 → 英文。数据里的条件由「Lv. / 石头 / 白天 / 携带物」拼成，
+// 这里按整词替换，避免把「通信·交换」「攻击>防御」拆坏。
+const EVO_WORD_EN = [
+  ['通信·交换', 'Trade'],
+  ['亲密度·掌握属性招式', 'Friendship · knows a type move'],
+  ['攻击<防御', 'Atk < Def'], ['攻击>防御', 'Atk > Def'],
+  ['掌握属性招式', 'knows a type move'], ['掌握', 'knows '],
+  ['携带锐利之牙', 'holding Razor Fang'], ['携带锐利之爪', 'holding Razor Claw'],
+  ['携带浑圆之石', 'holding Oval Stone'], ['携带草莓糖饰', 'holding Strawberry Sweet'],
+  ['携带', 'holding '],
+  ['亲密度', 'Friendship'], ['白天', 'Day'], ['夜晚', 'Night'], ['下雨', 'Rain'],
+  ['特殊地点', 'special location'], ['特殊条件', 'special condition'], ['倒置', 'inverted'],
+  ['学会特定招式', 'learns a specific move'],
+  ['光之石', 'Shiny Stone'], ['冰之石', 'Ice Stone'], ['叶之石', 'Leaf Stone'],
+  ['日之石', 'Sun Stone'], ['暗之石', 'Dusk Stone'], ['月之石', 'Moon Stone'],
+  ['水之石', 'Water Stone'], ['火之石', 'Fire Stone'], ['雷之石', 'Thunder Stone'],
+  ['觉醒之石', 'Dawn Stone'], ['黑奇石', 'Black Augurite'], ['通信', 'Trade'],
+  ['凡作茶碗', 'Chipped Pot'], ['破裂的茶壶', 'Cracked Pot'],
+  ['咒术之铠', 'Malicious Armor'], ['庆祝之铠', 'Auspicious Armor'],
+  ['复合金属', 'Metal Alloy'], ['恶之挂轴', 'Scroll of Darkness'], ['泥炭块', 'Peat Block'],
+  ['酸酸苹果', 'Tart Apple'], ['甜甜苹果', 'Sweet Apple'], ['蜜汁苹果', 'Syrupy Apple']
+];
+function howEn(h) {
+  let s = String(h || '');
+  for (const [zh, en] of EVO_WORD_EN) s = s.split(zh).join(en);
+  return s.replace(/·/g, ' · ').replace(/\s+/g, ' ').trim();
+}
 
 // 进化链 → 每条链的「分层」结构，用于设置页展示
 const LINES = DEX_DATA.chains.map(c => {
@@ -613,7 +1017,7 @@ function signatureFor(dex) {
   if (s) return s;
   const sp = byDex.get(dex);
   const type = (sp && sp.types && sp.types[0]) || '一般';
-  return { move: '撞击', kind: 'star', motion: 'bump', color: '#c8c2b0', type, name: sp ? sp.name : '' };
+  return { move: '撞击', moveEn: 'Tackle', kind: 'star', motion: 'bump', color: '#c8c2b0', type, name: sp ? sp.name : '', nameEn: sp ? (EN_NAMES[sp.dex] || '') : '' };
 }
 
 const SPRITE_DIR = path.join(__dirname, 'assets', 'pokemon');
@@ -646,14 +1050,17 @@ function playSignature(reason = 'manual') {
   if (t < moveCooldown) return false;
   if (state === 'drag' || state === 'fall' || state === 'ball') return false;
   counters.sig++;
+  bumpTask('sig', 1);
+  bumpActivity(1);
   addExp(25);
-  const spec = signatureFor(speciesDex);
-  console.log('[move] ' + spec.name + ' 使用 ' + spec.move + '（' + spec.kind + '/' + spec.motion + '）' +
+  const formMove = battleForm ? formMoveFor(battleForm.entry) : null;
+  const spec = formMove || signatureFor(speciesDex);
+  console.log('[move] ' + (battleForm ? formLabel(battleForm.entry) : spec.name) + ' 使用 ' + spec.move + '（' + spec.kind + '/' + spec.motion + '）' +
     ' bounds=' + JSON.stringify(win ? win.getBounds() : null));
   moveCooldown = t + (reason === 'auto' ? 40000 + Math.random() * 40000 : 6000);
   setState('move', 1200);
-  if (win && !win.isDestroyed()) win.webContents.send('fx', spec);
-  bubble(spec.move + '！', 1700);
+  if (win && !win.isDestroyed()) win.webContents.send('fx', { ...spec, form: !!battleForm, moveText: formMove ? formMoveLabel(spec) : '' });
+  bubble(formMove ? `${formMoveLabel(spec)}！` : ((lang === 'en' ? (spec.moveEn || spec.move) : spec.move) + (lang === 'en' ? '!' : '！')), 1700);
   playCry(speciesDex, true);
   return true;
 }
@@ -735,6 +1142,124 @@ const spriteUrlFor = (dex, wantShiny) => {
   return require('url').pathToFileURL(file).href;
 };
 
+// ---------- 超级进化 / 超极巨化 ----------
+const FORM_DIR = path.join(__dirname, 'assets', 'forms');
+const FORM_MS = { mega: 120000, gmax: 90000 };
+function formMoveFor(entry) {
+  const m = entry && FORM_MOVES[entry.file];
+  if (m) return m;
+  const base = entry ? signatureFor(entry.dex || speciesDex) : null;
+  return base ? { ...base, file: entry ? entry.file : '' } : { move: '撞击', moveEn: 'Tackle', moveJa: '', moveKo: '', type: '一般', kind: 'star', motion: 'bump', color: '#c8c2b0' };
+}
+function localizeForm(entry, dex) {
+  if (!entry) return entry;
+  return {
+    ...entry,
+    dex: dex || entry.dex || speciesDex,
+    nameJa: formLabelFor(entry, 'ja'),
+    nameKo: formLabelFor(entry, 'ko'),
+    move: formMoveFor({ ...entry, dex: dex || entry.dex || speciesDex })
+  };
+}
+const formOptions = dex => {
+  const v = FORM_DATA[dex] || {};
+  return {
+    mega: Array.isArray(v.mega) ? v.mega.map(e => localizeForm(e, dex)) : [],
+    gmax: Array.isArray(v.gmax) ? v.gmax.map(e => localizeForm(e, dex)) : []
+  };
+};
+function formLabelFor(entry, l) {
+  if (!entry) return '';
+  if (l === 'en') return entry.name;
+  if (l === 'zh') return entry.nameZh;
+  const dex = entry.dex || speciesDex;
+  const base = (l === 'ja' ? JA_NAMES[dex] : KO_NAMES[dex]) || entry.name || entry.nameZh || '';
+  const suffix = (String(entry.name || '').match(/\b([XYZ])$/) || String(entry.nameZh || '').match(/([XYZ])$/) || [])[1] || '';
+  const prefix = entry.kind === 'gmax' ? (l === 'ja' ? 'キョダイマックス' : '거대맥스') : (l === 'ja' ? 'メガ' : '메가');
+  return `${prefix}${base}${suffix}`;
+}
+function formLabel(entry) { return formLabelFor(entry, uiLang); }
+function formKindLabel(kind) {
+  if (uiLang === 'en') return kind === 'mega' ? 'Mega Evolution' : 'Gigantamax';
+  if (uiLang === 'ja') return kind === 'mega' ? 'メガシンカ' : 'キョダイマックス';
+  if (uiLang === 'ko') return kind === 'mega' ? '메가진화' : '거대맥스';
+  return kind === 'mega' ? '超级进化' : '超极巨化';
+}
+function formMoveLabel(move) {
+  if (!move) return '';
+  if (uiLang === 'ja') return move.moveJa || move.moveEn || move.move || '';
+  if (uiLang === 'ko') return move.moveKo || move.moveEn || move.move || '';
+  if (uiLang === 'en') return move.moveEn || move.move || '';
+  return move.move || move.moveEn || '';
+}
+function formSpriteUrl(entry, wantShiny, baseDex = speciesDex) {
+  const shiny = path.join(FORM_DIR, entry.file + '-shiny.gif');
+  const plain = path.join(FORM_DIR, entry.file + '.gif');
+  // 异色形态没有图时优先退回同形态普通图，再退回本体图
+  const f = wantShiny && fs.existsSync(shiny) ? shiny : (fs.existsSync(plain) ? plain : null);
+  if (f) return require('url').pathToFileURL(f).href;
+  return spriteUrlFor(baseDex, wantShiny);
+}
+function formPayload() {
+  if (!battleForm) return null;
+  const e = battleForm.entry;
+  const move = formMoveFor(e);
+  return {
+    kind: battleForm.kind, file: e.file, name: e.name, nameZh: e.nameZh,
+    nameJa: formLabelFor(e, 'ja'), nameKo: formLabelFor(e, 'ko'), types: e.types, until: battleForm.until,
+    move: { zh: move.move, en: move.moveEn, ja: move.moveJa || '', ko: move.moveKo || '', type: move.type, color: move.color },
+    url: formSpriteUrl(e, shiny)
+  };
+}
+function sendForm() {
+  if (win && !win.isDestroyed()) {
+    try { win.webContents.send('form', formPayload()); } catch (_) {}
+  }
+}
+function clearForm(auto = false, silent = false) {
+  if (!battleForm) return;
+  const was = battleForm.kind;
+  battleForm = null;
+  sendForm();
+  refreshTray();
+  saveState();
+  notifySettings();
+  if (!silent) bubble(auto
+    ? (uiLang === 'ja' ? `${formKindLabel(was)}が終了、元に戻りました` : uiLang === 'ko' ? `${formKindLabel(was)} 종료, 원래대로 돌아왔습니다` : lang === 'en' ? `${formKindLabel(was)} ended` : `${formKindLabel(was)}结束，变回来了`)
+    : (uiLang === 'ja' ? '元の姿に戻りました' : uiLang === 'ko' ? '원래 모습으로 돌아왔습니다' : lang === 'en' ? 'Reverted to normal' : '变回原来的样子了'), 2200);
+}
+function transformForm(kind, file) {
+  if (battleForm) { clearForm(false); return { ok: true, reverted: true }; }
+  const opts = formOptions(speciesDex);
+  const list = opts[kind] || [];
+  if (!list.length) return { ok: false, reason: 'none' };
+  const entry = list.find(e => e.file === file) || list[0];
+  const move = formMoveFor(entry);
+  battleForm = { kind, entry, until: Date.now() + (FORM_MS[kind] || 60000) };
+  sendForm();
+  refreshTray();
+  saveState();
+  notifySettings();
+  const label = formLabel(entry);
+  bubble(`${formKindLabel(kind)}！${label}！${formMoveLabel(move)}！`, 3600);
+  const secs = Math.round((FORM_MS[kind] || 60000) / 1000);
+  const secsText = uiLang === 'ja' ? `${secs}秒` : uiLang === 'ko' ? `${secs}초` : `持续 ${secs} 秒`;
+  pushNotice({
+    kind: 'form',
+    title: formKindLabel(kind),
+    body: `${label} · ${formMoveLabel(move)} · ${secsText}`,
+    titleEn: kind === 'mega' ? 'Mega Evolution' : 'Gigantamax',
+    bodyEn: `${entry.name} · ${move.moveEn || move.move} · lasts ${secs}s`,
+    titleJa: kind === 'mega' ? 'メガシンカ' : 'キョダイマックス',
+    bodyJa: `${formLabelFor(entry, 'ja')} · ${move.moveJa || move.moveEn || move.move} · ${secs}秒`,
+    titleKo: kind === 'mega' ? '메가진화' : '거대맥스',
+    bodyKo: `${formLabelFor(entry, 'ko')} · ${move.moveKo || move.moveEn || move.move} · ${secs}초`
+  });
+  // 变身专属演出由渲染层接管；这里只负责把形态和招式同步过去
+  setTimeout(() => playCry(speciesDex, true), 250);
+  return { ok: true, kind, file: entry.file };
+}
+
 // 异色判定：
 // auto 用图鉴编号做确定性哈希（约 1/128），同一只宝可梦每次结果一致，
 // 不会切来切去就变；always / never 由用户强制。
@@ -753,9 +1278,28 @@ function shinyFor(dex) {
 }
 
 const speciesInfo = () => byDex.get(speciesDex) || byDex.get(175);
+// 当前语言下的名字：英文界面优先用 names-en.json（没数据就退回中文）
+const nameOf = dex => {
+  const sp = byDex.get(Number(dex));
+  if (!sp) return '';
+  if (uiLang === 'en' && EN_NAMES[sp.dex]) return EN_NAMES[sp.dex];
+  if (uiLang === 'ja' && JA_NAMES[sp.dex]) return JA_NAMES[sp.dex];
+  if (uiLang === 'ko' && KO_NAMES[sp.dex]) return KO_NAMES[sp.dex];
+  return sp.name;
+};
 
+const shellBg = () => (nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#f5f5f7');
 const now = () => Date.now();
 const pick = a => a[(Math.random() * a.length) | 0];
+
+// 用「本地日期」做每日判定（签到 / 连续陪伴 / 节日）。
+// 原来用 toISOString() 是 UTC，东八区会在早上 8 点才翻篇，
+// 导致早上打开还能重复签到、连续天数错位。
+function dayKey(d) {
+  const t = d instanceof Date ? d : new Date(d === undefined ? Date.now() : d);
+  const p = n => String(n).padStart(2, '0');
+  return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
+}
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const stateFile = () => path.join(app.getPath('userData'), 'pet-state.json');
 
@@ -772,14 +1316,109 @@ function canFlyNow() {
 // ---------- 持久化 ----------
 let themeMode = 'auto';   // auto | light | dark
 
+// ---------- 皮肤 / 辅助功能 ----------
+let skin = 'default';        // default | sakura | ocean | forest | festival
+let festivalAuto = true;     // 节日自动换肤
+let access = { reduceMotion: false, highContrast: false, uiScale: 100, volume: 45 };
+const SKINS = ['default', 'sakura', 'ocean', 'forest', 'festival'];
+function festivalSkinFor(d = new Date()) {
+  const m = d.getMonth() + 1, day = d.getDate();
+  const inRange = (m1, d1, m2, d2) => {
+    const cur = m * 100 + day, a = m1 * 100 + d1, b = m2 * 100 + d2;
+    return a <= b ? (cur >= a && cur <= b) : (cur >= a || cur <= b);
+  };
+  if (inRange(12, 20, 1, 3) || inRange(10, 1, 10, 7) || inRange(10, 25, 10, 31)) return 'festival';
+  if (inRange(2, 7, 2, 14)) return 'sakura';
+  if (inRange(7, 1, 7, 7)) return 'ocean';
+  if (inRange(3, 20, 4, 10)) return 'forest';
+  return 'default';
+}
+function effectiveSkin() {
+  if (festivalAuto) {
+    const f = festivalSkinFor();
+    if (f !== 'default') return f;
+  }
+  return SKINS.includes(skin) ? skin : 'default';
+}
+function sendSkin(w) {
+  if (!w || w.isDestroyed()) return;
+  try { w.webContents.send('skin', effectiveSkin()); } catch (_) {}
+}
+function sendAccess(w) {
+  if (!w || w.isDestroyed()) return;
+  try { w.webContents.send('access', { ...access }); } catch (_) {}
+}
+function applyZoom(w) {
+  if (!w || w.isDestroyed() || w === win || w === loreWin) return;
+  try { w.webContents.setZoomFactor(Math.max(.8, Math.min(1.3, access.uiScale / 100))); } catch (_) {}
+}
+function applyUiTo(w) {
+  if (!w || w.isDestroyed()) return;
+  sendSkin(w); sendAccess(w); applyZoom(w);
+}
+app.on('browser-window-created', (_e, w) => {
+  w.webContents.on('did-finish-load', () => applyUiTo(w));
+});
+function setSkin(s2) {
+  skin = SKINS.includes(s2) ? s2 : 'default';
+  saveState();
+  for (const w of BrowserWindow.getAllWindows()) sendSkin(w);
+  notifySettings();
+}
+function setAccess(patch) {
+  access = { ...access, ...patch };
+  access.uiScale = [90, 100, 110, 125].includes(Number(access.uiScale)) ? Number(access.uiScale) : 100;
+  access.volume = clamp(Number(access.volume) || 0, 0, 100);
+  access.reduceMotion = !!access.reduceMotion;
+  access.highContrast = !!access.highContrast;
+  saveState();
+  for (const w of BrowserWindow.getAllWindows()) {
+    sendAccess(w);
+    if (w !== win && w !== loreWin) applyZoom(w);
+  }
+  notifySettings();
+}
+
 function applyTheme() {
   try {
     nativeTheme.themeSource = themeMode === 'auto' ? 'system' : (themeMode === 'dark' ? 'dark' : 'light');
   } catch (_) {}
 }
 
+// 老版本通知只有中文；切换英文时补一份英文，避免整页混着中文
+function legacyNoticeEn(n) {
+  if (!n) return n;
+  const cjk = s => /[\u3400-\u9fff]/.test(String(s || ''));
+  let titleEn = n.titleEn;
+  if (!titleEn || cjk(titleEn)) {
+    const map = { '任务完成': 'Task complete', '奖励已领取': 'Reward claimed', '成就解锁': 'Achievement unlocked', '签到成功': 'Checked in', '捡到蛋': 'Egg found', '孵化了': 'Hatched' };
+    titleEn = map[n.title] || (n.kind === 'task' ? 'Task complete' : n.kind === 'achievement' ? 'Achievement unlocked' : n.kind === 'form' ? (String(n.title).includes('巨') ? 'Gigantamax' : 'Mega Evolution') : 'Notification');
+  }
+  let bodyEn = n.bodyEn;
+  if (!bodyEn || cjk(bodyEn)) {
+    let b = String(n.body || '');
+    b = b.replace(/—— 到设置里领奖励/g, '— claim in Settings')
+      .replace(/^发动 (\d+) 次专属动作/, 'Use signature move $1 times')
+      .replace(/^走 (\d+) 米/, 'Walk $1 m')
+      .replace(/^喂食 (\d+) 次/, 'Feed $1 times')
+      .replace(/^摸头 (\d+) 次/, 'Pet $1 times')
+      .replace(/^玩耍 (\d+) 次/, 'Play $1 times')
+      .replace(/^签到 (\d+) 次/, 'Check in $1 times')
+      .replace(/^孵蛋 (\d+) 次/, 'Hatch $1 eggs')
+      .replace(/^进化 (\d+) 次/, 'Evolve $1 times')
+      .replace(/持续 (\d+) 秒/g, 'lasts $1s');
+    if (cjk(b)) {
+      const a = ACHIEVEMENTS.find(x => x.name === n.body);
+      b = a ? a.en : 'Open Settings for details';
+    }
+    bodyEn = b;
+  }
+  return { ...n, titleEn, bodyEn };
+}
+
 function loadState() {
   try {
+    hadStateFile = fs.existsSync(stateFile());
     let d;
     try {
       d = JSON.parse(fs.readFileSync(stateFile(), 'utf8'));
@@ -799,18 +1438,93 @@ function loadState() {
     if (d.focusMode === true) focusMode = true;
     if (d.guestEnabled === false) guestEnabled = false;
     if (Array.isArray(d.favorites)) favorites = d.favorites.filter(n => Number.isFinite(n));
+    if (Array.isArray(d.roster)) {
+      roster = d.roster
+        .filter(p => p && SPECIES.some(sp => sp.dex === Number(p.dex)))
+        .map(p => ({
+          dex: Number(p.dex),
+          nickname: typeof p.nickname === 'string' ? p.nickname.slice(0, 12) : '',
+          hat: ['none','cap','tophat','crown'].includes(p.hat) ? p.hat : 'none',
+          scarf: ['none','red','blue','green'].includes(p.scarf) ? p.scarf : 'none'
+        }))
+        .slice(0, 12);
+    }
+    if (typeof d.nickname === 'string') nickname = d.nickname.slice(0, 12);
+    if (['none','cap','tophat','crown'].includes(d.hat)) hat = d.hat;
+    if (['none','red','blue','green'].includes(d.scarf)) scarf = d.scarf;
     if (Number.isFinite(d.eggTarget) && d.eggTarget > 1000) eggTarget = d.eggTarget;
     if (Number.isFinite(d.walkedPx)) walkedPx = Math.max(0, d.walkedPx);
+    if (d.hasEgg === true) hasEgg = true;   // 上次退出时脚边那颗蛋还在
+    if (['common','rare','legendary','shiny'].includes(d.eggRarity)) eggRarity = d.eggRarity;
+    if (d.shinyLocked === true) shinyLocked = true;
     if (Number.isFinite(d.firstLaunch)) firstLaunch = d.firstLaunch;
     if (Number.isFinite(d.sitWarnMin)) sitWarnMin = d.sitWarnMin;
     if (Number.isFinite(d.waterWarnMin)) waterWarnMin = d.waterWarnMin;
+    if (Number.isFinite(d.lastSitAt)) lastSitAt = d.lastSitAt;
+    if (Number.isFinite(d.lastWaterAt)) lastWaterAt = d.lastWaterAt;
+    if (d.pomo && Number.isFinite(d.pomo.until) && d.pomo.until > Date.now()) {
+      pomo = {
+        phase: d.pomo.phase === 'rest' ? 'rest' : 'work',
+        until: d.pomo.until,
+        restMin: Number(d.pomo.restMin) || 5,
+        workMin: Number(d.pomo.workMin) || 25
+      };
+    } else if (d.pomo) {
+      pomo = null;
+    }
     if (['auto', 'light', 'dark'].includes(d.theme)) themeMode = d.theme;
+    if (SKINS.includes(d.skin)) skin = d.skin;
+    if (typeof d.festivalAuto === 'boolean') festivalAuto = d.festivalAuto;
+    if (d.access && typeof d.access === 'object') {
+      access = {
+        reduceMotion: !!d.access.reduceMotion,
+        highContrast: !!d.access.highContrast,
+        uiScale: [90, 100, 110, 125].includes(Number(d.access.uiScale)) ? Number(d.access.uiScale) : 100,
+        volume: clamp(Number(d.access.volume ?? 45), 0, 100)
+      };
+    }
     if (Number.isFinite(d.counters && d.counters.stones)) counters.stones = d.counters.stones;
     if (Array.isArray(d.dexMet)) dexMet = d.dexMet.filter(n => Number.isFinite(n));
     if (Array.isArray(d.shinyMet)) shinyMet = d.shinyMet.filter(n => Number.isFinite(n));
     if (d.counters && typeof d.counters === 'object') counters = { ...counters, ...d.counters };
     if (d.unlocked && typeof d.unlocked === 'object') unlocked = d.unlocked;
-    if (d.lang === 'zh' || d.lang === 'en') lang = d.lang;
+    if (['zh', 'en', 'ja', 'ko'].includes(d.lang)) uiLang = d.lang;
+    lang = uiLang === 'en' ? 'en' : 'zh';
+    if (typeof d.lastSeenVersion === 'string') lastSeenVersion = d.lastSeenVersion;
+    if (Number.isFinite(d.updateSnoozeUntil)) updateSnoozeUntil = Number(d.updateSnoozeUntil);
+    if (d.pendingUpdate && typeof d.pendingUpdate === 'object' && typeof d.pendingUpdate.version === 'string') {
+      pendingUpdate = { version: d.pendingUpdate.version, notes: d.pendingUpdate.notes || null, at: Number(d.pendingUpdate.at) || Date.now(), date: String(d.pendingUpdate.date || '') };
+    }
+    if (Array.isArray(d.notifications)) {
+      notifications = d.notifications.filter(n => n && Number.isFinite(n.id)).map(legacyNoticeEn).slice(0, 100);
+      notifySeq = notifications.reduce((m, n) => Math.max(m, n.id), 0);
+    }
+    if (typeof d.notifySystem === 'boolean') notifySystem = d.notifySystem;
+    if (Array.isArray(d.checkins)) checkins = d.checkins.filter(x => /^\d{4}-\d{2}-\d{2}$/.test(String(x))).slice(-420);
+    if (!checkins.length && /^\d{4}-\d{2}-\d{2}$/.test(String((d.counters || {}).lastCheckIn || ''))) {
+      checkins = [String(d.counters.lastCheckIn)];
+    }
+    if (d.activity && typeof d.activity === 'object') {
+      activity = {};
+      for (const [k, v] of Object.entries(d.activity)) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(k) && Number.isFinite(Number(v))) activity[k] = Number(v);
+      }
+    }
+    if (d.tasks && typeof d.tasks === 'object') {
+      tasksState = {
+        day: typeof d.tasks.day === 'string' ? d.tasks.day : '',
+        week: typeof d.tasks.week === 'string' ? d.tasks.week : '',
+        daily: d.tasks.daily && typeof d.tasks.daily === 'object' ? d.tasks.daily : {},
+        weekly: d.tasks.weekly && typeof d.tasks.weekly === 'object' ? d.tasks.weekly : {}
+      };
+      for (const freq of ['daily', 'weekly']) {
+        for (const def of TASK_DEFS[freq]) {
+          const b = tasksState[freq][def.id];
+          if (!b || !Number.isFinite(b.p)) tasksState[freq][def.id] = { p: 0, claimed: false, notified: false };
+        }
+      }
+    }
+    ensureTasks();
     if (Number.isFinite(d.rotateMin)) rotateMin = d.rotateMin;
     if (Number.isFinite(d.level)) level = d.level;
     if (Number.isFinite(d.exp)) exp = d.exp;
@@ -822,19 +1536,39 @@ function loadState() {
 
   } catch (_) { /* 首次运行 */ }
   shiny = shinyFor(speciesDex);
+  if (rotateMin > 0) rotateAt = Date.now() + rotateMin * 60000;   // 启动后先陪一会儿，别一上来就换
+  if (!roster.length && SPECIES.some(sp => sp.dex === speciesDex)) {
+    roster = [{ dex: speciesDex, nickname: nickname || '', hat: hat || 'none', scarf: scarf || 'none' }];
+  } else {
+    loadRosterLook(speciesDex);
+  }
+  syncRosterEntry();
 }
 function saveState() {
   try {
+    syncRosterEntry();
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
     const file = stateFile();
     const tmp = file + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify({
-      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, guestEnabled, favorites, firstLaunch, sitWarnMin, waterWarnMin, eggTarget, walkedPx, theme: themeMode, savedAt: new Date().toISOString()
+      stats, sizeKey, soundOn, species: speciesDex, shinyMode, shinyLocked, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang: uiLang, rotateMin, guestEnabled, favorites, firstLaunch, sitWarnMin, waterWarnMin, eggTarget, walkedPx, hasEgg, eggRarity, theme: themeMode,
+      roster, nickname, hat, scarf, skin, festivalAuto, access,
+      notifications, notifySystem, checkins, activity, tasks: tasksState,
+      lastSeenVersion, pendingUpdate, updateSnoozeUntil,
+      lastSitAt, lastWaterAt,
+      pomo: pomo ? { phase: pomo.phase, until: pomo.until, restMin: pomo.restMin, workMin: pomo.workMin } : null,
+      savedAt: new Date().toISOString()
     }));
     // 先写临时文件再改名：断电时旧存档仍完整
     try { if (fs.existsSync(file)) fs.copyFileSync(file, file + '.bak'); } catch (_) {}
     fs.renameSync(tmp, file);
   } catch (e) { console.error('saveState failed:', e.message); }
+}
+
+let saveTimer = null;
+function saveSoon() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => { saveTimer = null; saveState(); }, 1200);
 }
 
 // ---------- 尺寸 / 定位 ----------
@@ -1082,6 +1816,7 @@ function tickStep() {
   lastTs = t;
   if (!win || win.isDestroyed()) return;
 
+  if (battleForm && t > battleForm.until) clearForm(true);
   tickPomodoro(t);
   if (t > achCheckAt) { achCheckAt = t + 15000; checkAchievements(); }
   if (t > expAt) { expAt = t + 60000; if (!focusMode) addExp(10); }
@@ -1193,8 +1928,15 @@ function tickStep() {
         setState('climb', 45000);
         bubble(pick(['爬上去咯', '这里视野好', '贴在边上']), 2400);
       }
-      walkedPx += Math.abs(speed * ((currentNature || NATURES[0]).speed || 1) * dt);
-      counters.walked = (counters.walked || 0) + Math.abs(speed * ((currentNature || NATURES[0]).speed || 1) * dt);
+      const stepPx = Math.abs(speed * ((currentNature || NATURES[0]).speed || 1) * dt);
+      walkedPx += stepPx;
+      counters.walked = (counters.walked || 0) + stepPx;
+      walkTaskPx += stepPx;
+      if (walkTaskPx >= 50) {
+        const meters = Math.floor(walkTaskPx / 50);
+        walkTaskPx -= meters * 50;
+        bumpTask('walk', meters);
+      }
       if (walkedPx > eggTarget && !hasEgg && !inBall) { walkedPx = 0; spawnEgg(); }
       const wa = waFor(x + winW / 2, y + winH / 2);
       if (x <= wa.x && !neighborOf(wa, -1)) { x = wa.x; dir = 1; }
@@ -1266,7 +2008,15 @@ function createWindow() {
     win.setBounds({ x: Math.round(x), y: Math.round(y), width: winW, height: winH });
     win.show();
     win.setIgnoreMouseEvents(true, { forward: true });
-    win.webContents.send('init', { shiny, petH, spriteUrl: spriteUrlFor(speciesDex, shiny) });
+    win.webContents.send('init', { shiny, petH, spriteUrl: spriteUrlFor(speciesDex, shiny), hat, scarf, nickname, form: formPayload() });
+    sendLook();
+    sendAccess(win);
+    sendSkin(win);
+    // 重载页面（切语言时会）后，主进程缓存的「上次发送值」要失效，
+    // 否则朝向/高度/蛋这几条只会发一次的消息会被当成已发过而漏掉
+    sentFace = 0;
+    sentAlt = -1;
+    if (hasEgg) win.webContents.send('egg', { rarity: eggRarity });
     setState('walk', 3500);
     dir = 1;
     speed = 45;
@@ -1275,6 +2025,24 @@ function createWindow() {
     const greet = hh < 5 ? '这么晚还没睡…' : hh < 9 ? '早上好～' : hh < 12 ? '上午好～'
       : hh < 14 ? '中午好～' : hh < 18 ? '下午好～' : '晚上好～';
     setTimeout(() => { if (!inBall) bubble(greet, 2600); }, 1200);
+    // 下面这些只做一次：页面重载（换语言 / 崩溃恢复）时重复注册会翻倍
+    if (petBooted) return;
+    petBooted = true;
+    setTimeout(() => maybeShowWhatsNew(), 2600);
+    if (process.env.PET_UI_LANG) setTimeout(() => setLang(process.env.PET_UI_LANG), 400);
+    if (process.env.PET_FORM) setTimeout(() => {
+      const parts = String(process.env.PET_FORM).split(':');
+      const kind = parts[0] === 'gmax' ? 'gmax' : 'mega';
+      const r = transformForm(kind, parts[1] || '');
+      console.log('[form-debug]', JSON.stringify(r));
+      if (process.env.PET_CAPTURE) setTimeout(() => {
+        if (!win || win.isDestroyed()) return;
+        win.webContents.capturePage().then(img => {
+          fs.writeFileSync(path.join(__dirname, 'form-shot.png'), img.toPNG());
+          console.log('[form-debug] 演出截图 form-shot.png');
+        }).catch(() => {});
+      }, 900);
+    }, 900);
     fetchWeather();
     setInterval(fetchWeather, 15 * 60 * 1000);
     setTimeout(() => checkUpdate(false), 8000);
@@ -1336,13 +2104,51 @@ function createWindow() {
       try {
         const r = await settingsWin.webContents.executeJavaScript("JSON.stringify({cards:document.querySelectorAll('.card').length,locked:document.querySelectorAll('.card.locked').length,listH:document.getElementById('list').scrollHeight,clientH:document.getElementById('list').clientHeight})");
         console.log('[diag]', Date.now()-t0, 'ms', r);
-        await settingsWin.webContents.executeJavaScript("document.getElementById('list').scrollTop=800");
-        console.log('[diag] scrollTop=', await settingsWin.webContents.executeJavaScript("document.getElementById('list').scrollTop"));
+        await settingsWin.webContents.executeJavaScript("document.getElementById('list').scrollTop=1200");
+        const before = await settingsWin.webContents.executeJavaScript("document.getElementById('list').scrollTop");
+        await settingsWin.webContents.executeJavaScript("document.querySelector('.card:not(.locked):not(.active)').click()");
+        await new Promise(r => setTimeout(r, 900));
+        const after = await settingsWin.webContents.executeJavaScript("document.getElementById('list').scrollTop");
+        const active = await settingsWin.webContents.executeJavaScript("document.querySelector('.card.active') && document.querySelector('.card.active').dataset.dex");
+        console.log('[diag] scroll before/after', before, after, 'active', active);
+        // 英文名搜索：输入 pikachu 应该只剩皮卡丘
+        await settingsWin.webContents.executeJavaScript(
+          "const s=document.getElementById('search');s.value='pikachu';s.dispatchEvent(new Event('input'))");
+        await new Promise(r => setTimeout(r, 400));
+        const n = await settingsWin.webContents.executeJavaScript("document.getElementById('count').textContent");
+        const vis = await settingsWin.webContents.executeJavaScript("document.querySelectorAll('.card:not(.hide)').length");
+        console.log('[diag] search', n, 'visible', vis);
       } catch (e) { console.log('[diag] 失败', e.message); }
     }, 9000);
     if (process.env.PET_EGG === '1') setTimeout(() => spawnEgg(), 4000);
     if (process.env.PET_REPORT) setTimeout(() => createReportWindow(), 2500);
     if (process.env.PET_GAME) setTimeout(() => createGameWindow(), 2500);
+    if (process.env.PET_LORE) setTimeout(() => showLore(), 3500);
+    if (process.env.PET_STAR) setTimeout(() => createStarWindow(), 4200);
+    if (process.env.PET_LANGTEST) setTimeout(async () => {
+      try {
+        // 先固定成中文，放一句有英文词条的隐藏文字，再切到英文：
+        // 验证「不重载页面也能把已有节点整句换掉」
+        await win.webContents.executeJavaScript(
+          "window.I18N.setLang('zh');" +
+          "const s=document.createElement('span');s.id='langprobe';" +
+          "s.style.cssText='position:fixed;left:-9999px';s.textContent='点下面的按钮';" +
+          "document.body.append(s);");
+        await new Promise(r => setTimeout(r, 400));
+        setLang(process.env.PET_LANGTEST === 'zh' ? 'zh' : 'en');
+        await new Promise(r => setTimeout(r, 1200));
+        const r = await win.webContents.executeJavaScript(
+          "JSON.stringify({probe:document.getElementById('langprobe').textContent, lang:window.I18N&&window.I18N.lang})");
+        console.log('[langtest]', r);
+        if (settingsWin && !settingsWin.isDestroyed()) {
+          const s = await settingsWin.webContents.executeJavaScript(
+            "JSON.stringify({tab:document.querySelector('.tab.active')&&document.querySelector('.tab.active').textContent," +
+            "name:document.querySelector('.card.active .card-name')&&document.querySelector('.card.active .card-name').textContent," +
+            "favChip:[...document.querySelectorAll('.chip')].find(c=>c.dataset.type==='收藏')&&[...document.querySelectorAll('.chip')].find(c=>c.dataset.type==='收藏').textContent})");
+          console.log('[langtest settings]', s);
+        }
+      } catch (e) { console.log('[langtest] 失败', e.message); }
+    }, 9000);
     if (process.env.PET_EGGWIN) setTimeout(() => createEggWindow(), 2500);
     if (process.env.PET_DIAG2) setTimeout(async () => {
       try {
@@ -1394,7 +2200,7 @@ async function makeShareCard(savePath) {
     const sp = loreDataFor(speciesDex);
     shareWin = new BrowserWindow({
       width: 640, height: 420, show: false, frame: false,
-      backgroundColor: '#f6f7fb',
+      backgroundColor: (nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#f6f7fb'),
       webPreferences: {
         preload: path.join(__dirname, 'renderer', 'share-preload.js'),
         contextIsolation: true, nodeIntegration: false
@@ -1406,7 +2212,7 @@ async function makeShareCard(savePath) {
       dex: sp.dex, name: sp.name, types: sp.types || [], genus: sp.genus || '',
       flavor: sp.flavor || '', shiny, spriteUrl: sp.spriteUrl,
       move: spec.move || '',
-      date: new Date().toLocaleDateString('zh-CN')
+      date: new Date().toLocaleDateString(uiLang === 'ja' ? 'ja-JP' : uiLang === 'ko' ? 'ko-KR' : uiLang === 'en' ? 'en-US' : 'zh-CN')
     };
     await new Promise(res => {
       let done = false;
@@ -1436,11 +2242,24 @@ async function makeShareCard(savePath) {
 }
 
 function setLang(v) {
-  lang = v === 'en' ? 'en' : 'zh';
+  uiLang = ['zh', 'en', 'ja', 'ko'].includes(v) ? v : 'zh';
+  lang = uiLang === 'en' ? 'en' : 'zh';
   saveState();
   refreshTray();
-  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('lang', lang);
-  bubble(lang === 'en' ? 'Switched to English' : '换成中文啦', 1600, true);
+  hideLore();
+  // 宠物窗口只换 i18n 语言，不重载：重载会让它跳回屏幕中间
+  if (win && !win.isDestroyed()) {
+    try { win.webContents.send('lang', uiLang); } catch (_) {}
+  }
+  // 其余窗口里有大量「按当前语言生成」的内容（图鉴名、倒计时、报告文案），
+  // 直接重载最省事也最不容易留半句旧语言
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    try { settingsWin.webContents.send('lang', uiLang); } catch (_) {}
+  }
+  for (const w of [eggWin, reportWin, loreWin]) {
+    if (w && !w.isDestroyed()) { try { w.webContents.reload(); } catch (_) {} }
+  }
+  bubble(uiLang === 'ja' ? '日本語に切り替えました' : uiLang === 'ko' ? '한국어로 전환했습니다' : uiLang === 'en' ? 'Switched to English' : '换成中文啦', 1600, true);
 }
 
 function setRotate(min) {
@@ -1468,67 +2287,160 @@ function setFocus(on) {
 
 
 function startPomodoro(min = 25) {
-  pomo = { phase: 'work', until: Date.now() + min * 60000, restMin: 5 };
-  bubble(`好，专注 ${min} 分钟 ⏱`, 2400, true);
+  pomo = { phase: 'work', until: Date.now() + min * 60000, restMin: 5, workMin: min };
+  bubble(lang === 'en' ? `Focus for ${min} minutes ⏱` : `好，专注 ${min} 分钟 ⏱`, 2400, true);
+  pushNotice({ kind: 'pomo', title: lang === 'en' ? 'Focus started' : '开始专注', body: lang === 'en' ? `${min} minutes · the pet will remind you` : `${min} 分钟，结束后会提醒你` });
+  saveState();
   refreshTray();
 }
 
 function stopPomodoro() {
   pomo = null;
-  bubble('番茄钟停啦', 1600, true);
+  bubble(lang === 'en' ? 'Timer stopped' : '番茄钟停啦', 1600, true);
+  saveState();
   refreshTray();
 }
 
 function tickPomodoro(t) {
   if (!pomo || t < pomo.until) return;
   if (pomo.phase === 'work') {
-    bubble('时间到！起来动一动 🧘', 9000, true);
+    bubble(lang === 'en' ? 'Time is up — stand up and stretch 🧘' : '时间到！起来动一动 🧘', 9000, true);
+    pushNotice({ kind: 'pomo', title: lang === 'en' ? 'Focus finished' : '专注结束', body: lang === 'en' ? 'Take a 5-minute break' : '休息 5 分钟吧' });
     try { playCry(speciesDex, true); } catch (_) {}
     setState('happy', 2600);
     pomo = { ...pomo, phase: 'rest', until: t + pomo.restMin * 60000 };
   } else {
-    bubble('休息结束，继续加油 💪', 6000, true);
+    bubble(lang === 'en' ? 'Break over — back to work 💪' : '休息结束，继续加油 💪', 6000, true);
+    pushNotice({ kind: 'pomo', title: lang === 'en' ? 'Break over' : '休息结束', body: lang === 'en' ? 'Ready for another round?' : '准备下一轮吧' });
     pomo = null;
   }
+  saveState();
   refreshTray();
 }
 
 function setShinyMode(mode) {
   shinyMode = mode;
+  shinyLocked = false;
   shiny = shinyFor(speciesDex);
   if (win && !win.isDestroyed()) {
     win.webContents.send('sprite', { url: spriteUrlFor(speciesDex, shiny) });
+    if (battleForm) sendForm();
   }
   saveState();
   refreshTray();
-  bubble(shiny ? `✨ 异色 ${speciesInfo().name}` : speciesInfo().name, 1600);
+  bubble(shiny
+    ? (lang === 'en' ? `✨ Shiny ${nameOf(speciesDex)}` : `✨ 异色 ${nameOf(speciesDex)}`)
+    : nameOf(speciesDex), 1600);
 }
 
+function formMenuItems(L) {
+  if (battleForm) {
+    const kindName = formKindLabel(battleForm.kind);
+    const endLabel = uiLang === 'ja' ? `${kindName}を解除` : uiLang === 'ko' ? `${kindName} 해제` : uiLang === 'en' ? `End ${kindName}` : `解除${kindName}`;
+    const move = formMoveFor(battleForm.entry);
+    return [
+      { label: `${kindName} · ${formMoveLabel(move)}`, enabled: false },
+      { label: endLabel, click: () => clearForm(false) }
+    ];
+  }
+  const opts = formOptions(speciesDex);
+  const items = [];
+  for (const kind of ['mega', 'gmax']) {
+    const list = opts[kind] || [];
+    if (!list.length) continue;
+    const base = L(kind === 'mega' ? '超级进化' : '超极巨化', kind === 'mega' ? 'Mega Evolution' : 'Gigantamax');
+    if (list.length === 1) {
+      items.push({
+        label: `${base} · ${formLabel(list[0])}`,
+        click: () => transformForm(kind, list[0].file)
+      });
+    } else {
+      items.push({
+        label: base,
+        submenu: list.map(e => ({ label: formLabel(e), click: () => transformForm(kind, e.file) }))
+      });
+    }
+  }
+  return items;
+}
+
+// 托盘 / Dock 菜单位于主进程，没法走 DOM 的 i18n，单独放一份小字典
+const MENU_JA = {
+  '伙伴队伍': 'なかま', '喂食 🍞': 'ごはん 🍞', '玩耍 🎾': '遊ぶ 🎾', '打盹 😴': 'うたた寝 😴',
+  '飞一飞 🕊️': '飛ぶ 🕊️', '放出来 ⚪': '出す ⚪', '收进球 ⚪': 'ボールに戻す ⚪',
+  '专属动作 ✨': '専用技 ✨', '形态专属招式 ✨': '形態専用技 ✨', '随机一只 🎲': 'ランダム 🎲', '看介绍 📖': '図鑑 📖',
+  '通知中心': '通知センター', '设置…': '設定…', '退出': '終了',
+  '饱食度': '満腹度', '心情': 'きもち', '超级进化': 'メガシンカ', '超极巨化': 'キョダイマックス'
+};
+const MENU_KO = {
+  '伙伴队伍': '파트너', '喂食 🍞': '먹이 🍞', '玩耍 🎾': '놀기 🎾', '打盹 😴': '낮잠 😴',
+  '飞一飞 🕊️': '날기 🕊️', '放出来 ⚪': '꺼내기 ⚪', '收进球 ⚪': '볼에 넣기 ⚪',
+  '专属动作 ✨': '전용 기술 ✨', '形态专属招式 ✨': '형태 전용 기술 ✨', '随机一只 🎲': '랜덤 🎲', '看介绍 📖': '도감 📖',
+  '通知中心': '알림 센터', '设置…': '설정…', '退出': '종료',
+  '饱食度': '포만감', '心情': '기분', '超级进化': '메가진화', '超极巨化': '거대맥스'
+};
+function natureLabel(n) {
+  if (!n) return '';
+  if (uiLang === 'ja') return ({ cheer: 'ようき', lazy: 'のんき', timid: 'おくびょう', tsun: 'ツンデレ', greedy: 'くいしんぼう', sleepy: 'ねぼすけ' })[n.key] || n.en;
+  if (uiLang === 'ko') return ({ cheer: '명랑', lazy: '느긋', timid: '소심', tsun: '츤데레', greedy: '먹보', sleepy: '잠꾸러기' })[n.key] || n.en;
+  return uiLang === 'en' ? n.en : n.zh;
+}
 function petMenuTemplate() {
-  const L = (zh, en) => (lang === 'en' ? en : zh);
+  const L = (zh, en) => uiLang === 'ja' ? (MENU_JA[zh] || en) : uiLang === 'ko' ? (MENU_KO[zh] || en) : uiLang === 'en' ? en : zh;
+  const stoneItem = uiLang === 'ja' ? `進化させる ✨ (${counters.stones || 0})` : uiLang === 'ko' ? `진화시키기 ✨ (${counters.stones || 0})` : L(`用${stoneFor()}进化 ✨ (${counters.stones || 0})`, `Evolve with stone ✨ (${counters.stones || 0})`);
   return [
     {
-      label: `${speciesInfo().name} · ${L((currentNature || NATURES[0]).zh, (currentNature || NATURES[0]).en)} · Lv.${level} · ${L('饱食度', 'Hunger')} ${Math.round(stats.hunger)} · ${L('心情', 'Mood')} ${Math.round(stats.mood)}`,
+      label: `${petName()} · ${natureLabel(currentNature || NATURES[0])} · Lv.${level} · ${L('饱食度', 'Hunger')} ${Math.round(stats.hunger)} · ${L('心情', 'Mood')} ${Math.round(stats.mood)}`,
       enabled: false
     },
     { type: 'separator' },
+    ...(roster.length > 1 ? [{
+      label: L('伙伴队伍', 'Team'),
+      submenu: roster.map(p => ({
+        label: (p.nickname || nameOf(p.dex)) + (p.dex === speciesDex ? ' ✓' : ''),
+        click: () => switchSpecies(p.dex)
+      }))
+    }, { type: 'separator' }] : []),
     { label: L('喂食 🍞', 'Feed 🍞'), click: doFeed },
     { label: L('玩耍 🎾', 'Play 🎾'), click: doPlay },
     { label: L('打盹 😴', 'Nap 😴'), click: doNap },
     ...(canFlyNow() ? [{ label: L('飞一飞 🕊️', 'Fly 🕊️'), click: doFly }] : []),
     { label: inBall ? L('放出来 ⚪', 'Let out ⚪') : L('收进球 ⚪', 'Into ball ⚪'), click: () => toggleBall() },
-    { label: L('专属动作 ✨', 'Signature move ✨'), click: () => playSignature('manual') },
-    { label: L(`用${stoneFor()}进化 ✨ (${counters.stones || 0})`, `Evolve with stone ✨ (${counters.stones || 0})`), click: useStone },
+    { label: battleForm ? L('形态专属招式 ✨', 'Form move ✨') : L('专属动作 ✨', 'Signature move ✨'), click: () => playSignature('manual') },
+    { label: stoneItem, click: useStone },
+    ...formMenuItems(L),
     { label: L('随机一只 🎲', 'Random 🎲'), click: () => randomSpecies() },
     { label: L('看介绍 📖', 'Profile 📖'), click: () => showLore() },
     { type: 'separator' },
+    { label: L('通知中心', 'Notification center') + (notifications.some(n => !n.read) ? ` (${notifications.filter(n => !n.read).length})` : ''), click: () => openSettingsTab('notify') },
     { label: L('设置…', 'Settings…'), click: createSettingsWindow },
     { label: L('退出', 'Quit'), click: () => { saveState(); app.quit(); } }
   ];
 }
+function sendLook() {
+  if (win && !win.isDestroyed()) {
+    try { win.webContents.send('look', { hat, scarf, nickname, name: petName() }); } catch (_) {}
+  }
+}
+function rosterSnapshot() {
+  return roster.map(p => {
+    const sp = byDex.get(p.dex) || {};
+    return {
+      dex: p.dex, name: sp.name || '', nameEn: EN_NAMES[p.dex] || '', nameJa: JA_NAMES[p.dex] || '', nameKo: KO_NAMES[p.dex] || '', types: sp.types || [],
+      nickname: p.nickname || '', hat: p.hat || 'none', scarf: p.scarf || 'none',
+      active: p.dex === speciesDex
+    };
+  });
+}
+
 function refreshTray() {
   if (!tray) return;
+  tray.setToolTip(uiLang === 'ja' ? 'ポケパル デスクトップペット' : uiLang === 'ko' ? '포케팔 데스크톱 펫' : uiLang === 'en' ? 'PokéPal desktop pet' : '神奇宝贝桌宠');
   tray.setContextMenu(Menu.buildFromTemplate(petMenuTemplate()));
+  // Dock 右键菜单是启动时拍的一张快照，换精灵/喂食后要一起刷新
+  if (IS_MAC && app.dock) {
+    try { app.dock.setMenu(Menu.buildFromTemplate(petMenuTemplate())); } catch (_) {}
+  }
 }
 
 // ---------- 托盘动作 ----------
@@ -1537,6 +2449,8 @@ function doFeed() {
   stats.hunger = Math.min(100, stats.hunger + 40);
   stats.mood = Math.min(100, stats.mood + 8);
   counters.feed++;
+  bumpTask('feed', 1);
+  bumpActivity(1);
   addExp(60);
   if (win && !win.isDestroyed()) win.webContents.send('feed-fx');
   setState('eat', 2400);
@@ -1550,6 +2464,8 @@ function doPlay() {
   stats.mood = Math.min(100, stats.mood + 25);
   stats.hunger = Math.max(0, stats.hunger - 4);
   counters.play++;
+  bumpTask('play', 1);
+  bumpActivity(1);
   addExp(45);
   if (win && !win.isDestroyed()) win.webContents.send('play-fx');
   setState('happy', 2600);
@@ -1589,6 +2505,10 @@ function toggleBall(forceOut) {
 
 // ---------- 检查更新 ----------
 const UPDATE_CONF = path.join(__dirname, 'update-config.json');
+let CHANGELOG = {};
+try {
+  CHANGELOG = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'changelog.json'), 'utf8')) || {};
+} catch (e) { console.error('[changelog] 读取失败:', e.message); }
 
 function readUpdateConf() {
   try { return JSON.parse(fs.readFileSync(UPDATE_CONF, 'utf8')); } catch (_) { return {}; }
@@ -1601,6 +2521,153 @@ function cmpVer(a, b) {
   }
   return 0;
 }
+function noteItem(x) {
+  if (!x) return null;
+  if (typeof x === 'string') return { zh: x, en: x, ja: x, ko: x };
+  const zh = String(x.zh || x.en || '').trim();
+  const en = String(x.en || x.zh || '').trim();
+  const ja = String(x.ja || en || zh || '').trim();
+  const ko = String(x.ko || en || zh || '').trim();
+  return zh || en ? { zh: zh || en, en: en || zh, ja: ja || en || zh, ko: ko || en || zh } : null;
+}
+function notesFor(version, raw) {
+  const local = CHANGELOG[version] || null;
+  const src = raw || local || null;
+  if (!src) return { new: [], fix: [], info: [] };
+  if (typeof src === 'string') {
+    const it = noteItem(src);
+    return { new: [], fix: [], info: it ? [it] : [] };
+  }
+  if (Array.isArray(src)) {
+    return { new: [], fix: [], info: src.map(noteItem).filter(Boolean) };
+  }
+  const out = { new: [], fix: [], info: [] };
+  for (const key of ['new', 'fix']) {
+    const v = src[key] || (key === 'new' ? src.added : src.fixed);
+    if (Array.isArray(v)) out[key] = v.map(noteItem).filter(Boolean);
+  }
+  if (Array.isArray(src.info)) out.info = src.info.map(noteItem).filter(Boolean);
+  if (Array.isArray(src.items)) {
+    for (const it of src.items) {
+      const n = noteItem(it);
+      if (!n) continue;
+      const type = it && it.type === 'fix' ? 'fix' : it && it.type === 'new' ? 'new' : 'info';
+      out[type].push(n);
+    }
+  }
+  if (!out.new.length && !out.fix.length && !out.info.length) {
+    // 兼容只有 title / body 的旧清单
+    const n = noteItem({ zh: src.body || src.zh, en: src.bodyEn || src.body || src.en });
+    if (n) out.info.push(n);
+  }
+  if (!out.new.length && !out.fix.length && !out.info.length && local && local !== src) {
+    return notesFor(version, local);
+  }
+  return out;
+}
+function updatePayload(mode, version, rawNotes, date) {
+  const local = CHANGELOG[version] || {};
+  const rawTitle = rawNotes && typeof rawNotes === 'object' && !Array.isArray(rawNotes) ? rawNotes.title : null;
+  const title = rawTitle || local.title || {};
+  return {
+    mode,
+    version,
+    date: date || local.date || new Date().toISOString().slice(0, 10),
+    title: { zh: title.zh || (mode === 'available' ? '发现新版本' : '更新完成'), en: title.en || (mode === 'available' ? 'Update available' : 'Updated'), ja: title.ja || title.en || 'アップデート情報', ko: title.ko || title.en || '업데이트 정보' },
+    notes: notesFor(version, rawNotes),
+    currentVersion: app.getVersion()
+  };
+}
+let updateNotesWin = null;
+let updateNotesPayload = null;
+let availableUpdate = null;
+function deferAvailableUpdate() {
+  if (!availableUpdate) return;
+  availableUpdate = null;
+  updateSnoozeUntil = Date.now() + 6 * 60 * 60 * 1000; // 「稍后」= 下一次自动检查再说
+  saveState();
+}
+function closeUpdateNotes() {
+  deferAvailableUpdate();
+  if (updateNotesWin && !updateNotesWin.isDestroyed()) updateNotesWin.close();
+}
+function showUpdateNotes(payload) {
+  updateNotesPayload = payload;
+  if (updateNotesWin && !updateNotesWin.isDestroyed()) {
+    try { updateNotesWin.webContents.reload(); } catch (_) {}
+    updateNotesWin.show();
+    updateNotesWin.focus();
+    return;
+  }
+  updateNotesWin = new BrowserWindow({
+    width: 520, height: 640,
+    minWidth: 460, minHeight: 480,
+    frame: false, resizable: false, maximizable: false, fullscreenable: false,
+    center: true, show: false, alwaysOnTop: true, skipTaskbar: false,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#f6f7fb',
+    webPreferences: {
+      preload: path.join(__dirname, 'renderer', 'update-notes-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  updateNotesWin.setMenuBarVisibility(false);
+  if (IS_MAC) updateNotesWin.setAlwaysOnTop(true, 'floating');
+  if (IS_MAC) updateNotesWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
+  updateNotesWin.loadFile(path.join(__dirname, 'renderer', 'update-notes.html'));
+  updateNotesWin.webContents.on('did-finish-load', () => {
+    if (!updateNotesWin || updateNotesWin.isDestroyed()) return;
+    applyZoom(updateNotesWin);
+    console.log('[update-notes] loaded', updateNotesPayload && updateNotesPayload.mode, updateNotesPayload && updateNotesPayload.version);
+    if (process.env.PET_CAPTURE) captureTo(updateNotesWin, 'update-shot.png');
+  });
+  updateNotesWin.once('ready-to-show', () => {
+    if (!updateNotesWin || updateNotesWin.isDestroyed()) return;
+    updateNotesWin.show();
+    updateNotesWin.moveTop();
+    updateNotesWin.focus();
+    console.log('[update-notes] shown', updateNotesWin.isVisible());
+  });
+  updateNotesWin.on('closed', () => {
+    deferAvailableUpdate();
+    updateNotesWin = null;
+    updateNotesPayload = null;
+  });
+}
+function markPendingUpdate(m) {
+  const notes = notesFor(m.version, m.notes);
+  pendingUpdate = { version: String(m.version || ''), notes, at: Date.now(), date: m.publishedAt || '' };
+  saveState();
+}
+function maybeShowWhatsNew() {
+  const cur = app.getVersion();
+  const pendingInstalled = pendingUpdate && cmpVer(pendingUpdate.version, cur) <= 0;
+  let shouldShow = false;
+  if (pendingInstalled) shouldShow = true;
+  else if (lastSeenVersion) shouldShow = cmpVer(cur, lastSeenVersion) > 0;
+  else if (hadStateFile) shouldShow = true; // 0.6.0 之前没有这个字段：老用户升级时补一次说明
+  if (pendingUpdate && !pendingInstalled) {
+    // 更新没有真正装好（例如失败后重启），不要把新版本说明当成本次更新
+    pendingUpdate = null;
+    lastSeenVersion = cur;
+    saveState();
+    return;
+  }
+  if (!shouldShow) {
+    if (!lastSeenVersion) { lastSeenVersion = cur; saveState(); }
+    return;
+  }
+  const version = pendingInstalled ? pendingUpdate.version : cur;
+  updateSnoozeUntil = 0;
+  const payload = updatePayload('installed', version, pendingInstalled ? pendingUpdate.notes : null,
+    pendingInstalled ? pendingUpdate.date : '');
+  lastSeenVersion = cur;
+  pendingUpdate = null;
+  saveState();
+  if (!payload.notes.new.length && !payload.notes.fix.length && !payload.notes.info.length) return;
+  setTimeout(() => showUpdateNotes(payload), 1200);
+}
+
 let updateBusy = false;
 async function checkUpdate(manual = true) {
   const conf = readUpdateConf();
@@ -1609,6 +2676,11 @@ async function checkUpdate(manual = true) {
     if (manual) bubble('还没配置更新源', 2400);
     return { ok: false, reason: 'no-source' };
   }
+  if (!manual && Date.now() < updateSnoozeUntil) {
+    console.log('[update] 用户选择了稍后，跳过本次自动更新');
+    return { ok: true, snoozed: true };
+  }
+  if (!manual && (availableUpdate || updateNotesWin)) return { ok: true, prompted: true };
   if (updateBusy) return { ok: false, reason: 'busy' };
   updateBusy = true;
   try {
@@ -1620,12 +2692,19 @@ async function checkUpdate(manual = true) {
     const newer = cmpVer(m.version, cur) > 0;
     console.log('[update] 远端', m.version, '本地', cur, '需更新?', newer);
     if (newer) {
-      if (manual) bubble(`发现 v${m.version}，正在更新…`, 3200);
-      installUpdate(conf.manifest);
+      if (manual) {
+        availableUpdate = m;
+        updateSnoozeUntil = 0;
+        showUpdateNotes(updatePayload('available', m.version, m.notes, m.publishedAt));
+        bubble(`发现 v${m.version}，请确认更新内容`, 3200);
+      } else {
+        markPendingUpdate(m);
+        installUpdate(m);
+      }
     } else if (manual) {
       bubble(`已是最新 v${cur}`, 2400);
     }
-    return { ok: true, current: cur, latest: m.version, hasUpdate: newer };
+    return { ok: true, current: cur, latest: m.version, hasUpdate: newer, prompted: !!(manual && newer) };
   } catch (e) {
     console.error('[update] 检查失败', e.message);
     if (manual) bubble('连不上更新源', 2400);
@@ -1635,17 +2714,101 @@ async function checkUpdate(manual = true) {
   }
 }
 
-function installUpdate(manifestUrl) {
-  // Windows 上没法替换正在运行的 exe，直接把人送到下载页
-  if (IS_WIN) {
+function downloadTo(url, dest, redirects = 0) {
+  return new Promise((resolve, reject) => {
+    if (redirects > 5) return reject(new Error('too many redirects'));
+    const mod = url.startsWith('https:') ? https : http;
+    const req = mod.get(url, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        return resolve(downloadTo(new URL(res.headers.location, url).toString(), dest, redirects + 1));
+      }
+      if (res.statusCode !== 200) { res.resume(); return reject(new Error('HTTP ' + res.statusCode)); }
+      const out = fs.createWriteStream(dest);
+      res.pipe(out);
+      out.on('finish', () => out.close(() => resolve(dest)));
+      out.on('error', reject);
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.setTimeout(30000, () => req.destroy(new Error('timeout')));
+  });
+}
+function sha256File(file) {
+  return new Promise((resolve, reject) => {
+    const h = crypto.createHash('sha256');
+    const st = fs.createReadStream(file);
+    st.on('data', d => h.update(d));
+    st.on('end', () => resolve(h.digest('hex')));
+    st.on('error', reject);
+  });
+}
+
+async function installWindowsUpdate(m) {
+  const base = (m.builds && (m.builds.win || m.builds['win-x64'])) || m.win || {};
+  const url = base.url || m.winUrl || '';
+  const sha = base.sha256 || m.winSha256 || '';
+  const ver = m.version || '';
+  if (!url || !sha) throw new Error('清单缺少 Windows 包');
+  if (!app.isPackaged) {
     shell.openExternal('https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/latest');
-    bubble('新版已在浏览器打开，下载后解压覆盖', 6000);
+    bubble(lang === 'en' ? 'Opened the release page — download and replace manually' : '已在浏览器打开下载页，请手动覆盖', 6000);
+    return { ok: false, reason: 'dev' };
+  }
+  const dir = path.dirname(process.execPath);
+  const exe = process.execPath;
+  const zip = path.join(app.getPath('temp'), `pokepet-${ver}-win-x64.zip`);
+  bubble(lang === 'en' ? `Downloading v${ver}…` : `正在下载 v${ver}…`, 4000);
+  pushNotice({ kind: 'info', title: '开始更新', titleEn: 'Update started', body: `正在下载 v${ver}`, bodyEn: `Downloading v${ver}` });
+  await downloadTo(url, zip);
+  const got = await sha256File(zip);
+  if (got.toLowerCase() !== String(sha).toLowerCase()) {
+    try { fs.unlinkSync(zip); } catch (_) {}
+    throw new Error('sha256 mismatch');
+  }
+  const script = path.join(__dirname, 'tools', 'update-win.ps1');
+  const { spawn } = require('child_process');
+  spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script,
+    '-TargetPid', String(process.pid), '-Zip', zip, '-Sha', String(sha),
+    '-AppDir', dir, '-Exe', exe], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  bubble(lang === 'en' ? 'Update ready — closing to finish…' : '更新包已就绪，正在关闭并安装…', 5000);
+  setTimeout(() => app.quit(), 1800);
+  return { ok: true };
+}
+
+function installUpdate(m) {
+  if (IS_WIN) {
+    installWindowsUpdate(m).catch(e => {
+      console.error('[update] Windows 更新失败', e.message);
+      pushNotice({ kind: 'info', title: '更新失败', titleEn: 'Update failed', body: '改为打开下载页', bodyEn: 'Opening the release page instead' });
+      shell.openExternal('https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/latest');
+      bubble(lang === 'en' ? 'Update failed — opened the release page' : '更新失败，已打开下载页', 5000);
+    });
+    return;
+  }
+  if (!app.isPackaged) {
+    shell.openExternal('https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/latest');
+    bubble(lang === 'en' ? 'Opened the release page — download and replace manually' : '已在浏览器打开下载页，请手动覆盖', 6000);
+    return;
+  }
+  // 在主进程里就挑好架构 / 取出 URL 和 sha256 传给脚本：
+  // 脚本里不再需要 node 或 JSON 解析（用户机器上不一定有 node）
+  const arch = process.arch === 'x64' ? 'x64' : 'arm64';
+  const build = (m && m.builds && m.builds[arch]) || {};
+  const url = build.url || (m && m.url);
+  const sha = build.sha256 || (m && m.sha256);
+  const ver = (m && m.version) || '';
+  if (!url || !sha) {
+    console.error('[update] 清单缺少下载地址或 sha256');
+    bubble('更新清单不完整，请手动下载', 4000);
     return;
   }
   const { spawn } = require('child_process');
   const script = path.join(__dirname, 'tools', 'update.sh');
+  bubble(lang === 'en' ? `Downloading v${ver}…` : `正在下载 v${ver}…`, 4000);
+  pushNotice({ kind: 'info', title: '开始更新', titleEn: 'Update started', body: `正在下载 v${ver}`, bodyEn: `Downloading v${ver}` });
   try {
-    spawn('/bin/bash', [script, manifestUrl], { detached: true, stdio: 'ignore' }).unref();
+    spawn('/bin/bash', [script, url, sha, ver], { detached: true, stdio: 'ignore' }).unref();
   } catch (e) {
     console.error('[update] 启动更新脚本失败', e.message);
     bubble('更新失败，请手动下载', 3000);
@@ -1653,23 +2816,26 @@ function installUpdate(manifestUrl) {
 }
 
 // ---------- 故事卡 ----------
-let loreWin = null, loreTimer = null;
+let loreWin = null, loreTimer = null, loreDex = 175;
 
 function loreDataFor(dex) {
   const sp = byDex.get(Number(dex)) || speciesInfo();
   const l = LORE[dex] || {};
+  const en = uiLang !== 'zh'; // 日文/韩文暂时用英文长文兜底，名字仍然是本地名字
   return {
     dex: sp.dex,
-    name: sp.name,
-    types: sp.types || [],
-    genus: l.genus || '',
-    habitat: l.habitat || '',
-    where: l.where || '',
-    flavor: l.flavor || '',
+    name: nameOf(sp.dex),
+    types: (sp.types || []).map(typeLabel),
+    typeColors: (sp.types || []).map(t => TYPE_COLOR_MAIN[t] || '#888888'),
+    genus: (en ? (l.genusEn || l.genus) : l.genus) || '',
+    habitat: (en ? (l.habitatEn || l.habitat) : l.habitat) || '',
+    where: (en ? (l.whereEn || l.where) : l.where) || '',
+    flavor: (en ? (l.flavorEn || l.flavor) : l.flavor) || '',
     h: l.h || 0,
     w: l.w || 0,
-    likes: l.likes || '',
-    rare: l.rare || '',
+    likes: (en ? (l.likesEn || l.likes) : l.likes) || '',
+    rare: (en ? (l.rareEn || l.rare) : l.rare) || '',
+    lang: en ? 'en' : 'zh',
     spriteUrl: spriteUrlFor(sp.dex, shiny)
   };
 }
@@ -1681,6 +2847,7 @@ function hideLore() {
 
 function showLore(dex = speciesDex, autoCloseMs = 9000) {
   const data = loreDataFor(dex);
+  loreDex = dex;   // 窗口首次加载完成时按最新的这只发数据，避免慢加载时显示上一只
   const w = 372, h = 234;
   if (!loreWin || loreWin.isDestroyed()) {
     loreWin = new BrowserWindow({
@@ -1697,7 +2864,7 @@ function showLore(dex = speciesDex, autoCloseMs = 9000) {
     if (IS_MAC) loreWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
     loreWin.loadFile(path.join(__dirname, 'renderer', 'lore.html'));
     loreWin.webContents.on('did-finish-load', () => {
-      if (loreWin && !loreWin.isDestroyed()) loreWin.webContents.send('lore:data', loreDataFor(dex));
+      if (loreWin && !loreWin.isDestroyed()) loreWin.webContents.send('lore:data', loreDataFor(loreDex));
     });
   } else {
     loreWin.webContents.send('lore:data', data);
@@ -1709,6 +2876,7 @@ function showLore(dex = speciesDex, autoCloseMs = 9000) {
   const ly = clamp(y + winH - h - 6, wa.y + 6, wa.y + wa.height - h - 6);
   loreWin.setPosition(Math.round(lx), Math.round(ly));
   loreWin.showInactive();
+  captureTo(loreWin, 'lore-shot.png');
   if (loreTimer) clearTimeout(loreTimer);
   loreTimer = setTimeout(hideLore, autoCloseMs);
 }
@@ -1727,9 +2895,9 @@ function randomSpecies() {
   if (n === speciesDex && pool.length) n = pool[0].dex;
   switchSpecies(n);
   const sp = speciesInfo();
-  bubble(`🎲 ${sp.name} · ${sp.types.join('·')}`, 2400);
+  bubble(`🎲 ${nameOf(sp.dex)} · ${sp.types.map(typeLabel).join(' · ')}`, 2400);
   refreshTray();
-  return { current: sp.dex, name: sp.name, types: sp.types, legend: !!sp.legend };
+  return { current: sp.dex, name: nameOf(sp.dex), types: sp.types, legend: !!sp.legend };
 }
 function setSize(k) {
   if (!SIZES[k]) return;
@@ -1773,6 +2941,8 @@ ipcMain.on('pet', () => {
   if (t - petAt < 520) return;
   petAt = t;
   counters.pet++;
+  bumpTask('pet', 1);
+  bumpActivity(1);
   addExp(2);
   stats.mood = Math.min(100, stats.mood + 0.7);
   if (Math.random() < 0.22) {
@@ -1796,6 +2966,8 @@ ipcMain.on('context-menu', () => {
   try { Menu.buildFromTemplate(petMenuTemplate()).popup({ window: win }); } catch (e) { console.error('[menu]', e); }
 });
 ipcMain.on('grab', () => {
+  // 球里的时候，点一下就是「噗」地放出来，而不是把球抓起来扔出去
+  if (inBall) { toggleBall(true); return; }
   if (state === 'drag' || state === 'fall') return;
   setState('drag', 15000);
 });
@@ -1846,6 +3018,7 @@ function bundlePath() {
 }
 
 function writeLaunchAgent(on) {
+  if (!IS_MAC) return false;   // Windows/Linux 没有 LaunchAgents，别在别处写文件
   const p = launchAgentPath();
   if (!on) {
     if (fs.existsSync(p)) fs.unlinkSync(p);
@@ -1882,17 +3055,27 @@ function setLoginAtStart(on) {
   return loginAtStartEnabled();
 }
 
-function switchSpecies(dex) {
+function switchSpecies(dex, opts = {}) {
   notifySettings();
   if (!SPECIES.some(s => s.dex === dex)) return;
+  if (battleForm) clearForm(true, true);
+  if (speciesDex !== dex) {
+    syncRosterEntry();
+    loadRosterLook(dex);
+  }
+  if (opts.shiny) shinyLocked = true;
+  else if (speciesDex !== dex) shinyLocked = false;
   speciesDex = dex;
   if (alt > 1 && !canFlyNow()) { alt = 0; altTarget = 0; y = groundYFor(); }
   sentFace = 0;
   shiny = shinyFor(dex);
   markMet(dex);
   markShiny(dex);
-  if (win && !win.isDestroyed()) win.webContents.send('sprite', { url: spriteUrlFor(dex, shiny) });
-  bubble(`${speciesInfo().name}，来啦!`, 2000);
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('sprite', { url: spriteUrlFor(dex, shiny) });
+    sendLook();
+  }
+  bubble(lang === 'en' ? `${petName()} is here!` : `${petName()}，来啦!`, 2000);
   setTimeout(() => playCry(dex, true), 260);
   refreshTray();
   saveState();
@@ -1906,7 +3089,7 @@ function createEggWindow() {
   if (eggWin && !eggWin.isDestroyed()) { eggWin.show(); eggWin.focus(); return; }
   eggWin = new BrowserWindow({
     width: 360, height: 560, resizable: false, minimizable: false, maximizable: false,
-    title: '孵蛋', backgroundColor: '#fffdf3', show: false, alwaysOnTop: true,
+    title: '孵蛋', backgroundColor: (nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#fffdf3'), show: false, alwaysOnTop: true,
     webPreferences: {
       preload: path.join(__dirname, 'renderer', 'egg-preload.js'),
       contextIsolation: true, nodeIntegration: false
@@ -1925,7 +3108,10 @@ ipcMain.handle('egg:get', () => ({
   eggProgress: Math.min(1, walkedPx / eggTarget),
   eggAt: eggTarget,
   eggs: counters.hatch || 0,
-  stones: counters.stones || 0
+  stones: counters.stones || 0,
+  rarity: eggRarity,
+  rarityLabel: EGG_RARITIES[eggRarity] ? EGG_RARITIES[eggRarity].label : '',
+  rarityEn: EGG_RARITIES[eggRarity] ? EGG_RARITIES[eggRarity].en : ''
 }));
 ipcMain.handle('egg:hatch', () => doHatch());
 ipcMain.on('egg:close', () => { if (eggWin && !eggWin.isDestroyed()) eggWin.close(); });
@@ -1970,6 +3156,8 @@ ipcMain.on('game:done', (_e, score) => {
   if (n <= 0) return;
   addExp(n * 8);
   counters.play = (counters.play || 0) + 1;
+  bumpTask('play', 1);
+  bumpActivity(1);
   saveState();
   bubble(lang === 'en' ? `Caught ${n}! +${n * 8} EXP` : `接住 ${n} 个！经验 +${n * 8}`, 3200, true);
 });
@@ -2004,7 +3192,7 @@ function createReportWindow() {
   if (reportWin && !reportWin.isDestroyed()) { reportWin.show(); reportWin.focus(); return; }
   reportWin = new BrowserWindow({
     width: 460, height: 740, resizable: false, minimizable: false, maximizable: false,
-    title: '陪伴报告', backgroundColor: '#ffffff', show: false,
+    title: '陪伴报告', backgroundColor: shellBg(), show: false,
     webPreferences: {
       preload: path.join(__dirname, 'renderer', 'report-preload.js'),
       contextIsolation: true, nodeIntegration: false
@@ -2023,7 +3211,7 @@ ipcMain.handle('report:save', async () => {
   if (!reportWin || reportWin.isDestroyed()) return { ok: false };
   try {
     const img = await reportWin.webContents.capturePage();
-    const file = path.join(app.getPath('desktop'), `陪伴报告-${new Date().toISOString().slice(0, 10)}.png`);
+    const file = path.join(app.getPath('desktop'), `陪伴报告-${dayKey()}.png`);
     fs.writeFileSync(file, img.toPNG());
     return { ok: true, file };
   } catch (e) { return { ok: false, reason: e.message }; }
@@ -2068,6 +3256,17 @@ ipcMain.on('star:later', () => {
   if (starWin && !starWin.isDestroyed()) starWin.close();
 });
 
+function openSettingsTab(tab) {
+  createSettingsWindow();
+  if (!settingsWin || settingsWin.isDestroyed()) return;
+  const go = () => {
+    if (!settingsWin || settingsWin.isDestroyed()) return;
+    settingsWin.webContents.executeJavaScript(`document.getElementById('tab-${tab}') && document.getElementById('tab-${tab}').click()`).catch(() => {});
+  };
+  if (settingsWin.webContents.isLoading()) settingsWin.webContents.once('did-finish-load', go);
+  else setTimeout(go, 120);
+}
+
 function createSettingsWindow() {
   if (settingsWin && !settingsWin.isDestroyed()) {
     settingsWin.show();
@@ -2079,7 +3278,7 @@ function createSettingsWindow() {
     width: Math.min(820, wa.width - 80), height: Math.min(840, wa.height - 80),
     resizable: false, minimizable: false, maximizable: false,
     title: '神奇宝贝 · 设置',
-    backgroundColor: '#f5f5f7',
+    backgroundColor: shellBg(),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'settings-preload.js'),
@@ -2090,6 +3289,59 @@ function createSettingsWindow() {
   settingsWin.loadFile(path.join(__dirname, 'renderer', 'settings.html'));
   if (process.env.PET_CAPTURE) {
     settingsWin.webContents.once('did-finish-load', async () => {
+      if (process.env.PET_EN) {
+        try {
+          await settingsWin.webContents.executeJavaScript(`document.querySelector('#lang-seg [data-key="en"]').click()`);
+          await new Promise(r => setTimeout(r, 1200));
+        } catch (_) {}
+      }
+      if (process.env.PET_TAB) {
+        try { await settingsWin.webContents.executeJavaScript(`document.getElementById('tab-${process.env.PET_TAB}').click()`); } catch (_) {}
+        await new Promise(r => setTimeout(r, 700));
+      }
+      if (process.env.PET_ENAUDIT) {
+        try {
+          const tabs = ['dex', 'team', 'tasks', 'ach', 'notify', 'bag', 'opts'];
+          for (const tab of tabs) {
+            await settingsWin.webContents.executeJavaScript(`document.getElementById('tab-${tab}').click()`);
+            await new Promise(r => setTimeout(r, 500));
+            const out = await settingsWin.webContents.executeJavaScript(`(() => {
+              const bad = new Set();
+              const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+              while (tw.nextNode()) {
+                const n = tw.currentNode, el = n.parentElement;
+                if (!el || el.closest('#lang-seg, script, style, [hidden]')) continue;
+                const t = (n.textContent || '').trim();
+                if (t && /[\u3400-\u9fff]/.test(t) && el.offsetParent !== null) bad.add(t.slice(0, 80));
+              }
+              return JSON.stringify([...bad]);
+            })()`);
+            console.log('[enaudit]', tab, out);
+          }
+        } catch (e) { console.log('[enaudit] err', e.message); }
+      }
+      if (process.env.PET_CLAIM) {
+        try {
+          const r = await settingsWin.webContents.executeJavaScript(`(async () => {
+            const b = document.querySelector('.task-claim:not([disabled])');
+            if (!b) return 'no-claimable';
+            b.click();
+            await new Promise(r => setTimeout(r, 900));
+            return JSON.stringify({ exp: document.querySelector('#lvl')?.textContent, tasks: [...document.querySelectorAll('.task-card.claimed')].length });
+          })()`);
+          console.log('[claim]', r);
+        } catch (e) { console.log('[claim] err', e.message); }
+      }
+      if (process.env.PET_FLAT) {
+        try {
+          await settingsWin.webContents.executeJavaScript(`
+            document.getElementById('tab-dex').click();
+            document.getElementById('sort-select').value = '${process.env.PET_FLAT}';
+            document.getElementById('sort-select').dispatchEvent(new Event('change'));
+          `);
+        } catch (_) {}
+        await new Promise(r => setTimeout(r, 800));
+      }
       if (process.env.PET_SETTINGS === '2') {
         try { await settingsWin.webContents.executeJavaScript("document.getElementById('tab-opts').click()"); } catch (_) {}
         await new Promise(r => setTimeout(r, 600));
@@ -2122,36 +3374,65 @@ function createSettingsWindow() {
 function cfgSnapshot() {
   return {
     current: speciesDex,
+    nickname, hat, scarf, roster: rosterSnapshot(),
+    forms: formOptions(speciesDex), battleForm: formPayload(),
     sizeKey, soundOn,
     loginAtStart: loginAtStartEnabled(),
-    shinyMode, rotateMin, lang, focusMode, guestEnabled, favorites,
-    nature: { zh: (currentNature || NATURES[0]).zh, en: (currentNature || NATURES[0]).en },
+    shinyMode, rotateMin, lang: uiLang, focusMode, guestEnabled, favorites,
+    nature: { key: (currentNature || NATURES[0]).key, zh: (currentNature || NATURES[0]).zh, en: (currentNature || NATURES[0]).en },
     dexMet: dexMet.slice(),
     stones: counters.stones || 0,
     eggs: counters.hatch || 0,
     hasEgg,
+    eggRarity,
+    eggRarityLabel: EGG_RARITIES[eggRarity] ? EGG_RARITIES[eggRarity].label : '',
+    eggRarityEn: EGG_RARITIES[eggRarity] ? EGG_RARITIES[eggRarity].en : '',
     eggProgress: Math.min(1, walkedPx / eggTarget),
     eggAt: eggTarget,
-    checkedIn: counters.lastCheckIn === new Date().toISOString().slice(0, 10),
+    checkedIn: counters.lastCheckIn === dayKey(),
     checkInDays: counters.checkIn || 0,
     pomo: pomo ? { phase: pomo.phase, left: Math.max(0, pomo.until - Date.now()) } : null,
     level, exp,
     theme: themeMode,
+    skin, effectiveSkin: effectiveSkin(), festivalAuto, access,
     expInLevel: Math.max(0, exp - expTotalForLevel(level)),
     expNeed: expNeedFor(level),
     met: dexMet.length, shinyMet: shinyMet.length, total: SPECIES.length,
-    achievements: ACHIEVEMENTS.map(a => ({ id: a.id, name: a.name, en: a.en || a.name, desc: a.desc, unlocked: !!unlocked[a.id] })),
+    achievements: ACHIEVEMENTS.map(a => {
+      let prog = null;
+      try { prog = a.prog ? a.prog() : null; } catch (_) {}
+      return {
+        id: a.id, name: a.name, en: a.en || a.name, desc: a.desc,
+        ja: a.ja || '', ko: a.ko || '', descJa: a.descJa || '', descKo: a.descKo || '',
+        unlocked: !!unlocked[a.id], at: unlocked[a.id] || 0,
+        progress: prog ? { value: prog[0], target: prog[1] } : null
+      };
+    }),
     streak: counters.streak || 1, sig: counters.sig,
+    waterWarnMin, sitWarnMin, firstLaunch,
+    notifications: notifications.slice(0, 100),
+    unread: notifications.filter(n => !n.read).length,
+    notifySystem,
+    tasks: {
+      daily: taskSnapshot('daily'),
+      weekly: taskSnapshot('weekly'),
+      day: tasksState.day, week: tasksState.week
+    },
+    checkins: checkins.slice(-420),
+    activity,
+    heatmapDays,
     version: app.getVersion()
   };
 }
 
 ipcMain.handle('cfg:dexPulse', () => ({ n: dexMet.length, cur: speciesDex, level }));
-ipcMain.on('lang:sync', e => { try { e.returnValue = lang; } catch (_) {} });
+ipcMain.on('lang:sync', e => { try { e.returnValue = uiLang; } catch (_) {} });
+ipcMain.on('skin:sync', e => { try { e.returnValue = effectiveSkin(); } catch (_) {} });
+ipcMain.on('access:sync', e => { try { e.returnValue = { ...access }; } catch (_) {} });
 
 ipcMain.handle('cfg:get', () => ({
-  species: SPECIES.map(s => ({ dex: s.dex, name: s.name, nameEn: EN_NAMES[s.dex] || '', types: s.types, gen: s.gen, legend: !!(s.legend || s.myth) })),
-  chains: LINES.map(l => ({ stages: l.stages, hows: l.hows, type: l.type })),
+  species: SPECIES.map(s => ({ dex: s.dex, name: s.name, nameEn: EN_NAMES[s.dex] || '', nameJa: JA_NAMES[s.dex] || '', nameKo: KO_NAMES[s.dex] || '', types: s.types, gen: s.gen, legend: !!(s.legend || s.myth) })),
+  chains: LINES.map(l => ({ stages: l.stages, hows: l.hows.map(h => lang === 'en' ? howEn(h) : h), type: l.type })),
   spriteBase: spriteBase(),
   ...cfgSnapshot()
 }));
@@ -2167,6 +3448,12 @@ ipcMain.handle('cfg:setOpt', (_e, key, value) => {
     else if (key === 'sound') { soundOn = !!value; saveState(); refreshTray(); }
     else if (key === 'login') setLoginAtStart(!!value);
     else if (key === 'theme') { themeMode = ['auto','light','dark'].includes(value) ? value : 'auto'; applyTheme(); saveState(); }
+    else if (key === 'skin') setSkin(value);
+    else if (key === 'festivalAuto') { festivalAuto = !!value; saveState(); for (const w of BrowserWindow.getAllWindows()) sendSkin(w); }
+    else if (key === 'access') setAccess(value || {});
+    else if (key === 'notifySystem') { notifySystem = !!value; saveState(); }
+    else if (key === 'water') { waterWarnMin = clamp(Number(value) || 0, 0, 240); saveState(); }
+    else if (key === 'sit') { sitWarnMin = clamp(Number(value) || 0, 0, 240); saveState(); }
   } catch (e) { console.error('[cfg:setOpt]', key, e); }
   return cfgSnapshot();
 });
@@ -2195,6 +3482,17 @@ ipcMain.handle('cfg:setSpecies', (_e, dex) => {
 });
 ipcMain.handle('cfg:random', () => randomSpecies());
 ipcMain.handle('cfg:checkUpdate', () => checkUpdate(true));
+ipcMain.handle('update-notes:get', () => updateNotesPayload || updatePayload('installed', app.getVersion(), null));
+ipcMain.on('update-notes:close', () => closeUpdateNotes());
+ipcMain.handle('update-notes:install', () => {
+  const m = availableUpdate;
+  if (!m) return { ok: false, reason: 'none' };
+  availableUpdate = null;
+  markPendingUpdate(m);
+  closeUpdateNotes();
+  setTimeout(() => installUpdate(m), 350);
+  return { ok: true };
+});
 ipcMain.handle('cfg:setSound', (_e, on) => { soundOn = !!on; saveState(); if (soundOn) playCry(speciesDex, true); refreshTray(); return { soundOn }; });
 ipcMain.handle('cfg:setLogin', (_e, on) => ({ loginAtStart: setLoginAtStart(!!on) }));
 ipcMain.handle('cfg:setSize', (_e, k) => { setSize(k); return { sizeKey }; });
@@ -2206,6 +3504,62 @@ ipcMain.handle('cfg:setFav', (_e, dex, on) => {
     saveState();
   }
   return { favorites };
+});
+ipcMain.handle('cfg:readNotices', (_e, ids) => {
+  if (Array.isArray(ids)) {
+    for (const n of notifications) if (ids.includes(n.id)) n.read = true;
+  } else {
+    for (const n of notifications) n.read = true;
+  }
+  saveState();
+  notifySettings();
+  return { notifications, unread: notifications.filter(n => !n.read).length };
+});
+ipcMain.handle('cfg:clearNotices', () => {
+  notifications = [];
+  saveState();
+  notifySettings();
+  return { notifications, unread: 0 };
+});
+ipcMain.handle('cfg:claimTask', (_e, freq, id) => {
+  const ok = claimTask(String(freq), String(id));
+  return { ok, ...cfgSnapshot() };
+});
+ipcMain.handle('cfg:rename', (_e, name) => {
+  nickname = String(name || '').trim().slice(0, 12);
+  syncRosterEntry();
+  saveState();
+  refreshTray();
+  sendLook();
+  return { nickname, ...cfgSnapshot() };
+});
+ipcMain.handle('cfg:transform', (_e, kind, file) => {
+  const r = transformForm(String(kind || ''), String(file || ''));
+  return { ...r, ...cfgSnapshot() };
+});
+ipcMain.handle('cfg:setLook', (_e, look) => {
+  const l = look || {};
+  if (['none','cap','tophat','crown'].includes(l.hat)) hat = l.hat;
+  if (['none','red','blue','green'].includes(l.scarf)) scarf = l.scarf;
+  syncRosterEntry();
+  saveState();
+  sendLook();
+  return { hat, scarf, ...cfgSnapshot() };
+});
+ipcMain.handle('cfg:switchPet', (_e, dex) => {
+  const d = Number(dex);
+  if (!SPECIES.some(sp => sp.dex === d)) return { ok: false, ...cfgSnapshot() };
+  switchSpecies(d);
+  return { ok: true, ...cfgSnapshot() };
+});
+ipcMain.handle('cfg:removePet', (_e, dex) => {
+  const d = Number(dex);
+  if (d === speciesDex || roster.length <= 1) return { ok: false, ...cfgSnapshot() };
+  roster = roster.filter(p => p.dex !== d);
+  saveState();
+  notifySettings();
+  refreshTray();
+  return { ok: true, ...cfgSnapshot() };
 });
 ipcMain.on('cfg:close', () => { if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close(); });
 
@@ -2221,6 +3575,12 @@ app.on('second-instance', () => {
   setTimeout(() => { altTarget = 0; }, 700);
 });
 app.on('window-all-closed', () => { /* 保持在托盘运行 */ });
+// 点 Dock 图标：把设置页叫出来（比只把宠物往前推更符合预期）
+app.on('activate', () => {
+  if (!app.isReady()) return;   // 首次启动时 ready 之前也会触发，交给 whenReady 建窗
+  if (!win || win.isDestroyed()) createWindow();
+  else createSettingsWindow();
+});
 app.on('before-quit', () => {
   saveState();
   try {
@@ -2238,6 +3598,13 @@ app.whenReady().then(() => {
   }
   console.log('[debug] whenReady 已触发', JSON.stringify(process.argv));
   loadState();
+  if (process.env.PET_SKIN && SKINS.includes(process.env.PET_SKIN)) skin = process.env.PET_SKIN;
+  if (process.env.PET_LOOK && ['cap','tophat','crown'].includes(process.env.PET_LOOK)) hat = process.env.PET_LOOK;
+  if (process.env.PET_SCARF && ['red','blue','green'].includes(process.env.PET_SCARF)) scarf = process.env.PET_SCARF;
+  // loadState 会把存档里的外观读进 themeMode，必须再应用一次，
+  // 否则「深色」只在设置里点了当次有效，重启又跟回系统
+  if (process.env.PET_DARK) nativeTheme.themeSource = process.env.PET_DARK === 'light' ? 'light' : 'dark';
+  else applyTheme();
   if (!firstLaunch) { firstLaunch = Date.now(); saveState(); }
   if (!dexMet.length) {
     const starters = [1, 4, 7, 25, 133, 152, 155, 158, 252, 255, 258, 387, 390, 393];

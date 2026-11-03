@@ -49,14 +49,22 @@
   /* ── 深色模式 ── */
   @media (prefers-color-scheme: dark) {
     body {
-      background: #141416 !important;
+      background: linear-gradient(160deg, #1c1c1e 0%, #141416 100%) !important;
       color: #f5f5f7 !important;
     }
-    .card { background: #1c1c1e !important; }
-    .muted, small { color: #98989d !important; }
+    .sprite-box {
+      background: rgba(255, 255, 255, .06) !important;
+      border-color: rgba(255, 255, 255, .1) !important;
+    }
+    .genus, #dex { color: #98989d !important; }
+    .flavor { color: #c7c7cc !important; border-left-color: rgba(255, 255, 255, .22) !important; }
+    .foot { border-top-color: rgba(255, 255, 255, .1) !important; color: #98989d !important; }
+    .foot b { color: #f5f5f7 !important; }
   }
 </style>
+  <script src="i18n-extra.js"></script>
   <script src="i18n.js"></script>
+  <link rel="stylesheet" href="skins.css">
 </head>
 <body>
 <div id="card">
@@ -85,7 +93,7 @@
   const TYPE_COLOR = {
     一般: '#929da3', 火: '#ff9d55', 水: '#4d90d5', 电: '#f4d23c', 草: '#63bb5b',
     冰: '#73cec0', 格斗: '#ce4069', 毒: '#ab6ac8', 地面: '#d97845', 飞行: '#8fa8dd',
-    超能: '#f97176', 虫: '#90c12c', 岩石: '#c7b78b', 幽灵: '#5269ad', 龙: '#0b6dc3',
+    超能力: '#f97176', 虫: '#90c12c', 岩石: '#c7b78b', 幽灵: '#5269ad', 龙: '#0b6dc3',
     恶: '#5a5366', 钢: '#5a8ea1', 妖精: '#ec8fe6'
   };
   window.share.onData(d => {
@@ -112,5 +120,6 @@
     if (img.complete) window.share.ready();
   });
 </script>
+<script src="theme-boot.js"></script>
 </body>
 </html>

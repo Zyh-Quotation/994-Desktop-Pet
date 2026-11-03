@@ -5,9 +5,11 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file:; style-src 'self' 'unsafe-inline'">
 <title>神奇宝贝 · 设置</title>
 <link rel="stylesheet" href="settings.css">
+  <script src="i18n-extra.js"></script>
   <script src="i18n.js"></script>
+  <link rel="stylesheet" href="skins.css">
 </head>
-<body>
+<body class="settings">
 <header>
   <h1>设置</h1>
   <p class="sub" id="subtitle">全国图鉴 001–1025，按属性 / 世代挑选，点进化链上任意一只即可切换</p>
@@ -15,7 +17,10 @@
 
 <nav class="tabs">
   <button class="tab active" data-pane="dex" id="tab-dex">图鉴</button>
+  <button class="tab" data-pane="team" id="tab-team">伙伴</button>
+  <button class="tab" data-pane="tasks" id="tab-tasks">任务</button>
   <button class="tab" data-pane="ach" id="tab-ach">成就</button>
+  <button class="tab" data-pane="notify" id="tab-notify">通知<span class="tab-badge" id="notify-badge" hidden></span></button>
   <button class="tab" data-pane="bag" id="tab-bag">背包</button>
   <button class="tab" data-pane="opts" id="tab-opts">设置</button>
 </nav>
@@ -29,9 +34,108 @@
     <span id="count" class="count">共 1025 只</span>
   </div>
   <nav id="chips" class="chips"></nav>
+  <div class="dex-tools">
+    <div class="segmented" id="view-seg">
+      <button class="size-btn active" data-view="chain">进化链</button>
+      <button class="size-btn" data-view="flat">平铺</button>
+    </div>
+    <select id="sort-select" class="gen-select" title="排序">
+      <option value="dex">按编号</option>
+      <option value="name">按名称</option>
+      <option value="type">按属性</option>
+      <option value="gen">按世代</option>
+      <option value="legend">传说优先</option>
+    </select>
+    <span class="dex-virtual-hint" id="virtual-hint" hidden>虚拟滚动 · 只渲染可见卡片</span>
+  </div>
   <main id="list" class="list"></main>
+  <div id="dex-virtual" class="list dex-virtual" hidden></div>
   </div>
 
+</div>
+
+<div class="pane" id="pane-team" hidden>
+  <section class="team-active">
+    <div class="team-hero">
+      <img id="team-sprite" alt="">
+      <div class="team-hero-info">
+        <div class="team-hero-top">
+          <b id="team-name">–</b>
+          <span id="team-level" class="muted">–</span>
+        </div>
+        <div id="team-sub" class="muted">–</div>
+        <div class="team-look">
+          <label>帽子
+            <select id="hat-select" class="gen-select">
+              <option value="none">不戴</option>
+              <option value="cap">鸭舌帽</option>
+              <option value="tophat">礼帽</option>
+              <option value="crown">王冠</option>
+            </select>
+          </label>
+          <label>围巾
+            <select id="scarf-select" class="gen-select">
+              <option value="none">不戴</option>
+              <option value="red">红色</option>
+              <option value="blue">蓝色</option>
+              <option value="green">绿色</option>
+            </select>
+          </label>
+        </div>
+        <button class="upd-btn" id="rename-btn">改名</button>
+      </div>
+    </div>
+    <div class="rename-row" id="rename-row" hidden>
+      <input id="rename-input" class="search" maxlength="12" placeholder="给它起个名字（最多 12 个字）">
+      <button class="upd-btn" id="rename-save">保存</button>
+    </div>
+    <div class="form-box" id="form-box" hidden>
+      <div class="form-head">
+        <span>战斗形态</span>
+        <span class="muted" id="form-status"></span>
+      </div>
+      <div class="form-actions" id="form-actions"></div>
+      <p class="hint">超级进化 / 超极巨化是临时形态，持续时间结束后会自动变回来；冷却已取消，随时可以再次变身。每个形态都有专属招式。</p>
+    </div>
+  </section>
+  <div class="team-head">
+    <span>我的伙伴</span><span class="muted" id="team-count">–</span>
+  </div>
+  <div class="team-grid" id="team-grid"></div>
+  <p class="hint" id="team-hint">在图鉴里点任意一只就会切换并加入队伍，最多 12 只。</p>
+</div>
+
+<div class="pane" id="pane-tasks" hidden>
+  <div class="task-section">
+    <div class="task-head">
+      <b>每日任务</b><span class="muted" id="daily-reset">–</span>
+    </div>
+    <div id="daily-tasks" class="task-list"></div>
+  </div>
+  <div class="task-section">
+    <div class="task-head">
+      <b>每周任务</b><span class="muted" id="weekly-reset">–</span>
+    </div>
+    <div id="weekly-tasks" class="task-list"></div>
+  </div>
+</div>
+
+<div class="pane" id="pane-notify" hidden>
+  <div class="notice-tools">
+    <span class="muted" id="notice-summary">–</span>
+    <span class="notice-actions">
+      <button class="upd-btn" id="notice-read">全部已读</button>
+      <button class="upd-btn" id="notice-clear">清空</button>
+    </span>
+  </div>
+  <label class="opt opt-tight">
+    <span class="opt-label">同时发系统通知</span>
+    <span class="switch-wrap">
+      <input type="checkbox" id="notify-system">
+      <i class="switch"></i>
+    </span>
+  </label>
+  <div class="notice-list" id="notice-list"></div>
 </div>
 
 <div class="pane" id="pane-bag" hidden>
@@ -84,9 +188,20 @@
 </div>
 
 <div class="pane" id="pane-ach" hidden>
+  <div class="ach-stats">
+    <div><b id="ach-streak">–</b><span>连续签到</span></div>
+    <div><b id="ach-checkin-total">–</b><span>累计签到</span></div>
+    <div><b id="ach-days">–</b><span>陪伴天数</span></div>
+    <div><b id="ach-count">–</b><span>成就</span></div>
+  </div>
+  <div class="heatmap-head">
+    <span>最近一年 · 签到 / 互动</span>
+    <span class="heatmap-legend"><i data-l="0"></i><i data-l="1"></i><i data-l="2"></i><i data-l="3"></i><i data-l="4"></i>多</span>
+  </div>
+  <div class="heatmap-wrap"><div class="heatmap-months" id="heatmap-months"></div><div class="heatmap" id="heatmap"></div></div>
   <div class="ach-top">
-    <span class="ach-title">已解锁</span>
-    <b id="ach-count">–</b>
+    <span class="ach-title">成就墙</span>
+    <b id="ach-count2">–</b>
   </div>
   <div class="ach-bar"><i id="ach-bar" style="width:0"></i></div>
   <div class="ach-grid" id="ach-grid"></div>
@@ -115,7 +230,7 @@
     <div class="opt">
       <span class="opt-label">自动换一只</span>
       <select id="rotation" class="gen-select">
-        <option value="0">关闭</option>
+        <option value="0">不自动换</option>
         <option value="5">每 5 分钟</option>
         <option value="15">每 15 分钟</option>
         <option value="30">每 30 分钟</option>
@@ -126,9 +241,11 @@
 
     <div class="opt">
       <span class="opt-label">语言 / Language</span>
-      <div class="segmented" id="lang-seg">
+      <div class="segmented lang-seg" id="lang-seg">
         <button class="size-btn" data-key="zh">中文</button>
         <button class="size-btn" data-key="en">English</button>
+        <button class="size-btn" data-key="ja">日本語</button>
+        <button class="size-btn" data-key="ko">한국어</button>
       </div>
     </div>
 
@@ -139,6 +256,25 @@
         <button class="size-btn" data-key="light">浅色</button>
         <button class="size-btn" data-key="dark">深色</button>
       </div>
+    </label>
+
+    <div class="opt">
+      <span class="opt-label">皮肤</span>
+      <div class="skin-seg" id="skin-seg">
+        <button class="skin-btn" data-skin="default"><i style="--sw:#e63b3b"></i><span>经典</span></button>
+        <button class="skin-btn" data-skin="sakura"><i style="--sw:#e86a92"></i><span>樱花</span></button>
+        <button class="skin-btn" data-skin="ocean"><i style="--sw:#2f8fdb"></i><span>海洋</span></button>
+        <button class="skin-btn" data-skin="forest"><i style="--sw:#3d9a66"></i><span>森林</span></button>
+        <button class="skin-btn" data-skin="festival"><i style="--sw:#f0a12e"></i><span>节日</span></button>
+      </div>
+    </div>
+
+    <label class="opt">
+      <span class="opt-label">节日自动换肤</span>
+      <span class="switch-wrap">
+        <input type="checkbox" id="festival-auto">
+        <i class="switch"></i>
+      </span>
     </label>
 
     <label class="opt">
@@ -203,6 +339,62 @@
       <button class="upd-btn" id="share-btn">拍照分享 📸</button>
       <button class="upd-btn" id="report-btn">陪伴报告 📊</button>
       <button class="upd-btn" id="game-btn">接球小游戏 🎮</button>
+    </div>
+
+    <div class="opt opt-title">辅助功能</div>
+
+    <label class="opt">
+      <span class="opt-label">减少动态效果</span>
+      <span class="switch-wrap">
+        <input type="checkbox" id="reduce-motion">
+        <i class="switch"></i>
+      </span>
+    </label>
+
+    <label class="opt">
+      <span class="opt-label">高对比度</span>
+      <span class="switch-wrap">
+        <input type="checkbox" id="high-contrast">
+        <i class="switch"></i>
+      </span>
+    </label>
+
+    <div class="opt">
+      <span class="opt-label">界面缩放</span>
+      <div class="segmented" id="scale-seg">
+        <button class="size-btn" data-key="90">90%</button>
+        <button class="size-btn" data-key="100">100%</button>
+        <button class="size-btn" data-key="110">110%</button>
+        <button class="size-btn" data-key="125">125%</button>
+      </div>
+    </div>
+
+    <div class="opt">
+      <span class="opt-label">叫声音量</span>
+      <input type="range" id="volume" min="0" max="100" step="5" class="range">
+      <span class="opt-label" id="volume-val">45%</span>
+    </div>
+
+    <div class="opt">
+      <span class="opt-label">喝水提醒</span>
+      <select id="water-min" class="gen-select">
+        <option value="0">不提醒</option>
+        <option value="30">每 30 分钟</option>
+        <option value="60">每 60 分钟</option>
+        <option value="90">每 90 分钟</option>
+        <option value="120">每 2 小时</option>
+      </select>
+    </div>
+
+    <div class="opt">
+      <span class="opt-label">久坐提醒</span>
+      <select id="sit-min" class="gen-select">
+        <option value="0">不提醒</option>
+        <option value="30">每 30 分钟</option>
+        <option value="45">每 45 分钟</option>
+        <option value="60">每 60 分钟</option>
+        <option value="90">每 90 分钟</option>
+      </select>
     </div>
 
     <div class="opt">

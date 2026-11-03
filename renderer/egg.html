@@ -53,17 +53,29 @@
   /* ── 深色模式 ── */
   @media (prefers-color-scheme: dark) {
     body {
-      background: radial-gradient(circle at 50%% 28%%, #2a2a2c 0%%, #1c1c1e 62%%) !important;
+      background: radial-gradient(circle at 50% 28%, #2a2a2c 0%, #1c1c1e 62%) !important;
       color: #f5f5f7 !important;
     }
-    .sub, .small, small { color: #98989d !important; }
+    .sub, .stat, .timer small, .log, small { color: #98989d !important; }
     .ring { background: conic-gradient(#ffb347 var(--p), #3a3a3c 0) !important; }
+    .ring.ready { background: conic-gradient(#34c759 100%, #34c759 0) !important; }
     .ring::after { background: #1c1c1e !important; }
     button { background: #2c2c2e !important; color: #f5f5f7 !important; border-color: rgba(255,255,255,.12) !important; }
-    button.primary { background: #e63b3b !important; color: #fff !important; }
+    button:disabled { background: #2c2c2e !important; color: #6e6e73 !important; }
+    button.ghost { background: #2c2c2e !important; color: #d1d1d6 !important; }
   }
+  .rarity { min-height: 18px; margin: 2px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .5px; }
+  .rarity.common { color: var(--muted, #86868b); }
+  .rarity.rare { color: #0a84ff; }
+  .rarity.legendary { color: #c99700; }
+  .rarity.shiny { color: #ff3b7f; }
+  .egg.rare { filter: drop-shadow(0 0 12px rgba(90,200,250,.8)); }
+  .egg.legendary { filter: drop-shadow(0 0 16px rgba(255,200,60,.95)); }
+  .egg.shiny { filter: drop-shadow(0 0 16px rgba(255,80,150,.9)) saturate(1.3); }
 </style>
+  <script src="i18n-extra.js"></script>
   <script src="i18n.js"></script>
+  <link rel="stylesheet" href="skins.css">
 </head>
 <body>
   <h1>孵蛋</h1>
@@ -74,6 +86,7 @@
   </div>
 
   <div class="timer" id="timer">–</div>
+  <p class="rarity" id="rarity"></p>
   <p class="stat" id="stat">–</p>
 
   <button id="hatch" disabled>还没有蛋</button>

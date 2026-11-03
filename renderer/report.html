@@ -37,15 +37,22 @@
   /* ── 深色模式 ── */
   @media (prefers-color-scheme: dark) {
     body {
-      background: #141416 !important;
+      background: linear-gradient(160deg, #1c1c1e 0%, #141416 100%) !important;
       color: #f5f5f7 !important;
     }
-    .card, .sheet, .panel { background: #1c1c1e !important; }
-    .muted, .label, small { color: #98989d !important; }
-    .stat, .row { border-color: rgba(255,255,255,.08) !important; }
+    .cell {
+      background: #1f1f22 !important;
+      border-color: rgba(255, 255, 255, .08) !important;
+    }
+    .cell .k, .sub, .hint, small { color: #98989d !important; }
+    .cell .v { color: #f5f5f7 !important; }
+    .bar { background: rgba(255, 255, 255, .1) !important; }
+    button.ghost { background: #2c2c2e !important; color: #f5f5f7 !important; }
   }
 </style>
+  <script src="i18n-extra.js"></script>
   <script src="i18n.js"></script>
+  <link rel="stylesheet" href="skins.css">
 </head>
 <body>
   <h1>陪伴报告</h1>
@@ -76,5 +83,6 @@
   </footer>
 
   <script src="report.js"></script>
+<script src="theme-boot.js"></script>
 </body>
 </html>

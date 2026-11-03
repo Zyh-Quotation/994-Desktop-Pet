@@ -15,26 +15,29 @@ function render(d) {
   el('rare').hidden = !d.rare;
   if (d.rare) el('rare').textContent = d.rare;
 
-  const accent = TYPE_COLOR[d.types[0]] || '#e63b3b';
+  const en = (window.I18N && window.I18N.lang === 'en') || d.lang === 'en';
+  const accent = (d.typeColors && d.typeColors[0]) || TYPE_COLOR[d.types[0]] || '#e63b3b';
   document.documentElement.style.setProperty('--accent', accent);
   document.documentElement.style.setProperty('--accent-soft', hexA(accent, .12));
 
   const types = el('types');
   types.innerHTML = '';
-  for (const t of d.types) {
+  d.types.forEach((t, i) => {
     const s = document.createElement('span');
     s.className = 'type';
     s.textContent = t;
-    s.style.background = TYPE_COLOR[t] || '#888';
+    s.style.background = (d.typeColors && d.typeColors[i]) || TYPE_COLOR[t] || '#888';
     types.append(s);
-  }
+  });
 
   const bits = [];
-  if (d.h) bits.push('身高 ' + d.h + ' m');
-  if (d.w) bits.push('体重 ' + d.w + ' kg');
+  if (d.h) bits.push((en ? 'Height ' : '身高 ') + d.h + ' m');
+  if (d.w) bits.push((en ? 'Weight ' : '体重 ') + d.w + ' kg');
   el('meta').textContent = bits.join(' · ');
 
-  el('home').textContent = d.where ? `🏠 常在${d.where}出没` : (d.habitat ? `🏠 ${d.habitat}` : '');
+  el('home').textContent = d.where
+    ? (en ? `🏠 Often found ${d.where}` : `🏠 常在${d.where}出没`)
+    : (d.habitat ? `🏠 ${d.habitat}` : '');
 
   const flavor = el('flavor');
   if (d.flavor) {
@@ -44,9 +47,11 @@ function render(d) {
     flavor.hidden = true;
   }
 
-  el('likes').textContent = '💭 ' + d.likes;
+  el('likes').textContent = '💭 ' + (d.likes || '');
 
   const img = el('sprite');
+  // 一次加载失败后要把 hidden 清掉，否则换到下一只时精灵永远不出现
+  img.onload = () => { img.style.visibility = ''; };
   img.onerror = () => { img.style.visibility = 'hidden'; };
   img.src = d.spriteUrl;
 }

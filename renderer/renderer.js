@@ -1,4 +1,6 @@
 const sprite = document.getElementById('sprite');
+const accHat = document.getElementById('acc-hat');
+const accScarf = document.getElementById('acc-scarf');
 const bubbleEl = document.getElementById('bubble');
 const ballEl = document.getElementById('ball');
 let bubbleTimer = null;
@@ -9,22 +11,147 @@ let hoverState = false;
 let petAccum = 0;
 let petTimer = null;
 const inBall = () => document.body.dataset.state === 'ball';
+const stage = document.getElementById('pet-stage');
+const cutin = document.getElementById('form-cutin');
+const cutKicker = cutin && cutin.querySelector('.cut-kicker');
+const cutName = cutin && cutin.querySelector('.cut-name');
+const cutMove = cutin && cutin.querySelector('.cut-move');
+const cutSparks = cutin && cutin.querySelector('.cut-sparks');
+let baseSpriteUrl = '';
+let currentForm = null;
+let cutTimer = null;
+let cutinUntil = 0;
+const tr = s => (window.I18N && window.I18N.translate ? window.I18N.translate(s) : s);
+
+function formDisplayName(f) {
+  const l = window.I18N ? window.I18N.lang : 'zh';
+  if (l === 'ja' && f.nameJa) return f.nameJa;
+  if (l === 'ko' && f.nameKo) return f.nameKo;
+  if (l === 'en') return f.name || f.nameZh || '';
+  return f.nameZh || f.name || '';
+}
+function formMoveDisplay(f) {
+  const l = window.I18N ? window.I18N.lang : 'zh';
+  const m = f.move || {};
+  if (l === 'ja') return m.ja || m.en || m.zh || '';
+  if (l === 'ko') return m.ko || m.en || m.zh || '';
+  if (l === 'en') return m.en || m.zh || '';
+  return m.zh || m.en || '';
+}
+
+// 变身专属演出：闪白 → 能量环 → 粒子爆散 → 形态/招式横幅
+function playFormCutin(form) {
+  if (!cutin) return;
+  const kind = form.kind || 'mega';
+  const color = (form.move && form.move.color) || (kind === 'gmax' ? '#ff4f9a' : '#ffb43c');
+  cutin.style.setProperty('--cut-color', color);
+  cutin.style.setProperty('--cut-deep', kind === 'gmax' ? '#c2186a' : '#d65b00');
+  cutin.dataset.kind = kind;
+  if (cutKicker) cutKicker.textContent = tr(kind === 'mega' ? '超级进化' : '超极巨化');
+  if (cutName) cutName.textContent = formDisplayName(form);
+  const move = formMoveDisplay(form);
+  if (cutMove) cutMove.textContent = move ? `${tr('形态专属招式')} · ${move}` : '';
+  if (cutSparks) {
+    cutSparks.innerHTML = '';
+    for (let i = 0; i < 18; i++) {
+      const sp = document.createElement('span');
+      sp.className = 'cut-spark';
+      const a = (Math.PI * 2 * i) / 18 + Math.random() * .22;
+      const dist = 44 + Math.random() * 58;
+      sp.style.setProperty('--dx', (Math.cos(a) * dist).toFixed(1) + 'px');
+      sp.style.setProperty('--dy', (Math.sin(a) * dist - 24).toFixed(1) + 'px');
+      sp.style.setProperty('--sz', (4 + Math.random() * 7).toFixed(1) + 'px');
+      sp.style.setProperty('--dur', (.65 + Math.random() * .45).toFixed(2) + 's');
+      sp.style.setProperty('--delay', (Math.random() * .12).toFixed(2) + 's');
+      cutSparks.appendChild(sp);
+    }
+  }
+  clearTimeout(cutTimer);
+  cutinUntil = Date.now() + 2000;
+  clearTimeout(bubbleTimer);
+  bubbleEl.classList.remove('show');
+  cutin.hidden = false;
+  cutin.setAttribute('aria-hidden', 'false');
+  cutin.classList.remove('show');
+  document.body.classList.remove('form-cutin');
+  void cutin.offsetWidth;
+  cutin.classList.add('show');
+  document.body.classList.add('form-cutin');
+  cutTimer = setTimeout(() => {
+    cutin.classList.remove('show');
+    cutin.hidden = true;
+    cutin.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('form-cutin');
+  }, 1900);
+}
+
+function applyForm(form, animate = false) {
+  const prev = currentForm;
+  currentForm = form || null;
+  const kind = form && form.kind ? form.kind : '';
+  document.body.dataset.form = kind;
+  if (stage) stage.style.setProperty('--form-scale', kind === 'gmax' ? 1.75 : kind === 'mega' ? 1.22 : 1);
+  if (form && form.url) sprite.src = form.url;
+  else if (!form && baseSpriteUrl) sprite.src = baseSpriteUrl;
+  if (animate && form && (!prev || prev.file !== form.file)) playFormCutin(form);
+  if (!form && cutin && !cutin.hidden) {
+    clearTimeout(cutTimer);
+    cutin.classList.remove('show');
+    cutin.hidden = true;
+    document.body.classList.remove('form-cutin');
+  }
+}
+const cryAudio = new Audio();
+cryAudio.volume = 0.45;
 
 // ---------- 主进程消息 ----------
 window.pet.onInit(d => {
   console.log('[init] petH=' + d.petH + ' shiny=' + d.shiny + ' url=' + d.spriteUrl);
   document.documentElement.style.setProperty('--petH', d.petH + 'px');
+  baseSpriteUrl = d.spriteUrl;
   sprite.src = d.spriteUrl;
+  if (d.hat || d.scarf) applyLook(d);
+  if (d.form) applyForm(d.form, false);
 });
+window.pet.onLook(d => applyLook(d || {}));
+window.pet.onForm(d => applyForm(d, true));
+window.pet.onSkin(s => { document.documentElement.dataset.skin = s || 'default'; });
+
+function applyLook(d) {
+  const hats = { cap: '🧢', tophat: '🎩', crown: '👑' };
+  if (hats[d.hat]) {
+    accHat.hidden = false;
+    accHat.textContent = hats[d.hat];
+  } else accHat.hidden = true;
+  const scarves = { red: '#e5484d', blue: '#3d8bfd', green: '#34c759' };
+  if (scarves[d.scarf]) {
+    accScarf.hidden = false;
+    accScarf.style.background = scarves[d.scarf];
+  } else accScarf.hidden = true;
+}
+
+function applyAccess(a) {
+  if (!a) return;
+  document.body.classList.toggle('reduce-motion', !!a.reduceMotion);
+  document.body.classList.toggle('high-contrast', !!a.highContrast);
+  cryAudio.volume = Math.max(0, Math.min(1, (Number(a.volume) || 0) / 100));
+}
+window.pet.onAccess(a => applyAccess(a));
+try {
+  document.documentElement.dataset.skin = window.pet.syncSkin();
+  applyAccess(window.pet.syncAccess());
+} catch (_) {}
 window.pet.onSize(h => {
   document.documentElement.style.setProperty('--petH', h + 'px');
 });
 window.pet.onState(s => {
   document.body.dataset.state = s;
 });
+// 运行中切语言：不重载页面（会跳回屏幕中间），只让 i18n 重刷一遍
+window.pet.onLang(l => {
+  if (window.I18N && window.I18N.setLang) window.I18N.setLang(l);
+});
 // ---------- 叫声 ----------
-const cryAudio = new Audio();
-cryAudio.volume = 0.45;
 window.pet.onCry(url => {
   try {
     cryAudio.pause();
@@ -131,7 +258,8 @@ window.pet.onFace(d => {
 window.pet.onBubble(b => showBubble(b.text, b.ms));
 window.pet.onSprite(d => {
   console.log('[switch sprite] ' + d.url);
-  sprite.src = d.url;
+  baseSpriteUrl = d.url;
+  if (!currentForm) sprite.src = d.url;
 });
 
 // ---------- 喂食 / 玩耍 的动作表演 ----------
@@ -194,8 +322,15 @@ window.pet.onPlayFx(() => {
 
 // 蛋：走够了会冒出来，点一下孵化
 const eggEl = document.getElementById('egg');
-window.pet.onEgg(() => { eggEl.hidden = false; sprite.style.visibility = 'hidden'; });
-window.pet.onEggGone(() => { eggEl.hidden = true; sprite.style.visibility = ''; });
+window.pet.onEgg(d => {
+  eggEl.hidden = false;
+  eggEl.className = (d && d.rarity) ? d.rarity : '';
+  const rareNames = { rare: ['稀有', 'Rare'], legendary: ['传说', 'Legendary'], shiny: ['异色', 'Shiny'] };
+  const rn = d && rareNames[d.rarity];
+  eggEl.title = rn ? (window.I18N && window.I18N.lang === 'en' ? `${rn[1]} egg` : `${rn[0]}蛋`) : '';
+  sprite.style.visibility = 'hidden';
+});
+window.pet.onEggGone(() => { eggEl.hidden = true; eggEl.className = ''; sprite.style.visibility = ''; });
 eggEl.addEventListener('click', e => { e.stopPropagation(); window.pet.hatch(); });
 
 // 进化：白闪一下再换形态
@@ -228,20 +363,29 @@ function onDown(e) {
   window.pet.grab();
 }
 sprite.addEventListener('mousedown', onDown);
-// 右键：直接弹出快捷菜单
+// 右键：直接弹出快捷菜单（必须拦住冒泡，否则 window 上那个监听也会弹一次，两个菜单打架）
 sprite.addEventListener('contextmenu', e => {
   e.preventDefault();
+  e.stopPropagation();
   window.pet.contextMenu();
 });
 ballEl.addEventListener('mousedown', onDown);
 
+// 命中测试：球 / 精灵 / 蛋（蛋显示时精灵是隐藏的，必须单独算）
+function hit(el) {
+  const r = el.getBoundingClientRect();
+  return lastMouse.x >= r.left - 2 && lastMouse.x <= r.right + 2 &&
+         lastMouse.y >= r.top - 2 && lastMouse.y <= r.bottom + 2;
+}
+const lastMouse = { x: -9999, y: -9999 };
+
 window.addEventListener('mousemove', e => {
+  lastMouse.x = e.clientX;
+  lastMouse.y = e.clientY;
   // 告诉主进程光标是否在宠物身上（控制点击穿透）
-  const target = inBall() ? ballEl : sprite;
-  const r = target.getBoundingClientRect();
-  const inside = (inBall() || sprite.classList.contains('ready')) &&
-    e.clientX >= r.left - 2 && e.clientX <= r.right + 2 &&
-    e.clientY >= r.top - 2 && e.clientY <= r.bottom + 2;
+  const inside = inBall()
+    ? hit(ballEl)
+    : (!eggEl.hidden ? hit(eggEl) : (sprite.classList.contains('ready') && hit(sprite)));
   if (inside !== hoverState) {
     hoverState = inside;
     window.pet.overPet(inside);
@@ -272,6 +416,17 @@ window.addEventListener('contextmenu', e => {
   window.pet.context();
 });
 
+// 指针离开窗口（或窗口失焦）时清掉 hover，否则窗口会一直是「可点击」状态，
+// 透明区域开始吞掉桌面上的点击 —— 表现为点别的东西没反应
+function clearHover() {
+  if (!hoverState) return;
+  hoverState = false;
+  window.pet.overPet(false);
+}
+document.addEventListener('mouseleave', clearHover);
+document.documentElement.addEventListener('mouseleave', clearHover);
+window.addEventListener('blur', clearHover);
+
 window.addEventListener('mouseup', e => {
   if (!dragging) return;
   dragging = false;
@@ -294,6 +449,8 @@ window.addEventListener('mouseup', e => {
 
 // ---------- 气泡 ----------
 function showBubble(text, ms = 1800) {
+  // 变身演出期间不叠普通气泡，避免和形态横幅打架
+  if (Date.now() < cutinUntil) return;
   bubbleEl.textContent = text;
   bubbleEl.classList.add('show');
   clearTimeout(bubbleTimer);

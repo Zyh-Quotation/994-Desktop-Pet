@@ -3,11 +3,28 @@
 <head>
   <meta charset="utf-8">
   <link rel="stylesheet" href="style.css">
+  <script src="i18n-extra.js"></script>
   <script src="i18n.js"></script>
+  <link rel="stylesheet" href="skins.css">
 </head>
 <body data-state="idle">
   <div id="shadow"></div>
-  <img id="sprite" draggable="false">
+  <div id="pet-stage">
+    <div id="form-aura" aria-hidden="true"></div>
+    <img id="sprite" draggable="false">
+    <div id="acc-hat" hidden></div>
+    <div id="acc-scarf" hidden></div>
+  </div>
+  <div id="form-cutin" hidden aria-hidden="true">
+    <div class="cut-flash"></div>
+    <div class="cut-rings"><i></i><i></i><i></i></div>
+    <div class="cut-sparks"></div>
+    <div class="cut-banner">
+      <span class="cut-kicker"></span>
+      <span class="cut-name"></span>
+      <span class="cut-move"></span>
+    </div>
+  </div>
   <div id="ball"></div>
   <div id="egg" hidden>🥚</div>
   <div id="flash"></div>
