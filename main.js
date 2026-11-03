@@ -766,7 +766,15 @@ function canFlyNow() {
 // ---------- 持久化 ----------
 function loadState() {
   try {
-    const d = JSON.parse(fs.readFileSync(stateFile(), 'utf8'));
+    let d;
+    try {
+      d = JSON.parse(fs.readFileSync(stateFile(), 'utf8'));
+    } catch (err) {
+      const bak = stateFile() + '.bak';
+      if (!fs.existsSync(bak)) throw err;
+      console.warn('[loadState] 主存档损坏，改用备份');
+      d = JSON.parse(fs.readFileSync(bak, 'utf8'));
+    }
     stats.hunger = clamp(Number(d.stats?.hunger ?? 80), 0, 100);
     stats.mood = clamp(Number(d.stats?.mood ?? 80), 0, 100);
     if (SIZES[d.sizeKey]) sizeKey = d.sizeKey;
@@ -803,9 +811,14 @@ function loadState() {
 function saveState() {
   try {
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
-    fs.writeFileSync(stateFile(), JSON.stringify({
+    const file = stateFile();
+    const tmp = file + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify({
       stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, guestEnabled, favorites, firstLaunch, sitWarnMin, waterWarnMin, eggTarget, walkedPx, savedAt: new Date().toISOString()
     }));
+    // 先写临时文件再改名：断电时旧存档仍完整
+    try { if (fs.existsSync(file)) fs.copyFileSync(file, file + '.bak'); } catch (_) {}
+    fs.renameSync(tmp, file);
   } catch (e) { console.error('saveState failed:', e.message); }
 }
 
@@ -1005,8 +1018,9 @@ function decayAndNag(t, dt) {
     stats.mood = Math.min(100, stats.mood + dt * 0.8);
     stats.hunger = Math.max(0, stats.hunger - dt * 0.01);
   } else {
-    stats.hunger = Math.max(0, stats.hunger - dt * 0.045 * ((currentNature || NATURES[0]).hungerMult || 1));
-    stats.mood = Math.max(0, stats.mood - dt * 0.03);
+    // 醒着时约 2.3 小时饿、3.5 小时心情见底（原来是 37 / 55 分钟，太催了）
+    stats.hunger = Math.max(0, stats.hunger - dt * 0.008 * ((currentNature || NATURES[0]).hungerMult || 1));
+    stats.mood = Math.max(0, stats.mood - dt * 0.008);
   }
   if (stats.hunger < 30 && t > hungerNagAt) {
     bubble('肚子饿…波皮…', 2200);
@@ -1459,7 +1473,7 @@ function refreshTray() {
 // ---------- 托盘动作 ----------
 function doFeed() {
   if (state === 'drag' || state === 'fall') return;
-  stats.hunger = Math.min(100, stats.hunger + 35);
+  stats.hunger = Math.min(100, stats.hunger + 40);
   stats.mood = Math.min(100, stats.mood + 8);
   counters.feed++;
   addExp(60);
