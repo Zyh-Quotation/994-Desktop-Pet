@@ -156,10 +156,10 @@ function buildChips() {
   const order = ['一般', '火', '水', '电', '草', '冰', '格斗', '毒', '地面', '飞行',
     '超能力', '虫', '岩石', '幽灵', '龙', '恶', '钢', '妖精'];
   const present = new Set(conf.species.flatMap(s => s.types || []));
-  const types = ['全部', '收藏', '传说', ...order.filter(t => present.has(t))];
+  const types = ['全部', '收藏', '已解锁', '传说', ...order.filter(t => present.has(t))];
   chipsEl.innerHTML = '';
   for (const t of types) {
-    const color = t === '传说' ? LEGEND_COLOR : (TYPE_COLOR[t] || ALL_COLOR);
+    const color = t === '传说' ? LEGEND_COLOR : t === '已解锁' ? '#34c759' : (TYPE_COLOR[t] || ALL_COLOR);
     const c = document.createElement('button');
     c.className = 'chip' + (t === filter ? ' active' : '');
     c.textContent = t === '收藏' ? `♥ 收藏${favorites.size ? ' ' + favorites.size : ''}` : t;
@@ -311,6 +311,7 @@ function cardVisible(line, sp) {
   if (genFilter && sp.gen !== genFilter) return false;
   if (!matches(sp)) return false;
   if (filter === '收藏') return favorites.has(sp.dex);
+  if (filter === '已解锁') return unlockedDex.has(sp.dex);
   if (line.special === 'legend') return filter === '传说';
   if (filter === '传说') return false;
   return filter === '全部' || line.type === filter;
@@ -364,7 +365,7 @@ function renderOpts(c) {
   if (focusSw) focusSw.checked = !!c.focusMode;
   if (guestSw) guestSw.checked = c.guestEnabled !== false;
   if (natureEl) natureEl.textContent = c.nature ? c.nature.zh : '–';
-  if (lvlEl) lvlEl.textContent = `Lv.${c.level} · 经验 ${c.exp % 100}/100`;
+  if (lvlEl) lvlEl.textContent = `Lv.${c.level} · 经验 ${c.expInLevel ?? (c.exp % 100)}/${c.expNeed ?? 100}`;
   if (dexProgEl) dexProgEl.textContent = `遇见 ${c.met}/${c.total} · 异色 ${c.shinyMet}`;
   const list = c.achievements || [];
   if (achGrid) {
@@ -528,6 +529,13 @@ document.querySelectorAll('.tab').forEach(t => {
     document.querySelectorAll('.pane').forEach(p => {
       p.hidden = p.id !== 'pane-' + t.dataset.pane;
     });
+    const hints = {
+      dex: '点任意一只即可切换',
+      ach: '金色是已解锁，灰色是还没达成',
+      bag: '进化石和蛋都在这里',
+      opts: '改完立刻生效'
+    };
+    if (hintEl) hintEl.textContent = hints[t.dataset.pane] || '';
   };
 });
 

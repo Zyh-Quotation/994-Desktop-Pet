@@ -252,9 +252,22 @@ function evolvesAt(how) {
   return 25;   // 道具 / 地点 / 招式 等简化成等级
 }
 
+// 每级需求递增：100, 125, 150 …（Lv.64 约需 5.5 万经验）
+function expNeedFor(lv) { return 100 + (lv - 1) * 25; }
+function expTotalForLevel(lv) { let t = 0; for (let i = 1; i < lv; i++) t += expNeedFor(i); return t; }
+function levelForExp(total) {
+  let lv = 1, acc = 0;
+  while (lv < 300) {
+    const need = expNeedFor(lv);
+    if (total < acc + need) break;
+    acc += need; lv++;
+  }
+  return lv;
+}
+
 function addExp(n) {
   exp += n;
-  const lv = Math.floor(exp / 100) + 1;
+  const lv = levelForExp(exp);
   if (lv > level) {
     level = lv;
     bubble(`Lv.${level}！`, 1400);
@@ -778,6 +791,12 @@ function loadState() {
     if (Number.isFinite(d.rotateMin)) rotateMin = d.rotateMin;
     if (Number.isFinite(d.level)) level = d.level;
     if (Number.isFinite(d.exp)) exp = d.exp;
+    // 曲线改版后老存档的 exp 可能不足，补到当前等级起点，绝不掉级
+    if (!Number.isFinite(exp)) exp = 0;
+    if (!Number.isFinite(level) || level < 1) level = 1;
+    const needFloor = expTotalForLevel(level);
+    if (exp < needFloor) exp = needFloor;
+
   } catch (_) { /* 首次运行 */ }
   shiny = shinyFor(speciesDex);
 }
@@ -1900,6 +1919,8 @@ function reportData() {
     hatch: counters.hatch || 0,
     streak: counters.streak || 1,
     level,
+    expInLevel: Math.max(0, exp - expTotalForLevel(level)),
+    expNeed: expNeedFor(level),
     firstLaunch
   };
 }
