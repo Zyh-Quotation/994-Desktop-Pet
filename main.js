@@ -393,8 +393,10 @@ function doHatch() {
   if (!hasEgg) return { ok: false };
   hasEgg = false;
   if (win && !win.isDestroyed()) win.webContents.send('egg-gone');
-  const unseen = SPECIES.filter(sp => !dexMet.includes(sp.dex));
-  const pool = unseen.length ? unseen : SPECIES;
+  // 蛋只孵基础形态：有 from 的说明是进化来的，不能从蛋里出
+  const baseForms = SPECIES.filter(sp => !sp.from);
+  const unseen = baseForms.filter(sp => !dexMet.includes(sp.dex));
+  const pool = unseen.length ? unseen : baseForms;
   const target = pool[Math.floor(Math.random() * pool.length)];
   switchSpecies(target.dex);
   bubble(lang === 'en' ? `It hatched! ${target.name}!` : `蛋孵出来啦！是 ${target.name}！`, 4200, true);
@@ -402,6 +404,7 @@ function doHatch() {
   counters.hatch = (counters.hatch || 0) + 1;
   addStone(1);
   saveState();
+  console.log('[hatch] 孵出', target.dex, target.name, '| 有前置进化?', !!target.from);
   return { ok: true, dex: target.dex, name: target.name };
 }
 
