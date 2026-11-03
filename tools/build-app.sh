@@ -21,6 +21,7 @@ rsync -a --exclude 'Contents/Resources/app' "$SRC/" "$OUT/"
 # 再把 Resources/app 这个软链接替换成真实目录（userdata 是运行时数据，跳过）
 APP_REAL="$(cd "$SRC/Contents/Resources/app" && pwd -P)"
 rsync -a --exclude userdata --exclude node_modules --exclude release \
+  --exclude 'tools/.cache' --exclude '.git' \
   --exclude 'promo/*.png' "$APP_REAL/" "$OUT/Contents/Resources/app/"
 # 保证 Resources/app 是真实目录
 test -d "$OUT/Contents/Resources/app" && ! test -L "$OUT/Contents/Resources/app" || {

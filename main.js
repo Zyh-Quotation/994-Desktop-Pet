@@ -363,7 +363,26 @@ function recomputeDims() {
   winH = petH + BUBBLE_H + FX_PAD + PET_BOTTOM + 4;
 }
 function waFor(px, py) {
-  return screen.getDisplayNearestPoint({ x: Math.round(px), y: Math.round(py) }).workArea;
+  // px/py 可能是 NaN，也可能远在所有显示器之外（宠物掉出屏幕时就是这样）。
+  // 这一步要是拿不到显示器，地面高度就算成无效值，掉落判定永远不成立，
+  // 宠物会一路往下跑出屏幕——Windows 上表现为"只剩声音，找不到宝可梦"。
+  const pt = {
+    x: Math.round(Number.isFinite(px) ? px : 0),
+    y: Math.round(Number.isFinite(py) ? py : 0)
+  };
+  let d = null;
+  try { d = screen.getDisplayNearestPoint(pt); } catch (_) {}
+  if (!d) {
+    // 退回自己按矩形距离找最近的一块屏
+    const dist2 = a => {
+      const dx = Math.max(a.x - pt.x, 0, pt.x - (a.x + a.width));
+      const dy = Math.max(a.y - pt.y, 0, pt.y - (a.y + a.height));
+      return dx * dx + dy * dy;
+    };
+    d = screen.getAllDisplays().reduce(
+      (best, cur) => (!best || dist2(cur) < dist2(best) ? cur : best), null);
+  }
+  return (d || screen.getPrimaryDisplay()).workArea;
 }
 function floorFor(px, py) {
   const wa = waFor(px, py);
@@ -388,7 +407,27 @@ function clampX() {
   x = clamp(x, wa.x, wa.x + wa.width - winW);
 }
 function applyPosition() {
-  if (win && !win.isDestroyed()) win.setPosition(Math.round(x), Math.round(y));
+  if (!win || win.isDestroyed()) return;
+  ensureOnScreen();
+  win.setPosition(Math.round(x), Math.round(y));
+}
+
+// 兜底：整只跑到所有显示器之外时，挪回主屏地面。
+// Windows 上掉出任务栏下方后，光靠地面判定已经纠正不回来了。
+function ensureOnScreen() {
+  if (!Number.isFinite(x)) x = 0;
+  if (!Number.isFinite(y)) y = 0;
+  const areas = screen.getAllDisplays().map(d => d.workArea);
+  const cx = x + winW / 2, cy = y + winH / 2;
+  const visible = areas.some(a =>
+    cx >= a.x - 40 && cx <= a.x + a.width + 40 &&
+    cy >= a.y - 40 && cy <= a.y + a.height + 40);
+  if (visible) return;
+  const wa = screen.getPrimaryDisplay().workArea;
+  x = clamp(x, wa.x, Math.max(wa.x, wa.x + wa.width - winW));
+  y = wa.y + wa.height - winH + PET_BOTTOM;
+  vx = 0; vy = 0;
+  if (state === 'fall') land();
 }
 
 // ---------- 状态机 ----------
@@ -508,7 +547,21 @@ function land() {
 }
 
 // ---------- 主循环 ----------
+// 主循环外面再套一层：任何意外都不许把窗口永远留在屏幕外
 function tick() {
+  try {
+    tickStep();
+  } catch (e) {
+    console.error('[tick] 异常，已拉回屏幕:', e && e.message);
+    try {
+      vx = 0; vy = 0;
+      ensureOnScreen();
+      if (win && !win.isDestroyed()) win.setPosition(Math.round(x), Math.round(y));
+    } catch (_) {}
+  }
+}
+
+function tickStep() {
   const t = now();
   const dt = Math.min(100, t - lastTs) / 1000;
   lastTs = t;
@@ -532,6 +585,9 @@ function tick() {
     x += vx * dt;
     y += vy * dt;
     const wa = waFor(x + winW / 2, y + winH / 2);
+    // 数值意外时直接落地，免得越掉越远再也回不来
+    if (!Number.isFinite(x)) x = wa.x;
+    if (!Number.isFinite(y)) y = groundY;
     if (x < wa.x) { x = wa.x; vx = Math.abs(vx) * 0.5; }
     if (x + winW > wa.x + wa.width) { x = wa.x + wa.width - winW; vx = -Math.abs(vx) * 0.5; }
     if (y >= groundY) {
