@@ -134,7 +134,6 @@ if (OTHERS.length > 0 || !locked) {
 
 // ---------- 常量 ----------
 const SIZES = { small: 64, medium: 96, large: 128 };
-const SIZE_LABEL = { small: '小 64px', medium: '中 96px', large: '大 128px' };
 const MARGIN_X = 26;      // 窗口左右留白（气泡、挣扎动画用）
 const BUBBLE_H = 84;      // 头顶气泡区域高度
 const PET_BOTTOM = 6;     // 精灵底部离窗口底边的距离（放影子）
@@ -225,7 +224,6 @@ let sitWarnMin = 45;      // 坐多久提醒一次
 let waterWarnMin = 60;    // 多久提醒喝水
 let lastSitAt = Date.now();
 let lastWaterAt = Date.now();
-let birthdayDone = 0;
 let climbDir = 'up';     // up / hold / down
 let climbTop = 80;
 
@@ -684,17 +682,6 @@ let weather = null;          // { kind: '晴'|'云'|'雨'|'雪'|'雷', temp, des
 let weatherAt = 0;
 const WEATHER_ICON = { 晴: '☀️', 云: '☁️', 雨: '🌧️', 雪: '❄️', 雷: '⛈️' };
 
-function timeLabel() {
-  const h = new Date().getHours();
-  const t = (zh, en) => (lang === 'en' ? en : zh);
-  if (h < 5) return t('深夜', 'late night');
-  if (h < 9) return t('清晨', 'early morning');
-  if (h < 12) return t('上午', 'morning');
-  if (h < 14) return t('中午', 'noon');
-  if (h < 18) return t('午后', 'afternoon');
-  if (h < 22) return '晚上';
-  return '深夜';
-}
 const isNight = () => { const h = new Date().getHours(); return h >= 22 || h < 5; };
 
 function fetchWeather() {
@@ -1262,8 +1249,22 @@ function createWindow() {
     if (process.env.PET_EGG === '1') setTimeout(() => spawnEgg(), 4000);
     if (process.env.PET_REPORT) setTimeout(() => createReportWindow(), 2500);
     if (process.env.PET_GAME) setTimeout(() => createGameWindow(), 2500);
-    if (process.env.PET_ACH) setTimeout(() => createAchievementsWindow(), 2500);
     if (process.env.PET_EGGWIN) setTimeout(() => createEggWindow(), 2500);
+    if (process.env.PET_DIAG2) setTimeout(async () => {
+      try {
+        const r = await settingsWin.webContents.executeJavaScript(`
+          (async () => {
+            const c = await window.cfg.get();
+            return JSON.stringify({
+              unlockedInDOM: document.querySelectorAll('.card:not(.locked)').length,
+              dexMetLen: c.dexMet.length,
+              hasPulse: typeof window.cfg.dexPulse,
+              hasOnChanged: typeof window.cfg.onChanged
+            });
+          })()`);
+        console.log('[diag2]', r);
+      } catch (e) { console.log('[diag2] 失败', e.message); }
+    }, 14000);
     if (process.env.PET_EVOLVE_TEST) setTimeout(() => {
       const evs = EVO_MAP[speciesDex] || [];
       console.log('[evolve-test] 当前', speciesDex, 'Lv', level, '可进化到', JSON.stringify(evs));
@@ -1371,10 +1372,6 @@ function setFocus(on) {
   saveState();
 }
 
-const fmtLeft = ms => {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-};
 
 function startPomodoro(min = 25) {
   pomo = { phase: 'work', until: Date.now() + min * 60000, restMin: 5 };
@@ -1839,31 +1836,6 @@ ipcMain.handle('egg:get', () => ({
 ipcMain.handle('egg:hatch', () => doHatch());
 ipcMain.on('egg:close', () => { if (eggWin && !eggWin.isDestroyed()) eggWin.close(); });
 
-let achWin = null;
-
-function createAchievementsWindow() {
-  if (achWin && !achWin.isDestroyed()) { achWin.show(); achWin.focus(); return; }
-  achWin = new BrowserWindow({
-    width: 540, height: 660, resizable: false, minimizable: false, maximizable: false,
-    title: '成就', backgroundColor: '#fffdf7', show: false,
-    webPreferences: {
-      preload: path.join(__dirname, 'renderer', 'achievements-preload.js'),
-      contextIsolation: true, nodeIntegration: false
-    }
-  });
-  achWin.loadFile(path.join(__dirname, 'renderer', 'achievements.html'));
-  achWin.once('ready-to-show', () => {
-    achWin.show();
-    if (process.env.PET_CAPTURE) captureTo(achWin, 'ach-shot.png');
-  });
-  achWin.on('closed', () => { achWin = null; });
-}
-
-ipcMain.handle('ach:get', () => ({
-  achievements: ACHIEVEMENTS.map(a => ({ id: a.id, name: a.name, en: a.en || a.name, desc: a.desc, unlocked: !!unlocked[a.id] }))
-}));
-ipcMain.on('ach:close', () => { if (achWin && !achWin.isDestroyed()) achWin.close(); });
-
 let gameWin = null;
 
 function createGameWindow() {
@@ -2106,7 +2078,6 @@ ipcMain.handle('cfg:action', async (_e, name) => {
     else if (name === 'pomoStop') stopPomodoro();
     else if (name === 'report') createReportWindow();
     else if (name === 'game') createGameWindow();
-    else if (name === 'ach') createAchievementsWindow();
     else if (name === 'eggwin') createEggWindow();
     else if (name === 'checkin') {
       if (!dailyCheckIn()) bubble(lang === 'en' ? 'Already checked in today' : '今天已经签到过啦', 2600, true);

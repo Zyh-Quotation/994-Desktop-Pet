@@ -11,5 +11,7 @@ contextBridge.exposeInMainWorld('cfg', {
   setOpt: (key, value) => ipcRenderer.invoke('cfg:setOpt', key, value),
   setFav: (dex, on) => ipcRenderer.invoke('cfg:setFav', dex, on),
   action: name => ipcRenderer.invoke('cfg:action', name),
+  dexPulse: () => ipcRenderer.invoke('cfg:dexPulse'),
+  onChanged: fn => ipcRenderer.on('cfg:changed', () => fn()),
   close: () => ipcRenderer.send('cfg:close')
 });
