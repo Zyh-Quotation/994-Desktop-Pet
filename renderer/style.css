@@ -14,8 +14,9 @@ body {
   -webkit-user-select: none;
 }
 
-/* 朝左时整只水平镜像；transform-origin 默认居中，位置不会偏移 */
-body[data-dir="left"] {
+/* 精灵素材本身朝左，所以向右走时才整只水平镜像；
+   transform-origin 默认居中，位置不会偏移 */
+body[data-dir="right"] {
   --flip: -1;
 }
 
