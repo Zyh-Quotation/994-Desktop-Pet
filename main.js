@@ -223,6 +223,8 @@ let waterWarnMin = 60;    // 多久提醒喝水
 let lastSitAt = Date.now();
 let lastWaterAt = Date.now();
 let birthdayDone = 0;
+let climbDir = 'up';     // up / hold / down
+let climbTop = 80;
 
 const ACHIEVEMENTS = [
   { id: 'first', name: '初次见面', en: 'First meeting', desc: '遇见第一只宝可梦', test: () => dexMet.length >= 1 },
@@ -398,6 +400,7 @@ ipcMain.on('hatch', () => {
   bubble(lang === 'en' ? `It hatched! ${target.name}!` : `蛋孵出来啦！是 ${target.name}！`, 4200, true);
   try { playCry(target.dex, true); } catch (_) {}
   counters.hatch = (counters.hatch || 0) + 1;
+  addStone(1);
   saveState();
 });
 
@@ -467,6 +470,39 @@ function followCursor() {
   } catch (_) { return false; }
 }
 
+const STONE_BY_TYPE = {
+  火: '火之石', 水: '水之石', 电: '雷之石', 草: '叶之石', 冰: '冰之石',
+  恶: '暗之石', 超能力: '月之石', 妖精: '光之石', 龙: '日之石',
+  一般: '觉醒石', 虫: '觉醒石', 幽灵: '暗之石', 格斗: '觉醒石',
+  岩石: '觉醒石', 地面: '觉醒石', 飞行: '觉醒石', 毒: '觉醒石', 钢: '觉醒石'
+};
+function stoneFor() {
+  const t = (speciesInfo().types || [])[0];
+  return STONE_BY_TYPE[t] || '进化石';
+}
+function addStone(n = 1) {
+  counters.stones = (counters.stones || 0) + n;
+  saveState();
+}
+function useStone() {
+  const have = counters.stones || 0;
+  if (have <= 0) {
+    bubble(lang === 'en' ? 'No stone yet — check in or hatch one' : '还没有进化石，每日签到或孵蛋会给', 3200, true);
+    return;
+  }
+  const opts = EVO_MAP[speciesDex] || [];
+  if (!opts.length) {
+    bubble(lang === 'en' ? 'It is already at its final form' : '它已经进化到头了', 2800, true);
+    return;
+  }
+  counters.stones = have - 1;
+  const stone = stoneFor();
+  const ev = opts[Math.floor(Math.random() * opts.length)];
+  bubble(lang === 'en' ? `Used a ${stone}!` : `用了${stone}！`, 2200, true);
+  doEvolve(ev);
+  saveState();
+}
+
 function dailyCheckIn() {
   const day = new Date().toISOString().slice(0, 10);
   if (counters.lastCheckIn === day) return false;
@@ -474,6 +510,7 @@ function dailyCheckIn() {
   counters.checkIn = counters.lastCheckIn === yest ? (Number(counters.checkIn) || 0) + 1 : 1;
   counters.lastCheckIn = day;
   addExp(50);
+  addStone(1);
   saveState();
   setTimeout(() => {
     bubble(lang === 'en'
@@ -725,6 +762,7 @@ function loadState() {
     if (Number.isFinite(d.firstLaunch)) firstLaunch = d.firstLaunch;
     if (Number.isFinite(d.sitWarnMin)) sitWarnMin = d.sitWarnMin;
     if (Number.isFinite(d.waterWarnMin)) waterWarnMin = d.waterWarnMin;
+    if (Number.isFinite(d.counters && d.counters.stones)) counters.stones = d.counters.stones;
     if (Array.isArray(d.dexMet)) dexMet = d.dexMet.filter(n => Number.isFinite(n));
     if (Array.isArray(d.shinyMet)) shinyMet = d.shinyMet.filter(n => Number.isFinite(n));
     if (d.counters && typeof d.counters === 'object') counters = { ...counters, ...d.counters };
@@ -830,7 +868,7 @@ function ensureOnScreen() {
 function setState(s, durMs = 0) {
   // 除了飞行相关的状态，其余状态都回到地面
   if (s !== 'ball') inBall = false;
-  if (s !== 'fly' && s !== 'landing' && alt > 1) {
+  if (s !== 'fly' && s !== 'landing' && s !== 'climb' && alt > 1) {
     alt = 0;
     altTarget = 0;
   }
@@ -1040,6 +1078,18 @@ function tickStep() {
     y = groundY;
     if (Math.abs(targetX - x) < 14 || t >= stateUntil) setState('idle', 700 + Math.random() * 900);
     decayAndNag(t, dt);
+  } else if (state === 'climb') {
+    const wac = waFor(x + winW / 2, y + winH / 2);
+    if (climbDir === 'up') {
+      alt += 70 * dt;
+      if (alt >= climbTop) { alt = climbTop; climbDir = 'hold'; stateUntil = t + 6000 + Math.random() * 8000; }
+    } else if (climbDir === 'hold') {
+      if (t > stateUntil) climbDir = 'down';
+    } else {
+      alt -= 110 * dt;
+      if (alt <= 0) { alt = 0; climbDir = 'up'; setState('idle', 1200 + Math.random() * 1500); }
+    }
+    y = clamp(groundY - alt, wac.y + 16, groundY);
   } else if (state === 'fly') {
     alt += (altTarget - alt) * Math.min(1, dt * 1.6);
     x += dir * speed * dt;
@@ -1079,6 +1129,14 @@ function tickStep() {
     }
     if (state === 'walk') {
       x += dir * speed * ((currentNature || NATURES[0]).speed || 1) * dt;
+      const waW = waFor(x + winW / 2, y + winH / 2);
+      if ((x <= waW.x + 1 || x + winW >= waW.x + waW.width - 1) && Math.random() < 0.25) {
+        climbTop = Math.max(50, (waW.height - winH) * (0.2 + Math.random() * 0.3));
+        climbDir = 'up';
+        alt = 0;
+        setState('climb', 45000);
+        bubble(pick(['爬上去咯', '这里视野好', '贴在边上']), 2400);
+      }
       walkedPx += Math.abs(speed * ((currentNature || NATURES[0]).speed || 1) * dt);
       counters.walked = (counters.walked || 0) + Math.abs(speed * ((currentNature || NATURES[0]).speed || 1) * dt);
       if (walkedPx > EGG_AT && !hasEgg && !inBall) { walkedPx = 0; spawnEgg(); }
@@ -1172,6 +1230,9 @@ function createWindow() {
     if (process.env.PET_EGG === '1') setTimeout(() => spawnEgg(), 4000);
     if (process.env.PET_REPORT) setTimeout(() => createReportWindow(), 2500);
     if (process.env.PET_GAME) setTimeout(() => createGameWindow(), 2500);
+    if (process.env.PET_CLIMB === '1') setTimeout(() => { climbDir = 'up'; climbTop = 220; alt = 0; setState('climb', 45000); }, 1200);
+    if (process.env.PET_CLIMB === '1') setTimeout(() => { try { console.log('[climb] y=', win.getBounds().y, 'state=', state, 'alt=', Math.round(alt)); } catch (_) {} }, 6000);
+    if (process.env.PET_STONE === '1') { counters.stones = 3; saveState(); setTimeout(() => useStone(), 5000); }
     nextGuestAt = now() + (6 + Math.random() * 8) * 60000;
     if (process.env.PET_GUEST === '1') setTimeout(() => spawnGuest(), 4000);
   });
@@ -1327,6 +1388,7 @@ function petMenuTemplate() {
     ...(canFlyNow() ? [{ label: L('飞一飞 🕊️', 'Fly 🕊️'), click: doFly }] : []),
     { label: inBall ? L('放出来 ⚪', 'Let out ⚪') : L('收进球 ⚪', 'Into ball ⚪'), click: () => toggleBall() },
     { label: L('专属动作 ✨', 'Signature move ✨'), click: () => playSignature('manual') },
+    { label: L(`用${stoneFor()}进化 ✨ (${counters.stones || 0})`, `Evolve with stone ✨ (${counters.stones || 0})`), click: useStone },
     { label: L('随机一只 🎲', 'Random 🎲'), click: () => randomSpecies() },
     { label: L('看介绍 📖', 'Profile 📖'), click: () => showLore() },
     { label: L('陪伴报告 📊', 'Report 📊'), click: createReportWindow },
