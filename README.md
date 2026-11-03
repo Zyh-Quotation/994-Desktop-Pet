@@ -10,6 +10,8 @@ Electron 写的，免费开源，**macOS / Windows 都能装**。
 [所有版本](https://github.com/Zyh-Quotation/994-Desktop-Pet/releases) ·
 [更新日志](https://github.com/Zyh-Quotation/994-Desktop-Pet/releases)
 
+当前版本 **v0.6.2**（2026-11-03）：存档防回档保护，更新改为直接下载覆盖，不再弹窗确认。
+
 ---
 
 ## 它是什么
@@ -33,8 +35,9 @@ Electron 写的，免费开源，**macOS / Windows 都能装**。
   自动变回原样，**没有冷却，随时可以再次变身**；有异色形态的会跟着当前异色状态切换，喷火龙 X / Y 可以选。
   变身时会播放专属演出（闪白、能量环、粒子爆散和形态/招式横幅），每个形态还有自己的专属招式。
   没有动画图的少数新形态会退回本体图 + 光效，不会白屏
-- **中文 / English / 日本語 / 한국어**：设置页一键切换界面语言；1025 只宝可梦、形态和专属招式都有日文 / 韩文名，
-  长文图鉴暂时用英文兜底。切语言不用重启，宠物、设置、孵蛋页一起换
+- **中文 / English / 日本語 / 한국어**：设置页一键切换界面语言；1025 只宝可梦、131 个形态和专属招式都有日文 / 韩文名，
+  长文图鉴暂时用英文兜底。切语言不用重启，宠物、设置、孵蛋页一起换，
+  界面、图鉴名、属性、形态名、招式名、托盘、气泡、故事卡正文和成就说明都跟着变
 - **喂食和玩耍有动作**：食物从上面掉到嘴边被一口吃掉、冒爱心、小跳两下；
   球弹出去又弹回来，它会扑腾着去追
 - **成就墙**：30 个徽章，带进度；成就页还有连续签到 / 累计签到 / 陪伴天数，以及一整年的签到 + 活动热力图
@@ -44,6 +47,8 @@ Electron 写的，免费开源，**macOS / Windows 都能装**。
 - **昵称和饰品**：伙伴页改名；帽子（鸭舌帽 / 礼帽 / 皇冠）和围巾（红 / 蓝 / 绿）会显示在桌宠身上
 - **每日 / 每周任务**：走路、喂食、摸头、玩耍、招式、签到、孵蛋等，完成后领取经验和进化石
 - **通知中心**：捡蛋、孵蛋、进化、成就、任务、久坐 / 喝水提醒都会入档，可标记已读、清空、开系统通知；重启不丢
+- **存档不丢**：存档带版本号，另一个实例写入了更新的进度后本实例不再覆盖；
+  备份保留两代（`.bak` / `.bak2`），从开发链接版覆盖成正式包时自动迁移存档
 - **主题皮肤**：默认 / 樱花 / 海洋 / 森林 / 节日，可开「节日自动换肤」；圣诞、新年、情人节、国庆、万圣节等自动换
 - **辅助功能**：减少动画、高对比度、界面缩放 90%–125%、叫声音量、久坐 / 喝水提醒间隔
 - **逐步解锁**：第一次打开只给一只初始伙伴，其余 1024 只靠孵蛋和进化解锁，
@@ -57,7 +62,6 @@ Electron 写的，免费开源，**macOS / Windows 都能装**。
 - **鼠标跟随**：偶尔走过来蹲在你光标旁边
 - **进化石**：签到 / 孵蛋获得，不用等等级直接进化（火之石、水之石……）
 - **爬屏幕边**：走到屏幕左右边缘会顺着边爬上去待一会儿
-- **中英双语**：设置页里切；界面、图鉴名、属性、托盘、气泡、故事卡正文和成就说明都跟着变
 - **右键菜单**：直接在宠物身上右键，喂食 / 玩耍 / 招式 / 看介绍
 - **性格**：开朗 / 慵懒 / 胆小 / 傲娇 / 贪吃 / 爱睡，由图鉴编号决定，
   影响跑动速度、睡觉频率、怕不怕人
@@ -107,12 +111,14 @@ Electron 写的，免费开源，**macOS / Windows 都能装**。
   **macOS 15 以后「右键 → 打开」已经不给按钮了**，要去「系统设置 → 隐私与安全性」点「仍要打开」，
   或者直接执行 `xattr -dr com.apple.quarantine /Applications/神奇宝贝.app` 再双击
 - 下载页会自己判断你是 Apple 芯片还是 Intel，不用手选；认不出来时会同时给出 Intel 版链接
-- 安装包体积大（Mac 约 200MB / Win 约 227MB），因为 1025 只精灵图和叫声都在里面
+- 安装包体积大（Apple 芯片约 254MB / Intel 约 260MB / Windows 约 279MB），
+  因为 1025 只精灵图、131 个形态动画和叫声都在里面
 
 装好之后：托盘点「检查更新 ⟳」，或启动 8 秒后自动查、之后每 6 小时一次。
-手动检查发现新版本时，会先弹出「更新内容」窗口，按「新增功能 / 修复内容」列出这次改了什么，确认后才下载；
-更新完成后的第一次启动还会再展示一次本次更新说明。Mac 版和 Windows 便携版都会原地升级并保留存档
-（Windows 需要 release 清单里带 `builds.win`，即先跑 `tools/build-win.sh` 再跑 `tools/make-release.js`）；开发模式和没有清单时会退回下载页。
+找到新版本会直接后台下载并覆盖安装，不再弹窗确认；这次改了什么，会在更新完成后的第一次启动展示。
+Mac（Apple 芯片 / Intel）和 Windows 便携版都是原地升级并保留存档，清单里的 `builds`
+会按本机架构自动挑对应的包（要带上 Intel / Windows 包，发版前先跑 `tools/build-app-intel.sh`、
+`tools/build-win.sh`，再跑 `tools/make-release.js`）；开发模式和没有清单时会退回下载页。
 
 ## 开发
 
@@ -124,12 +130,25 @@ npm start                 # 开发模式，改动即时生效
 ### 单独打包
 
 ```bash
-./tools/build-app.sh      # Mac：组装 release/神奇宝贝.app 并签名
-bash tools/build-win.sh   # Windows：release/pokepet-<版本>-win-x64.zip
+./tools/build-app.sh          # Mac（Apple 芯片）：组装 release/神奇宝贝.app 并签名
+bash tools/build-app-intel.sh # Mac（Intel）：release/pokepet-<版本>-mac-x64.zip
+bash tools/build-win.sh       # Windows：release/pokepet-<版本>-win-x64.zip
 ```
 
-发版前先改 `package.json` 的版本号，并在 `data/changelog.json` 里加同版本的
-`new` / `fix` 条目；`tools/make-release.js` 会自动把它写进 `update.json` 的 `notes`，更新弹窗就有内容了。
+### 发版
+
+一条命令跑完（升版本号 → 签名 → 打平台包 → 生成 `update.json`）：
+
+```bash
+./tools/publish.sh patch "这次修了什么"      # 也可用 minor / major / 0.7.0
+GH_RELEASE=1 ./tools/publish.sh patch "…"    # 带上这个变量就会顺手上传 Release
+```
+
+`publish.sh` 默认会带上 Intel 和 Windows 包（`SKIP_INTEL=1` / `SKIP_WIN=1` 可跳过），
+上传时会把 zip 和 `update.json` 一起挂到 Release 上，应用内「检查更新」读的就是这份清单。
+
+手工打包时先改 `package.json` 的版本号（用 `publish.sh` 会自动升），并在 `data/changelog.json` 里加同版本的
+`new` / `fix` 条目；`tools/make-release.js` 会自动把它写进 `update.json` 的 `notes`，更新说明就有内容了。
 
 ### 目录
 
@@ -183,8 +202,10 @@ npm install                     # Electron
 - **天气**：wttr.in 每 30 分钟拉一次，失败就静默跳过
 - **更新清单**：`releases/latest/download/update.json`，含版本、sha256、下载地址和更新说明；
   请求加时间戳绕开 CDN 一分钟缓存；清单里的 `notes` 来自 `data/changelog.json`
-- **更新弹窗**：手动检查到新版本先展示说明再确认下载；更新完成后首次启动用 `lastSeenVersion`
-  判断版本变化，再展示一次「更新完成」说明；更新前会把说明暂存进存档，避免旧版本来不及带过来
+- **更新流程**：检查到新版本直接后台下载并覆盖安装，不再二次确认；更新完成后首次启动用 `lastSeenVersion`
+  判断版本变化，再展示本次更新说明；更新前会把说明暂存进存档，避免旧版本来不及带过来
+- **分包下载**：清单里的 `builds.arm64` / `builds.x64` / `builds.win` 对应三个平台的包，
+  主进程按 `process.arch` 取 Mac 包、Windows 取 `builds.win`，不会再给 Intel 机器推 arm64 包
 
 ## 素材与版权
 
