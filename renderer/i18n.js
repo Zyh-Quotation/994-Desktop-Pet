@@ -59,6 +59,7 @@
 
     // ── 设置项 ──
     '大小': 'Size', '小': 'S', '中': 'M', '大': 'L',
+    '外观': 'Appearance', '跟随系统': 'System', '浅色': 'Light', '深色': 'Dark',
     '异色': 'Shiny', '自动 1/128': 'Auto 1/128', '总是': 'Always', '从不': 'Never',
     '自动换一只': 'Auto rotate', '每 5 分钟': 'Every 5 min', '每 15 分钟': 'Every 15 min',
     '每 30 分钟': 'Every 30 min', '每 1 小时': 'Every hour', '每 3 小时': 'Every 3 hours',

@@ -13,6 +13,7 @@ const updBtn = document.getElementById('check-upd');
 const updMsg = document.getElementById('upd-msg');
 const shinySeg = document.getElementById('shiny-seg');
 const langSeg = document.getElementById('lang-seg');
+const themeSeg = document.getElementById('theme-seg');
 const rotationEl = document.getElementById('rotation');
 const focusSw = document.getElementById('focus');
 const pomoState = document.getElementById('pomo-state');
@@ -368,6 +369,7 @@ function renderOpts(c) {
   if (!c) return;
   markSeg(shinySeg, c.shinyMode);
   markSeg(langSeg, c.lang);
+  markSeg(themeSeg, c.theme || 'auto');
   if (rotationEl) rotationEl.value = String(c.rotateMin || 0);
   if (focusSw) focusSw.checked = !!c.focusMode;
   if (guestSw) guestSw.checked = c.guestEnabled !== false;
@@ -551,6 +553,15 @@ if (shinySeg) {
     const b = e.target.closest('.size-btn');
     if (!b) return;
     renderOpts(await window.cfg.setOpt('shiny', b.dataset.key));
+  });
+}
+
+if (themeSeg) {
+  themeSeg.addEventListener('click', async e => {
+    const b = e.target.closest('button[data-key]');
+    if (!b) return;
+    renderOpts(await window.cfg.setOpt('theme', b.dataset.key));
+    // 主题变化会让所有窗口的 prefers-color-scheme 立刻更新，无需刷新
   });
 }
 

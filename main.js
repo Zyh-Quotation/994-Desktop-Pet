@@ -770,6 +770,14 @@ function canFlyNow() {
 }
 
 // ---------- 持久化 ----------
+let themeMode = 'auto';   // auto | light | dark
+
+function applyTheme() {
+  try {
+    nativeTheme.themeSource = themeMode === 'auto' ? 'system' : (themeMode === 'dark' ? 'dark' : 'light');
+  } catch (_) {}
+}
+
 function loadState() {
   try {
     let d;
@@ -796,6 +804,7 @@ function loadState() {
     if (Number.isFinite(d.firstLaunch)) firstLaunch = d.firstLaunch;
     if (Number.isFinite(d.sitWarnMin)) sitWarnMin = d.sitWarnMin;
     if (Number.isFinite(d.waterWarnMin)) waterWarnMin = d.waterWarnMin;
+    if (['auto', 'light', 'dark'].includes(d.theme)) themeMode = d.theme;
     if (Number.isFinite(d.counters && d.counters.stones)) counters.stones = d.counters.stones;
     if (Array.isArray(d.dexMet)) dexMet = d.dexMet.filter(n => Number.isFinite(n));
     if (Array.isArray(d.shinyMet)) shinyMet = d.shinyMet.filter(n => Number.isFinite(n));
@@ -820,7 +829,7 @@ function saveState() {
     const file = stateFile();
     const tmp = file + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify({
-      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, guestEnabled, favorites, firstLaunch, sitWarnMin, waterWarnMin, eggTarget, walkedPx, savedAt: new Date().toISOString()
+      stats, sizeKey, soundOn, species: speciesDex, shinyMode, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang, rotateMin, guestEnabled, favorites, firstLaunch, sitWarnMin, waterWarnMin, eggTarget, walkedPx, theme: themeMode, savedAt: new Date().toISOString()
     }));
     // 先写临时文件再改名：断电时旧存档仍完整
     try { if (fs.existsSync(file)) fs.copyFileSync(file, file + '.bak'); } catch (_) {}
@@ -1274,6 +1283,24 @@ function createWindow() {
     setTimeout(() => { if (!starAsked && !inBall) createStarWindow(); }, 12000);
     if (process.env.PET_SHARE) setTimeout(() => makeShareCard(process.env.PET_SHARE), 3000);
     if (process.env.PET_SETTINGS) setTimeout(() => createSettingsWindow(), 2500);
+    if (process.env.PET_THEMETEST) setTimeout(async () => {
+      try {
+        if (!settingsWin || settingsWin.isDestroyed()) createSettingsWindow();
+        await new Promise(r => setTimeout(r, 1600));
+        await settingsWin.webContents.executeJavaScript(
+          "document.querySelector('#theme-seg [data-key=\"dark\"]').click()");
+        await new Promise(r => setTimeout(r, 800));
+        const dark = await settingsWin.webContents.executeJavaScript(
+          "JSON.stringify({dark:matchMedia('(prefers-color-scheme: dark)').matches, bg:getComputedStyle(document.body).backgroundColor})");
+        console.log('[theme] 深色后', dark);
+        await settingsWin.webContents.executeJavaScript(
+          "document.querySelector('#theme-seg [data-key=\"light\"]').click()");
+        await new Promise(r => setTimeout(r, 800));
+        const light = await settingsWin.webContents.executeJavaScript(
+          "JSON.stringify({dark:matchMedia('(prefers-color-scheme: dark)').matches, bg:getComputedStyle(document.body).backgroundColor})");
+        console.log('[theme] 浅色后', light);
+      } catch (e) { console.log('[theme] 失败', e.message); }
+    }, 8000);
     if (process.env.PET_EGGI18N) setTimeout(async () => {
       createEggWindow();
       setTimeout(async () => {
@@ -2109,6 +2136,7 @@ function cfgSnapshot() {
     checkInDays: counters.checkIn || 0,
     pomo: pomo ? { phase: pomo.phase, left: Math.max(0, pomo.until - Date.now()) } : null,
     level, exp,
+    theme: themeMode,
     expInLevel: Math.max(0, exp - expTotalForLevel(level)),
     expNeed: expNeedFor(level),
     met: dexMet.length, shinyMet: shinyMet.length, total: SPECIES.length,
@@ -2138,6 +2166,7 @@ ipcMain.handle('cfg:setOpt', (_e, key, value) => {
     else if (key === 'guest') { guestEnabled = !!value; nextGuestAt = now() + 5 * 60000; saveState(); }
     else if (key === 'sound') { soundOn = !!value; saveState(); refreshTray(); }
     else if (key === 'login') setLoginAtStart(!!value);
+    else if (key === 'theme') { themeMode = ['auto','light','dark'].includes(value) ? value : 'auto'; applyTheme(); saveState(); }
   } catch (e) { console.error('[cfg:setOpt]', key, e); }
   return cfgSnapshot();
 });
@@ -2201,6 +2230,7 @@ app.on('before-quit', () => {
 });
 
 app.whenReady().then(() => {
+  applyTheme();
   if (process.env.PET_DARK) nativeTheme.themeSource = process.env.PET_DARK === 'light' ? 'light' : 'dark';
   // 开发时跑的是 Electron 本体，Dock 默认显示 Electron 原子图标，这里换成自己的
   if (IS_MAC && app.dock) {
