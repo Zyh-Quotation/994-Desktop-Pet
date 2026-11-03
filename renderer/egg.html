@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>孵蛋</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; padding: 24px 22px 18px;
+    font: 13px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: radial-gradient(circle at 50% 28%, #fffdf3 0%, #f6f7fb 62%);
+    color: #1c1c1e;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  h1 { margin: 0 0 2px; font-size: 18px; }
+  .sub { margin: 0 0 18px; font-size: 11.5px; color: #8e8e93; }
+
+  .ring {
+    --p: 0%;
+    width: 168px; height: 168px; border-radius: 50%;
+    background: conic-gradient(#ffb347 var(--p), #eceef3 0);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; transition: background .4s;
+  }
+  .ring::after {
+    content: ''; position: absolute; inset: 9px; border-radius: 50%; background: #fff;
+  }
+  .egg {
+    position: relative; z-index: 2; font-size: 74px; line-height: 1;
+    animation: wob 2.4s ease-in-out infinite;
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .12));
+  }
+  @keyframes wob {
+    0%, 100% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+  }
+  .ring.ready { background: conic-gradient(#34c759 100%, #34c759 0); }
+  .ring.ready .egg { animation: wob .8s ease-in-out infinite; }
+
+  .timer { margin: 16px 0 2px; font-size: 27px; font-weight: 600; letter-spacing: -.6px; }
+  .timer small { font-size: 12px; font-weight: 400; color: #8e8e93; margin-left: 3px; }
+  .stat { margin: 0 0 14px; font-size: 11.5px; color: #8e8e93; }
+
+  button {
+    border: 0; border-radius: 10px; padding: 11px 22px; font: inherit; font-size: 13px;
+    background: #e63b3b; color: #fff; cursor: pointer; width: 100%; max-width: 280px;
+  }
+  button:disabled { background: #eceef3; color: #a1a1a6; cursor: default; }
+  button.ghost { background: #f0f0f4; color: #3a3a3c; margin-top: 8px; }
+
+  .log { margin-top: 14px; font-size: 11px; color: #a1a1a6; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>孵蛋</h1>
+  <p class="sub" id="sub">它走着走着就会捡到一颗</p>
+
+  <div class="ring" id="ring">
+    <div class="egg" id="egg">🥚</div>
+  </div>
+
+  <div class="timer" id="timer">–</div>
+  <p class="stat" id="stat">–</p>
+
+  <button id="hatch" disabled>还没有蛋</button>
+  <button class="ghost" id="close">关闭</button>
+
+  <p class="log" id="log">已经孵出 0 只</p>
+
+  <script src="egg.js"></script>
+</body>
+</html>

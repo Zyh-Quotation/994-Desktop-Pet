@@ -389,8 +389,8 @@ function spawnEgg() {
   }
 }
 
-ipcMain.on('hatch', () => {
-  if (!hasEgg) return;
+function doHatch() {
+  if (!hasEgg) return { ok: false };
   hasEgg = false;
   if (win && !win.isDestroyed()) win.webContents.send('egg-gone');
   const unseen = SPECIES.filter(sp => !dexMet.includes(sp.dex));
@@ -402,7 +402,10 @@ ipcMain.on('hatch', () => {
   counters.hatch = (counters.hatch || 0) + 1;
   addStone(1);
   saveState();
-});
+  return { ok: true, dex: target.dex, name: target.name };
+}
+
+ipcMain.on('hatch', () => { doHatch(); });
 
 function checkSitWater() {
   if (focusMode) return;
@@ -1243,6 +1246,7 @@ function createWindow() {
     if (process.env.PET_REPORT) setTimeout(() => createReportWindow(), 2500);
     if (process.env.PET_GAME) setTimeout(() => createGameWindow(), 2500);
     if (process.env.PET_ACH) setTimeout(() => createAchievementsWindow(), 2500);
+    if (process.env.PET_EGGWIN) setTimeout(() => createEggWindow(), 2500);
     if (process.env.PET_CLIMB === '1') setTimeout(() => { climbDir = 'up'; climbTop = 220; alt = 0; setState('climb', 45000); }, 1200);
     if (process.env.PET_CLIMB === '1') setTimeout(() => { try { console.log('[climb] y=', win.getBounds().y, 'state=', state, 'alt=', Math.round(alt)); } catch (_) {} }, 6000);
     if (process.env.PET_STONE === '1') { counters.stones = 3; saveState(); setTimeout(() => useStone(), 5000); }
@@ -1782,6 +1786,36 @@ function switchSpecies(dex) {
 }
 
 // ---------- 第一次打开：问一句要不要去点 Star ----------
+let eggWin = null;
+
+function createEggWindow() {
+  if (eggWin && !eggWin.isDestroyed()) { eggWin.show(); eggWin.focus(); return; }
+  eggWin = new BrowserWindow({
+    width: 360, height: 560, resizable: false, minimizable: false, maximizable: false,
+    title: '孵蛋', backgroundColor: '#fffdf3', show: false, alwaysOnTop: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'renderer', 'egg-preload.js'),
+      contextIsolation: true, nodeIntegration: false
+    }
+  });
+  eggWin.loadFile(path.join(__dirname, 'renderer', 'egg.html'));
+  eggWin.once('ready-to-show', () => {
+    eggWin.show();
+    if (process.env.PET_CAPTURE) captureTo(eggWin, 'egg-shot.png');
+  });
+  eggWin.on('closed', () => { eggWin = null; });
+}
+
+ipcMain.handle('egg:get', () => ({
+  hasEgg,
+  eggProgress: Math.min(1, walkedPx / EGG_AT),
+  eggAt: EGG_AT,
+  eggs: counters.hatch || 0,
+  stones: counters.stones || 0
+}));
+ipcMain.handle('egg:hatch', () => doHatch());
+ipcMain.on('egg:close', () => { if (eggWin && !eggWin.isDestroyed()) eggWin.close(); });
+
 let achWin = null;
 
 function createAchievementsWindow() {
@@ -2049,6 +2083,7 @@ ipcMain.handle('cfg:action', async (_e, name) => {
     else if (name === 'report') createReportWindow();
     else if (name === 'game') createGameWindow();
     else if (name === 'ach') createAchievementsWindow();
+    else if (name === 'eggwin') createEggWindow();
     else if (name === 'checkin') {
       if (!dailyCheckIn()) bubble(lang === 'en' ? 'Already checked in today' : '今天已经签到过啦', 2600, true);
     }

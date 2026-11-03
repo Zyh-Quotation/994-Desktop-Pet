@@ -385,7 +385,10 @@ function renderOpts(c) {
   if (bagProgText) bagProgText.textContent = c.hasEgg
     ? '已经有蛋了，去点它'
     : `${Math.round((c.eggProgress || 0) * 100)}%（走够就有一颗）`;
-  if (bagCheckin) {
+  const bagEggwin = document.getElementById('bag-eggwin');
+if (bagEggwin) bagEggwin.onclick = () => window.cfg.action('eggwin');
+
+if (bagCheckin) {
     bagCheckin.disabled = !!c.checkedIn;
     bagCheckin.textContent = c.checkedIn ? `今天已签到（连续 ${c.checkInDays} 天）` : '领取 +50 经验 +1 进化石';
   }
