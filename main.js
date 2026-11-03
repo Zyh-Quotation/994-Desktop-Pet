@@ -166,7 +166,8 @@ let sizeKey = 'medium';
 let hover = false;
 let hungerNagAt = 0, moodNagAt = 0;
 let clickTimes = [];
-let shiny = Math.random() < 1 / 128; // 彩蛋：1/128 异色
+let shiny = false;                  // 当前这只是否用异色图
+let shinyMode = 'auto';             // auto（1/128 彩蛋）| always | never
 let lastTs = Date.now();
 let speciesDex = 175;                // 当前宝可梦（全国图鉴编号）
 let settingsWin = null;
@@ -324,6 +325,23 @@ const spriteUrlFor = (dex, wantShiny) => {
   return require('url').pathToFileURL(file).href;
 };
 
+// 异色判定：
+// auto 用图鉴编号做确定性哈希（约 1/128），同一只宝可梦每次结果一致，
+// 不会切来切去就变；always / never 由用户强制。
+function autoShinyFor(dex) {
+  // murmur3 收尾混合，1025 只里正好 8 只（约 1/128）
+  let h = Math.imul((dex | 0) ^ 0x9e3779b9, 0x85ebca6b) >>> 0;
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35) >>> 0;
+  h ^= h >>> 16;
+  return (h % 128) === 0;
+}
+function shinyFor(dex) {
+  if (shinyMode === 'always') return true;
+  if (shinyMode === 'never') return false;
+  return autoShinyFor(dex);
+}
+
 const speciesInfo = () => byDex.get(speciesDex) || byDex.get(175);
 
 const now = () => Date.now();
@@ -350,13 +368,15 @@ function loadState() {
     if (SIZES[d.sizeKey]) sizeKey = d.sizeKey;
     if (typeof d.soundOn === 'boolean') soundOn = d.soundOn;
     if (d.species && SPECIES.some(s => s.dex === Number(d.species))) speciesDex = Number(d.species);
+    if (d.shinyMode === 'auto' || d.shinyMode === 'always' || d.shinyMode === 'never') shinyMode = d.shinyMode;
   } catch (_) { /* 首次运行 */ }
+  shiny = shinyFor(speciesDex);
 }
 function saveState() {
   try {
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
     fs.writeFileSync(stateFile(), JSON.stringify({
-      stats, sizeKey, soundOn, species: speciesDex, savedAt: new Date().toISOString()
+      stats, sizeKey, soundOn, species: speciesDex, shinyMode, savedAt: new Date().toISOString()
     }));
   } catch (e) { console.error('saveState failed:', e.message); }
 }
@@ -758,6 +778,17 @@ function createTray() {
     try { tray.setImage(icon); } catch (_) { /* 托盘已销毁 */ }
   }, 1200);
 }
+function setShinyMode(mode) {
+  shinyMode = mode;
+  shiny = shinyFor(speciesDex);
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('sprite', { url: spriteUrlFor(speciesDex, shiny) });
+  }
+  saveState();
+  refreshTray();
+  bubble(shiny ? `✨ 异色 ${speciesInfo().name}` : speciesInfo().name, 1600);
+}
+
 function petMenuTemplate() {
   return [
     {
@@ -786,6 +817,14 @@ function petMenuTemplate() {
         checked: k === sizeKey,
         click: () => setSize(k)
       }))
+    },
+    {
+      label: '异色 ✨',
+      submenu: [
+        { label: '自动（1/128 彩蛋）', type: 'radio', checked: shinyMode === 'auto', click: () => setShinyMode('auto') },
+        { label: '总是异色', type: 'radio', checked: shinyMode === 'always', click: () => setShinyMode('always') },
+        { label: '始终正常', type: 'radio', checked: shinyMode === 'never', click: () => setShinyMode('never') }
+      ]
     },
     { label: '检查更新 ⟳', click: () => checkUpdate(true) },
     { label: '设置…', click: createSettingsWindow },
@@ -1132,6 +1171,7 @@ function switchSpecies(dex) {
   speciesDex = dex;
   if (alt > 1 && !canFlyNow()) { alt = 0; altTarget = 0; y = groundYFor(); }
   sentFace = 0;
+  shiny = shinyFor(dex);
   if (win && !win.isDestroyed()) win.webContents.send('sprite', { url: spriteUrlFor(dex, shiny) });
   bubble(`${speciesInfo().name}，来啦!`, 2000);
   setTimeout(() => playCry(dex, true), 260);
