@@ -21,6 +21,14 @@ const dexProgEl = document.getElementById('dex-prog');
 
 
 const guestSw = document.getElementById('guest');
+const bagStones = document.getElementById('bag-stones');
+const bagEggs = document.getElementById('bag-eggs');
+const bagBar = document.getElementById('bag-bar');
+const bagProgText = document.getElementById('bag-prog-text');
+const bagCheckin = document.getElementById('bag-checkin');
+const bagHatched = document.getElementById('bag-hatched');
+const bagEggHint = document.getElementById('bag-egg-hint');
+const bagSkin = document.getElementById('bag-skin');
 const achGrid = document.getElementById('ach-grid');
 const achCount = document.getElementById('ach-count');
 const achBar = document.getElementById('ach-bar');
@@ -370,6 +378,20 @@ function renderOpts(c) {
          <span class="d">${a.desc}</span>
        </div>`).join('');
   }
+  if (bagStones) bagStones.textContent = c.stones || 0;
+  if (bagEggs) bagEggs.textContent = c.hasEgg ? '1' : '0';
+  if (bagEggHint) bagEggHint.textContent = c.hasEgg ? '屏幕上有一颗，点它孵化' : '走走就能捡到';
+  if (bagBar) bagBar.style.width = Math.round((c.eggProgress || 0) * 100) + '%';
+  if (bagProgText) bagProgText.textContent = c.hasEgg
+    ? '已经有蛋了，去点它'
+    : `${Math.round((c.eggProgress || 0) * 100)}%（走够就有一颗）`;
+  if (bagCheckin) {
+    bagCheckin.disabled = !!c.checkedIn;
+    bagCheckin.textContent = c.checkedIn ? `今天已签到（连续 ${c.checkInDays} 天）` : '领取 +50 经验 +1 进化石';
+  }
+  if (bagHatched) bagHatched.textContent = c.eggs || 0;
+  if (bagSkin) bagSkin.textContent = c.nature ? `${c.nature.zh}` : '–';
+
   if (pomoState) {
     pomoState.textContent = c.pomo
       ? (c.pomo.phase === 'work' ? '专注中…' : '休息中…')
@@ -534,6 +556,14 @@ if (shareBtn) {
   shareBtn.onclick = async () => {
     shareBtn.disabled = true;
     try { renderOpts(await window.cfg.action('share')); } finally { shareBtn.disabled = false; }
+  };
+}
+
+if (bagCheckin) {
+  bagCheckin.onclick = async () => {
+    bagCheckin.disabled = true;
+    const r = await window.cfg.action('checkin');
+    if (r) renderOpts(r);
   };
 }
 

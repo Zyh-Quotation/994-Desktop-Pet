@@ -15,6 +15,7 @@
 <nav class="tabs">
   <button class="tab active" data-pane="dex" id="tab-dex">图鉴</button>
   <button class="tab" data-pane="ach" id="tab-ach">成就</button>
+  <button class="tab" data-pane="bag" id="tab-bag">背包</button>
   <button class="tab" data-pane="opts" id="tab-opts">设置</button>
 </nav>
 
@@ -30,6 +31,50 @@
   <main id="list" class="list"></main>
   </div>
 
+</div>
+
+<div class="pane" id="pane-bag" hidden>
+  <section class="opts opts-stack">
+    <div class="bag-row">
+      <div class="bag-item">
+        <span class="bag-ico">💎</span>
+        <div class="bag-txt">
+          <b>进化石</b>
+          <span>每天签到 +1，每次孵出宝可梦 +1</span>
+        </div>
+        <span class="bag-num" id="bag-stones">0</span>
+      </div>
+      <div class="bag-item">
+        <span class="bag-ico">🥚</span>
+        <div class="bag-txt">
+          <b>蛋</b>
+          <span id="bag-egg-hint">走走就能捡到</span>
+        </div>
+        <span class="bag-num" id="bag-eggs">0</span>
+      </div>
+    </div>
+
+    <div class="opt bag-progress">
+      <span class="opt-label">下一颗蛋</span>
+      <span class="opt-label" id="bag-prog-text">–</span>
+    </div>
+    <div class="bag-bar"><i id="bag-bar"></i></div>
+
+    <div class="opt">
+      <span class="opt-label">今日签到</span>
+      <button class="upd-btn" id="bag-checkin">领取 +50 经验</button>
+    </div>
+
+    <div class="opt">
+      <span class="opt-label">累计孵出</span>
+      <span class="opt-label" id="bag-hatched">0</span>
+    </div>
+
+    <div class="opt">
+      <span class="opt-label">性格</span>
+      <span class="opt-label" id="bag-skin">–</span>
+    </div>
+  </section>
 </div>
 
 <div class="pane" id="pane-ach" hidden>

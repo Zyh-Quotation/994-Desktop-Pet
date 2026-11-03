@@ -1969,6 +1969,10 @@ function createSettingsWindow() {
         try { await settingsWin.webContents.executeJavaScript("document.getElementById('tab-opts').click()"); } catch (_) {}
         await new Promise(r => setTimeout(r, 600));
       }
+      if (process.env.PET_SETTINGS === '5') {
+        try { await settingsWin.webContents.executeJavaScript("document.getElementById('tab-bag').click()"); } catch (_) {}
+        await new Promise(r => setTimeout(r, 700));
+      }
       if (process.env.PET_SETTINGS === '4') {
         try { await settingsWin.webContents.executeJavaScript("document.getElementById('tab-ach').click()"); } catch (_) {}
         await new Promise(r => setTimeout(r, 700));
@@ -1998,6 +2002,13 @@ function cfgSnapshot() {
     shinyMode, rotateMin, lang, focusMode, guestEnabled, favorites,
     nature: { zh: (currentNature || NATURES[0]).zh, en: (currentNature || NATURES[0]).en },
     dexMet: dexMet.slice(),
+    stones: counters.stones || 0,
+    eggs: counters.hatch || 0,
+    hasEgg,
+    eggProgress: Math.min(1, walkedPx / EGG_AT),
+    eggAt: EGG_AT,
+    checkedIn: counters.lastCheckIn === new Date().toISOString().slice(0, 10),
+    checkInDays: counters.checkIn || 0,
     pomo: pomo ? { phase: pomo.phase, left: Math.max(0, pomo.until - Date.now()) } : null,
     level, exp,
     met: dexMet.length, shinyMet: shinyMet.length, total: SPECIES.length,
@@ -2038,6 +2049,9 @@ ipcMain.handle('cfg:action', async (_e, name) => {
     else if (name === 'report') createReportWindow();
     else if (name === 'game') createGameWindow();
     else if (name === 'ach') createAchievementsWindow();
+    else if (name === 'checkin') {
+      if (!dailyCheckIn()) bubble(lang === 'en' ? 'Already checked in today' : '今天已经签到过啦', 2600, true);
+    }
   } catch (e) { console.error('[cfg:action]', name, e); }
   return cfgSnapshot();
 });
