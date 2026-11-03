@@ -6,14 +6,14 @@
 #
 # 用法：./tools/build-app-intel.sh [输出目录]
 #
-# 产物：release/神奇宝贝-intel.app
+# 产物：release/intel/神奇宝贝.app（zip 里就是这个名，用户看到的是「神奇宝贝」）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 OUT_DIR="${1:-$ROOT/release}"
-OUT="$OUT_DIR/神奇宝贝-intel.app"
+OUT="$OUT_DIR/intel/神奇宝贝.app"
 CACHE="$ROOT/tools/.cache/electron-x64"
 VER=$(node -p "require('./package.json').version")
 
@@ -36,7 +36,7 @@ fi
 # ---------- 2. 复制壳 + 改 Info.plist ----------
 echo "▶ 组装 $OUT"
 rm -rf "$OUT"
-mkdir -p "$OUT_DIR"
+mkdir -p "$OUT_DIR/intel"
 cp -R "$CACHE/Electron.app" "$OUT"
 
 PLIST="$OUT/Contents/Info.plist"

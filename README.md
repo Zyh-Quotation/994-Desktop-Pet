@@ -57,11 +57,13 @@ Electron 写的，免费开源，**macOS / Windows 都能装**。
 
 | 系统 | 文件 | 怎么装 |
 |---|---|---|
-| macOS（Apple 芯片） | `pokepet-x.y.z.zip` | 解开，把「神奇宝贝.app」拖进「应用程序」。**首次打开要右键 → 打开** |
-| macOS（Intel 芯片） | `pokepet-x.y.z-mac-x64.zip` | 同上，装 Intel 专用包 |
+| macOS（Apple 芯片） | `pokepet-x.y.z.zip` | 解开，把「神奇宝贝.app」拖进「应用程序」 |
+| macOS（Intel 芯片） | `pokepet-x.y.z-mac-x64.zip` | 同上，装 Intel 专用包（解开后同样叫「神奇宝贝」） |
 | Windows 10/11 64 位 | `pokepet-x.y.z-win-x64.zip` | 解压到固定文件夹，双击 `TogepiPet.exe` |
 
-- Mac 版没买苹果开发者签名（ad-hoc 签名），所以系统会拦一次，右键 → 打开即可
+- Mac 版没买苹果开发者签名（ad-hoc 签名），首次打开会被系统拦下。
+  **macOS 15 以后「右键 → 打开」已经不给按钮了**，要去「系统设置 → 隐私与安全性」点「仍要打开」，
+  或者直接执行 `xattr -dr com.apple.quarantine /Applications/神奇宝贝.app` 再双击
 - 下载页会自己判断你是 Apple 芯片还是 Intel，不用手选；认不出来时会同时给出 Intel 版链接
 - 安装包体积大（Mac 约 200MB / Win 约 227MB），因为 1025 只精灵图和叫声都在里面
 
