@@ -21,6 +21,13 @@ const dexProgEl = document.getElementById('dex-prog');
 const achProgEl = document.getElementById('ach-prog');
 
 const guestSw = document.getElementById('guest');
+const sideAch = document.getElementById('side-ach');
+const sideCount = document.getElementById('side-count');
+const ACH_ICONS = {
+  first: '👋', dex10: '🚪', dex50: '🧭', dex200: '🔬', dex1025: '📚',
+  shiny1: '✨', shiny8: '💎', sig10: '🌟', sig100: '🏅',
+  feed50: '🍎', pet500: '🤚', throw10: '🎾', streak7: '📅', checkin7: '✅'
+};
 const natureEl = document.getElementById('nature');
 
 const TYPE_COLOR = {
@@ -345,6 +352,15 @@ function renderOpts(c) {
   if (lvlEl) lvlEl.textContent = `Lv.${c.level} · 经验 ${c.exp % 100}/100`;
   if (dexProgEl) dexProgEl.textContent = `遇见 ${c.met}/${c.total} · 异色 ${c.shinyMet}`;
   const list = c.achievements || [];
+  if (sideAch) {
+    const done = list.filter(a => a.unlocked).length;
+    if (sideCount) sideCount.textContent = `${done}/${list.length}`;
+    sideAch.innerHTML = list.map(a =>
+      `<div class="side-ach${a.unlocked ? '' : ' locked'}" title="${a.desc}">
+         <span class="b">${ACH_ICONS[a.id] || '🏆'}</span>
+         <span class="t">${a.name}</span>
+       </div>`).join('');
+  }
   if (achProgEl) achProgEl.textContent = `${list.filter(a => a.unlocked).length}/${list.length} 已解锁`;
 
   if (pomoState) {

@@ -1930,7 +1930,7 @@ function createSettingsWindow() {
   }
   const wa = screen.getPrimaryDisplay().workAreaSize;
   settingsWin = new BrowserWindow({
-    width: Math.min(780, wa.width - 80), height: Math.min(840, wa.height - 80),
+    width: Math.min(1040, wa.width - 80), height: Math.min(840, wa.height - 80),
     resizable: false, minimizable: false, maximizable: false,
     title: '神奇宝贝 · 设置',
     backgroundColor: '#f5f5f7',

@@ -18,6 +18,7 @@
 </nav>
 
 <div class="pane" id="pane-dex">
+  <div class="dex-main">
   <div class="search-row">
     <input id="search" class="search" type="search" placeholder="搜索宝可梦 / 编号 / 属性，例如 皮卡丘、25、火" autocomplete="off" spellcheck="false">
     <select id="gen" class="gen-select" title="按世代筛选"></select>
@@ -26,6 +27,15 @@
   </div>
   <nav id="chips" class="chips"></nav>
   <main id="list" class="list"></main>
+  </div>
+
+  <aside class="dex-side">
+    <div class="side-head">
+      <span>成就</span>
+      <b id="side-count">–</b>
+    </div>
+    <div class="side-grid" id="side-ach"></div>
+  </aside>
 </div>
 
 <div class="pane" id="pane-opts" hidden>
