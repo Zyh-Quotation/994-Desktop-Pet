@@ -1416,6 +1416,7 @@ function legacyNoticeEn(n) {
   return { ...n, titleEn, bodyEn };
 }
 
+let stateRev = 0;   // 存档版本号：每次保存 +1，防止旧实例退出时用旧快照覆盖新存档
 function loadState() {
   try {
     hadStateFile = fs.existsSync(stateFile());
@@ -1428,6 +1429,7 @@ function loadState() {
       console.warn('[loadState] 主存档损坏，改用备份');
       d = JSON.parse(fs.readFileSync(bak, 'utf8'));
     }
+    stateRev = Number(d.rev) || 0;
     stats.hunger = clamp(Number(d.stats?.hunger ?? 80), 0, 100);
     stats.mood = clamp(Number(d.stats?.mood ?? 80), 0, 100);
     if (SIZES[d.sizeKey]) sizeKey = d.sizeKey;
@@ -1550,6 +1552,15 @@ function saveState() {
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
     const file = stateFile();
     const tmp = file + '.tmp';
+    // 防多实例竞态：磁盘上已有更新的存档时绝不覆盖。
+    // （曾有旧实例退出时的保存把新存档冲回旧快照，用户进度看起来"回档"）
+    let diskRev = 0;
+    try { diskRev = Number(JSON.parse(fs.readFileSync(file, 'utf8')).rev) || 0; } catch (_) {}
+    if (diskRev > stateRev) {
+      console.error(`[saveState] 磁盘存档较新（rev ${diskRev} > 本实例 ${stateRev}），疑似另一个实例在写，跳过本次保存`);
+      return;
+    }
+    stateRev = diskRev + 1;
     fs.writeFileSync(tmp, JSON.stringify({
       stats, sizeKey, soundOn, species: speciesDex, shinyMode, shinyLocked, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang: uiLang, rotateMin, guestEnabled, favorites, firstLaunch, sitWarnMin, waterWarnMin, eggTarget, walkedPx, hasEgg, eggRarity, theme: themeMode,
       roster, nickname, hat, scarf, skin, festivalAuto, access,
@@ -1557,9 +1568,11 @@ function saveState() {
       lastSeenVersion, pendingUpdate, updateSnoozeUntil,
       lastSitAt, lastWaterAt,
       pomo: pomo ? { phase: pomo.phase, until: pomo.until, restMin: pomo.restMin, workMin: pomo.workMin } : null,
+      rev: stateRev,
       savedAt: new Date().toISOString()
     }));
-    // 先写临时文件再改名：断电时旧存档仍完整
+    // 先写临时文件再改名：断电时旧存档仍完整；另保留两代备份（.bak / .bak2）
+    try { const bak = file + '.bak'; if (fs.existsSync(bak)) fs.copyFileSync(bak, file + '.bak2'); } catch (_) {}
     try { if (fs.existsSync(file)) fs.copyFileSync(file, file + '.bak'); } catch (_) {}
     fs.renameSync(tmp, file);
   } catch (e) { console.error('saveState failed:', e.message); }

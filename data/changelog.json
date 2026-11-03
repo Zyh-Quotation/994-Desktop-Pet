@@ -1,4 +1,21 @@
 {
+  "0.6.2": {
+    "date": "2026-11-03",
+    "title": {
+      "zh": "存档防回档保护",
+      "en": "Save-file rollback protection",
+      "ja": "セーブデータのロールバック防止",
+      "ko": "저장 파일 롤백 방지"
+    },
+    "fix": [
+      {
+        "zh": "存档加版本号：检测到另一个实例写入了更新的存档时，本实例不再覆盖（此前旧实例退出时的保存可能把新进度冲回旧快照）；备份改为保留两代（.bak / .bak2）",
+        "en": "Saves now carry a revision: if another instance wrote a newer save, this instance skips writing instead of overwriting it (a stale instance quitting could previously roll progress back); two backup generations are kept (.bak / .bak2)",
+        "ja": "セーブにリビジョンを追加。別インスタンスが新しいセーブを書いた場合は上書きせずスキップ（以前は旧インスタンス終了時の保存で進行状況が巻き戻る可能性がありました）。バックアップは2世代保持（.bak / .bak2）",
+        "ko": "저장에 리비전을 추가해 다른 인스턴스가 더 최신 저장을 쓰면 덮어쓰지 않고 건너뜁니다(이전에는 오래된 인스턴스가 종료하며 저장해 진행 상황이 되돌아질 수 있었습니다). 백업은 2세대 유지(.bak / .bak2)"
+      }
+    ]
+  },
   "0.6.1": {
     "date": "2026-11-03",
     "title": {
