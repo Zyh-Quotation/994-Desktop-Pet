@@ -1,0 +1,43 @@
+# 发版后自动把 docs/latest.json 同步成这一版的 zip 直链，
+# 下载页点按钮就能直接拿到包，不用再经 api.github.com（匿名限流很容易挂）。
+name: 下载页清单
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: latest-json
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 生成 docs/latest.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "release" ]; then
+            jq '.release' "$GITHUB_EVENT_PATH" | node tools/build-latest-json.js
+          else
+            gh api "repos/${{ github.repository }}/releases/latest" | node tools/build-latest-json.js
+          fi
+
+      - name: 提交
+        run: |
+          if git diff --quiet -- docs/latest.json; then
+            echo '清单没有变化，不用提交'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/latest.json
+          git commit -m 'download page: sync docs/latest.json'
+          git push

@@ -130,6 +130,31 @@
 const REPO = 'Zyh-Quotation/994-Desktop-Pet';
 const RELEASES = `https://github.com/${REPO}/releases`;
 
+// 版本清单跟页面一起发布，同源读取：
+// 不受 api.github.com 每小时 60 次的匿名限流，也不用跨域，
+// 所以「已经认出系统 → 点按钮直接下 zip」这条路不会再断。
+const MANIFEST = 'latest.json';
+
+// 兜底清单：latest.json 万一没生成 / 页面被单独存下来时用。
+// 有它在，按钮最低限度也是直链 zip，不会退回「打开下载页」。
+const FALLBACK = {
+  version: '0.7.1',
+  assets: {
+    'mac-arm64': {
+      file: 'pokepet-0.7.1.zip', size: 266322295,
+      url: `https://github.com/${REPO}/releases/download/v0.7.1/pokepet-0.7.1.zip`
+    },
+    'mac-x64': {
+      file: 'pokepet-0.7.1-mac-x64.zip', size: 273309275,
+      url: `https://github.com/${REPO}/releases/download/v0.7.1/pokepet-0.7.1-mac-x64.zip`
+    },
+    'win-x64': {
+      file: 'pokepet-0.7.1-win-x64.zip', size: 293012161,
+      url: `https://github.com/${REPO}/releases/download/v0.7.1/pokepet-0.7.1-win-x64.zip`
+    }
+  }
+};
+
 const $ = id => document.getElementById(id);
 
 function baseOS() {
@@ -163,7 +188,6 @@ async function macArch() {
   return null;
 }
 
-const OS_BASE = baseOS();
 const NAME = {
   win: 'Windows',
   'mac-arm64': 'macOS（Apple 芯片）',
@@ -171,62 +195,92 @@ const NAME = {
   mac: 'macOS',
   other: '其他系统'
 };
-let OS = OS_BASE;
 
 const fmt = n => n > 1e9 ? (n / 1073741824).toFixed(2) + ' GB'
   : n > 1e6 ? Math.round(n / 1048576) + ' MB' : (n / 1024).toFixed(0) + ' KB';
 
-let assets = { win: null, macArm: null, macX64: null };
+// 站点清单用 mac-arm64 / mac-x64 / win-x64 当键，GitHub API 用文件名，
+// 统一归一成 { version, win, macArm, macX64 } 三个槽位
+const SLOT = {
+  'mac-arm64': 'macArm', 'mac-x64': 'macX64', 'win-x64': 'win',
+  macArm: 'macArm', macX64: 'macX64', win: 'win'
+};
 
-async function loadRelease() {
-  try {
-    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { cache: 'no-store' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const j = await r.json();
-    for (const a of j.assets || []) {
-      if (/-win-x64\.zip$/i.test(a.name)) assets.win = a;
-      else if (/-mac-x64\.zip$/i.test(a.name)) assets.macX64 = a;
-      else if (/^pokepet-[\d.]+\.zip$/i.test(a.name)) assets.macArm = a;
+function readManifest(j) {
+  const out = {
+    version: String(j.version || j.tag_name || '').replace(/^v/, ''),
+    win: null, macArm: null, macX64: null
+  };
+  const put = (slot, a) => {
+    // API 返回的 a.url 是要带 token 的接口地址，浏览器里下不了，优先用 browser_download_url
+    const url = (a && (a.browser_download_url || a.url)) || '';
+    if (slot && url && !out[slot]) out[slot] = { url, size: +a.size || 0 };
+  };
+  if (Array.isArray(j.assets)) {
+    for (const a of j.assets) {
+      if (!a) continue;
+      const n = String(a.name || a.file || '');
+      if (SLOT[n]) put(SLOT[n], a);
+      else if (/-win-x64\.zip$/i.test(n)) put('win', a);
+      else if (/-mac-x64\.zip$/i.test(n)) put('macX64', a);
+      else if (/^pokepet-[\d.]+\.zip$/i.test(n)) put('macArm', a);
     }
-    $('ver').textContent = `最新版 v${j.tag_name.replace(/^v/, '')} · ${
-      [assets.macArm, assets.macX64, assets.win].filter(Boolean).map(a => fmt(a.size)).join(' / ')}`;
-    apply();
-  } catch (e) {
-    $('ver').textContent = '读取版本信息失败，可直接去 Releases 页面下载';
-    $('main-btn').href = RELEASES;
-    $('main-btn').textContent = '打开下载页';
+  } else if (j.assets) {
+    for (const [k, a] of Object.entries(j.assets)) put(SLOT[k], a);
   }
+  return out;
 }
 
-function apply() {
+async function getJSON(url) {
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+// 先读同源 latest.json，再问 GitHub API，最后用写死在页面里的兜底清单
+async function loadRelease() {
+  const urls = [
+    `${MANIFEST}?t=${Date.now()}`,
+    `https://api.github.com/repos/${REPO}/releases/latest?t=${Date.now()}`
+  ];
+  for (const u of urls) {
+    try {
+      const rel = readManifest(await getJSON(u));
+      if (rel.win || rel.macArm || rel.macX64) return rel;
+    } catch (_) {}
+  }
+  return readManifest(FALLBACK);
+}
+
+function apply(rel, OS) {
   const btn = $('main-btn');
   let primary = null;
-  if (OS === 'win') primary = assets.win;
-  else if (OS === 'mac-arm64') primary = assets.macArm;
-  else if (OS === 'mac-x64') primary = assets.macX64;
-  else if (OS === 'mac') primary = assets.macArm;   // 芯片认不出时先给 Apple 芯片版
+  if (OS === 'win') primary = rel.win;
+  else if (OS === 'mac-arm64') primary = rel.macArm;
+  else if (OS === 'mac-x64') primary = rel.macX64;
+  else if (OS === 'mac') primary = rel.macArm;   // 芯片认不出时先给 Apple 芯片版
 
   if (primary) {
-    btn.href = primary.browser_download_url;
-    btn.innerHTML = `下载 ${NAME[OS]} 版 <small>${fmt(primary.size)}</small>`;
+    btn.href = primary.url;
+    btn.innerHTML = `下载 ${NAME[OS]} 版 <small>${primary.size ? fmt(primary.size) : ''}</small>`;
   } else {
-    const fallback = assets.win || assets.macArm || assets.macX64;
-    if (fallback) {
-      btn.href = fallback.browser_download_url;
-      btn.innerHTML = `下载 <small>${fmt(fallback.size)}</small>`;
+    const spare = rel.macArm || rel.win || rel.macX64;
+    if (spare) {
+      btn.href = spare.url;
+      btn.innerHTML = `下载 <small>${spare.size ? fmt(spare.size) : ''}</small>`;
     } else {
       btn.href = RELEASES;
       btn.textContent = '打开下载页';
     }
   }
 
-  // 另一个平台
+  // 另一个平台：直接给对面那个系统的 zip
   let secondary = null, label = '';
-  if (OS === 'win') { secondary = assets.macArm; label = 'macOS'; }
-  else if (OS.indexOf('mac') === 0) { secondary = assets.win; label = 'Windows'; }
+  if (OS === 'win') { secondary = rel.macArm; label = 'macOS'; }
+  else if (OS.indexOf('mac') === 0) { secondary = rel.win; label = 'Windows'; }
   if (secondary) {
-    $('alt-link').textContent = `下载 ${label} 版（${fmt(secondary.size)}）`;
-    $('alt-link').href = secondary.browser_download_url;
+    $('alt-link').textContent = `下载 ${label} 版（${secondary.size ? fmt(secondary.size) : 'zip'}）`;
+    $('alt-link').href = secondary.url;
   } else {
     $('alt-link').href = RELEASES;
     $('alt-link').textContent = '查看全部下载';
@@ -240,17 +294,23 @@ function apply() {
   } else if (OS === 'mac-arm64') {
     $('note-body').innerHTML = '解开 zip，把「桌面宠物.app」拖进「应用程序」。首次打开会被系统拦一下（没买苹果签名）：到「系统设置 → 隐私与安全性」点「仍要打开」，或在终端执行 <code>xattr -dr com.apple.quarantine /Applications/桌面宠物.app</code>。 这是 <b>Apple 芯片</b>版。';
   } else if (OS === 'mac') {
-    const intel = assets.macX64
-      ? ` 如果是 <b>Intel 芯片</b>的 Mac，请下 <a href="${assets.macX64.browser_download_url}">Intel 版</a>。`
+    const intel = rel.macX64
+      ? ` 如果是 <b>Intel 芯片</b>的 Mac，请下 <a href="${rel.macX64.url}">Intel 版</a>。`
       : '';
     $('note-body').innerHTML = '解开 zip，把「桌面宠物.app」拖进「应用程序」。首次打开会被系统拦一下（没买苹果签名）：到「系统设置 → 隐私与安全性」点「仍要打开」，或在终端执行 <code>xattr -dr com.apple.quarantine /Applications/桌面宠物.app</code>。' + intel;
   } else {
     $('note-body').innerHTML = 'Mac 版右键 → 打开；Windows 版解压后双击 exe。';
   }
+
+  const sizes = [rel.macArm, rel.macX64, rel.win].filter(Boolean).map(a => fmt(a.size)).join(' / ');
+  $('ver').textContent = rel.version
+    ? `最新版 v${rel.version}${sizes ? ' · ' + sizes : ''}`
+    : '';
 }
 
 (async () => {
-  if (OS_BASE === 'mac') {
+  let OS = baseOS();
+  if (OS === 'mac') {
     const arch = await macArch();
     if (arch === 'arm64') OS = 'mac-arm64';
     else if (arch === 'x64') OS = 'mac-x64';
@@ -260,8 +320,9 @@ function apply() {
     ? '没识别出系统，请手动选择'
     : OS === 'mac'
       ? '已识别：macOS · 认不出芯片型号，先给你 Apple 芯片版'
-      : `已识别：${NAME[OS]} · 将下载对应版本`;
-  await loadRelease();
+      : `已识别：${NAME[OS]} · 点下面直接下对应版本`;
+
+  apply(await loadRelease(), OS);
 })();
 </script>
 </body>

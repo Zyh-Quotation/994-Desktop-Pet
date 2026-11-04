@@ -179,7 +179,7 @@ data/changelog.json  版本更新说明：新增功能 / 修复内容，更新�
 assets/pokemon/      2050 张精灵图（普通 + 异色，121MB，不进仓库）
 assets/forms/        超级进化 / 超极巨化动画图（普通 + 异色，约 52MB，不进仓库）
 assets/cries/        1025 条叫声（16MB，不进仓库）
-docs/                GitHub Pages 下载页
+docs/                GitHub Pages 下载页（latest.json 是页面读的版本清单）
 tools/               打包、素材抓取脚本
 tools/signature-moves.json  招式名数据源（可手工改，改完重跑 build-signatures）
 promo/               宣传图和文案
@@ -211,6 +211,10 @@ npm install                     # Electron
 - **多屏**：判断宠物落在哪块屏，走到边界时切到相邻屏继续
 - **天气**：wttr.in 每 30 分钟拉一次，失败就静默跳过
 - **更新清单**：`releases/latest/download/update.json`，含版本、sha256、下载地址和更新说明；
+- **下载页清单**：`docs/latest.json`，页面同源读它拿三个平台的 zip 直链，不碰 `api.github.com`
+  （匿名 60 次/小时，挂了页面就会退回「打开下载页」）。发版时由 `tools/publish.sh`
+  里的 `make-release.js` 顺带生成，`.github/workflows/latest-json.yml` 也会在 Release
+  发布后自动同步一次，忘了提交也不会指向旧版本；
   请求加时间戳绕开 CDN 一分钟缓存；清单里的 `notes` 来自 `data/changelog.json`
 - **更新流程**：检查到新版本直接后台下载并覆盖安装，不再二次确认；更新完成后首次启动用 `lastSeenVersion`
   判断版本变化，再展示本次更新说明；更新前会把说明暂存进存档，避免旧版本来不及带过来

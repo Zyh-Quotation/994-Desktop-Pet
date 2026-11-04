@@ -85,7 +85,26 @@ if (fs.existsSync(WIN)) {
 
 fs.writeFileSync(path.join(OUT_DIR, 'update.json'), JSON.stringify(manifest, null, 2));
 
+// 下载页清单 docs/latest.json：页面读同源文件就能拿到三个平台的 zip 直链，
+// 不用再去撞 api.github.com 的匿名限流（没这份清单时页面会退回「打开下载页」）。
+const REPO = process.env.REPO || 'Zyh-Quotation/994-Desktop-Pet';
+const TAG = `v${pkg.version}`;
+const assetUrl = name => `https://github.com/${REPO}/releases/download/${TAG}/${name}`;
+const page = {
+  version: pkg.version,
+  tag: TAG,
+  publishedAt: manifest.publishedAt,
+  assets: {
+    'mac-arm64': { file: NAME, size, url: assetUrl(NAME) }
+  }
+};
+const b = manifest.builds || {};
+if (b.x64) page.assets['mac-x64'] = { file: b.x64.file, size: b.x64.size, url: assetUrl(b.x64.file) };
+if (b.win) page.assets['win-x64'] = { file: b.win.file, size: b.win.size, url: assetUrl(b.win.file) };
+fs.writeFileSync(path.join(ROOT, 'docs', 'latest.json'), JSON.stringify(page, null, 2) + '\n');
+
 console.log(`✅ 打包完成：${ZIP}`);
 console.log(`   体积 ${(size / 1024 / 1024).toFixed(1)} MB`);
 console.log(`   sha256 ${sha256}`);
 console.log('   记得把 update.json 里的 url 换成真实下载地址');
+console.log('   docs/latest.json 也一起生成好了，跟着提交，下载页才会指向这一版');
