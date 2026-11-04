@@ -5,7 +5,8 @@
   const EN = {
     // ── 通用 ──
     '设置': 'Settings', '神奇宝贝': 'PokéPal', '神奇宝贝桌宠': 'PokéPal',
-    '神奇宝贝 · 设置': 'PokéPal · Settings', '完成': 'Done', '关闭': 'Close',
+    '桌面宠物': 'Desktop Pet', '桌面宠物桌宠': 'Desktop Pet',
+    '神奇宝贝 · 设置': 'PokéPal · Settings', '桌面宠物 · 设置': 'Desktop Pet · Settings', '完成': 'Done', '关闭': 'Close',
     '取消': 'Cancel', '保存中…': 'Saving…', '设置…': 'Settings…',
     '退出': 'Quit', '未知': 'Unknown', '无': 'None', '本地': 'local',
     '天': 'days', '小时': 'h', '米': 'm', '秒': 's', '只': '', '颗': '',
@@ -121,9 +122,32 @@
     '不自动切换了': 'Rotation off',
     '语言 / Language': 'Language', '中文': '中文', 'English': 'English',
     '叫声': 'Cries', '开机自启': 'Launch at login', '串门的宝可梦': 'Visitors',
+    '同屏放养伙伴': 'Roaming teammates', '只养当前一只': 'Just the active one',
+    '再多放 1 只': '+ 1 roaming', '再多放 2 只': '+ 2 roaming', '再多放 3 只': '+ 3 roaming',
     '专注模式（不跑不吵）': 'Focus mode (stay quiet)',
     '番茄钟': 'Pomodoro', '25 分钟': '25 min', '45 分钟': '45 min', '停止': 'Stop',
     '性格': 'Nature', '等级': 'Level', '遇见': 'Seen',
+
+    // ── 自定义提醒 ──
+    '提醒': 'Reminders', '提醒内容，例如 喝水、开会、站起来': 'Reminder text, e.g. Water, Meeting, Stand up',
+    '重复': 'Repeat', '不选 = 每天': 'none = every day', '已选 ': 'selected ',
+    ' 天': ' days', ' 还没有提醒，添加一个吧': 'No reminders yet — add one',
+    '删除': 'Delete', '提醒事项': 'Reminder', '到点会让桌宠冒气泡提醒你，同时记进通知中心。专注模式下不打扰。':
+      'At the set time the pet will bubble a reminder and log it to Notifications. Muted in Focus mode.',
+    '提醒内容': 'Reminder', '喝水、开会、站起来': 'Water, Meeting, Stand up',
+    // ── 健康曲线 ──
+    '健康': 'Health', '当前心情': 'Current mood', '当前饱食度': 'Current hunger',
+    '平均心情（近一年）': 'Avg mood (last year)', '平均饱食度（近一年）': 'Avg hunger (last year)',
+    '近 30 天心情 / 饱食度曲线': 'Last 30 days · mood / hunger',
+    '已记录 ': 'logged ', ' 天': ' days', '还没有数据，养几天就有了': 'No data yet — come back in a few days',
+    '每 30 秒采样一次，攒成当天的均值。养得越用心，曲线越好看。':
+      'Sampled every 30s into a daily average. The more you care, the nicer the curve.',
+    // ── 照片伙伴 ──
+    '照片伙伴': 'Photo pets', '导入照片 📷': 'Import photo 📷', '显示在桌面': 'Show on desktop',
+    '上传一张猫狗（或其他动物）的照片，本地抠图后它就会出现在桌面上陪你。照片不会上传到任何服务器。':
+      'Upload a photo of a cat, dog or other animal — it is cut out locally and appears on your desktop. Photos never leave your computer.',
+    '还没有照片伙伴，点上面「导入照片」试试': 'No photo pets yet — tap Import photo above',
+    ' 只': '', '只': '',
 
     // ── 性格 ──
     '开朗': 'Jolly', '贪吃': 'Gluttony', '傲娇': 'Tsundere', '胆小': 'Timid',
@@ -218,7 +242,7 @@
     '外面下雨了…': 'Raining outside…',
     '坐挺久了吧？起来动一动': 'Been sitting a while — time to move',
     '时间到！起来动一动': "Time's up — stand up and stretch",
-    '该喝口水啦': 'Time for water', '神奇宝贝，休息一下～': 'PokéPal says take a break~',
+    '该喝口水啦': 'Time for water', '神奇宝贝，休息一下～': 'PokéPal says take a break~', '桌面宠物，休息一下～': 'Desktop Pet says take a break~',
     '休息结束，继续加油': 'Break over — back to it',
     '好啊，专注 ': 'Focusing for ', '分钟': ' min',
     '专注中…': 'Focused…', '专注模式，我不吵你': 'Focus mode — I will stay quiet',
@@ -289,6 +313,7 @@
     [/^从 (.+) 到今天 · Lv\.(\d+)$/, 'Since $1 · Lv.$2'],
     [/^陪伴报告-(.+)\.png$/, 'companion-report-$1.png'],
     [/^神奇宝贝-(.+)\.png$/, 'pokepal-$1.png'],
+    [/^桌面宠物-(.+)\.png$/, 'desktop-pet-$1.png'],
     [/^(.+) 岁生日！$/, '$1th birthday!'],
     [/^身高 (.+) m$/, 'Height $1 m'],
     [/^体重 (.+) kg$/, 'Weight $1 kg'],

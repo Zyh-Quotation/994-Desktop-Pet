@@ -1,4 +1,82 @@
 {
+  "0.7.1": {
+    "date": "2026-11-04",
+    "title": {
+      "zh": "修复开机自启开关与形态专属招式点击",
+      "en": "Fixed launch-at-login and Form move clicks",
+      "ja": "「ログイン時に起動」と形態専用技の不具合を修正",
+      "ko": "로그인 시 자동 실행과 형태 전용 기술 오류 수정"
+    },
+    "new": [
+      {
+        "zh": "开机自启：macOS 13+ 的系统登录项接口对 ad-hoc 签名的 app 经常注册不上，加上部分机器 ~/Library/LaunchAgents 不是用户可写，导致开关点了会自己弹回去。现在补上了 System Events 登录项这条路，并会顺手清掉改名前后留下的失效项",
+        "en": "Launch at login: on macOS 13+ the system login-item API often fails to register ad-hoc signed apps, and on some machines ~/Library/LaunchAgents is not user-writable, so the switch bounced back. Added a System Events login-item path, plus cleanup of stale entries left by the rename",
+        "ja": "ログイン時に起動：macOS 13+ のシステムログイン項目 API は ad-hoc 署名のアプリを登録できないことが多く、一部の環境では ~/Library/LaunchAgents が書き込み不可のため、スイッチが元に戻っていました。System Events のログイン項目経由の処理を追加し、名前変更で残った無効な項目も整理します",
+        "ko": "로그인 시 자동 실행: macOS 13+의 시스템 로그인 항목 API는 ad-hoc 서명 앱을 등록하지 못하는 경우가 많고, 일부 환경에서는 ~/Library/LaunchAgents에 쓸 수 없어 스위치가 되돌아갔습니다. System Events 로그인 항목 경로를 추가하고 이름 변경 전후의 무효 항목도 정리합니다"
+      }
+    ],
+    "fix": [
+      {
+        "zh": "修复超级进化 / 超极巨化后点「形态专属招式」没反应：宠物自己放招后的 40–80 秒冷却此前连手动点击一起挡掉，换宠物、变身也不会重置，所以看起来像“有的宠物坏了”。现在自动冷却不再影响手动点击，变身后专属招式立即可用，连点也会正常播放演出",
+        "en": "Fixed “Form move” doing nothing after Mega Evolution or Gigantamax: the 40–80s cooldown from the pet's own automatic move also blocked manual clicks and was never reset on transform or pet switch, so it looked like some forms were broken. Auto cooldown no longer blocks manual use, the form move is ready immediately after transforming, and rapid clicks still play the animation",
+        "ja": "メガシンカ／キョダイマックス後に「形態専用技」を押しても反応しない問題を修正：自動で技を出した後の40～80秒クールダウンが手動クリックまで妨げ、変身やポケモン変更でもリセットされていませんでした。自動クールダウンは手動操作に影響せず、変身後すぐ使え、連打でも演出は再生されます",
+        "ko": "메가진화/거대맥스 후 '형태 전용 기술'을 눌러도 반응이 없던 문제 수정: 자동 기술 사용 후의 40~80초 쿨다운이 수동 클릭까지 막았고 변신이나 포켓몬 변경 시 초기화되지 않아 일부 포켓몬이 고장 난 것처럼 보였습니다. 이제 자동 쿨다운은 수동 조작을 막지 않고, 변신 직후 바로 사용할 수 있으며 연타해도 연출이 재생됩니다"
+      },
+      {
+        "zh": "《宝可梦传说 Z-A》的 16 个新超级进化（含超级戟脊龙）官方素材库还没出图，变身后会和本体长得一样，看起来像没变身。现在改用本体图 + 形态色描边 / 呼吸光环 / 更大体型来区分；等素材更新后会自动恢复专属立绘",
+        "en": "The 16 new Mega Evolutions from Pokémon Legends: Z-A (including Mega Baxcalibur) have no sprites in the public asset packs yet, so the pet looked unchanged after transforming. They now use the base sprite with a form-colored outline, pulsing aura and a larger size; the dedicated art will be picked up automatically once available",
+        "ja": "『Pokémon LEGENDS Z-A』で追加された新しいメガシンカ16種（メガ・セグレイブなど）は公式素材がまだ公開されておらず、変身後も見た目が変わらない状態でした。現在は本体画像＋形態色の縁取り／脈動オーラ／大きめの表示で区別し、素材が揃い次第自動で専用画像に戻ります",
+        "ko": "『포켓몬 레전드 Z-A』의 새로운 메가진화 16종(메가 세글레이브 포함)은 공식 소재가 아직 공개되지 않아 변신 후에도 모습이 그대로였습니다. 지금은 본체 이미지에 형태 색 테두리/맥동 오라/더 큰 크기로 구분하며, 소재가 준비되면 자동으로 전용 이미지로 돌아갑니다"
+      }
+    ]
+  },
+  "0.7.0": {
+    "date": "2026-11-04",
+    "title": {
+      "zh": "提醒、多宠物、健康曲线、天气遭遇、照片伙伴",
+      "en": "Reminders, Multi-Pet, Health Charts, Weather Encounters, Photo Pets",
+      "ja": "リマインダー・複数匹・健康グラフ・天気遭遇・写真の仲間",
+      "ko": "알림, 다중 펫, 건강 그래프, 날씨 조우, 사진 동료"
+    },
+    "new": [
+      {
+        "zh": "自定义提醒事项 / 闹钟：设定时间和重复星期，到点桌宠冒泡提醒并记进通知中心，支持专注模式免打扰",
+        "en": "Custom reminders / alarms: set a time and repeat weekdays; the pet bubbles a reminder and logs it to the notification center, muted in focus mode",
+        "ja": "カスタムリマインダー／アラーム。時刻と繰り返し曜日を設定すると、時間になるとペットが吹き出しで知らせ、通知センターにも記録。集中モードでは静か",
+        "ko": "사용자 지정 알림/알람: 시간과 반복 요일을 설정하면 펫이 말풍선으로 알려주고 알림 센터에 기록. 집중 모드에서는 조용히"
+      },
+      {
+        "zh": "多宠物同屏放养：队伍里的伙伴可以放到桌面上溜达（最多 3 只），彼此靠近会打招呼、追逐、一起玩，还会和串门访客互动",
+        "en": "Multi-pet free roam: put up to 3 teammates on the desktop; when they get close they greet, chase and play together, and interact with visitors",
+        "ja": "複数匹の同時放し飼い。仲間を最大3匹デスクトップに放ち、近づくと挨拶・追いかけ・一緒に遊び、訪問者とも交流",
+        "ko": "다중 펫 동시 방목: 동료를 최대 3마리 바탕화면에 풀어놓고, 가까워지면 인사·쫓기·함께 놀기, 방문객과도 교류"
+      },
+      {
+        "zh": "心情 / 饱食度健康曲线 + 年度仪表盘：每 30 秒采样攒成日均，近 30 天曲线与近一年均值一目了然",
+        "en": "Mood / hunger health curves + yearly dashboard: sampled every 30s into daily averages, with a 30-day chart and yearly averages at a glance",
+        "ja": "機嫌／満腹度の健康グラフ＋年間ダッシュボード。30秒ごとにサンプリングして日平均にし、直近30日のグラフと年間平均をひと目で",
+        "ko": "기분/포만감 건강 그래프 + 연간 대시보드: 30초마다 샘플링해 일평균으로 모아 최근 30일 그래프와 연간 평균을 한눈에"
+      },
+      {
+        "zh": "天气联动野外遭遇：下雨更容易遇到水/虫/草系，雷雨遇电系，下雪遇冰系，晴天遇火/草系，夜里遇幽灵/恶系，串门气泡也会提到天气",
+        "en": "Weather-linked wild encounters: rain favors Water/Bug/Grass, storms favor Electric, snow favors Ice, sun favors Fire/Grass, night favors Ghost/Dark; bubble text mentions the weather",
+        "ja": "天気連動の野生遭遇。雨は水／虫／草、雷雨は電気、雪は氷、晴れは炎／草、夜はゴースト／悪。吹き出しも天気に触れる",
+        "ko": "날씨 연동 야생 조우: 비는 물/벌레/풀, 뇌우는 전기, 눈은 얼음, 맑음은 불꽃/풀, 밤은 고스트/악. 말풍선도 날씨를 언급"
+      },
+      {
+        "zh": "自定义精灵导入：上传猫狗等照片，本地用 Vision 抠图后成为桌面伙伴，可同屏溜达；照片不会上传到任何服务器",
+        "en": "Custom pet import: upload a photo of your cat or dog, cut out locally with Vision and it becomes a desktop companion that roams with the others; photos never leave your computer",
+        "ja": "カスタム妖精の取り込み。猫や犬の写真をアップロードすると、ローカルの Vision で切り抜いてデスクトップの仲間に。写真は外部に送信されません",
+        "ko": "커스텀 펫 가져오기: 고양이·강아지 사진을 올리면 로컬 Vision으로 배경을 지워 바탕화면 동료가 되어 함께 걸어다닙니다. 사진은 외부로 전송되지 않습니다"
+      },
+      {
+        "zh": "软件更名为「桌面宠物」，应用名、菜单、托盘、分享图标题同步更新",
+        "en": "Renamed to “Desktop Pet” — app name, menus, tray tooltip and share-card title all updated",
+        "ja": "アプリ名を「デスクトップペット」に変更。アプリ名、メニュー、トレイ、共有画像のタイトルも更新",
+        "ko": "앱 이름을 「데스크톱 펫」으로 변경. 앱 이름, 메뉴, 트레이, 공유 이미지 제목까지 함께 갱신"
+      }
+    ]
+  },
   "0.6.2": {
     "date": "2026-11-03",
     "title": {

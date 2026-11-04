@@ -30,6 +30,7 @@ echo "▶ 复制应用文件…"
 rsync -a ./ "$APP/resources/app/" \
   --exclude '.git' --exclude '.*' \
   --exclude node_modules --exclude userdata --exclude release \
+  --exclude 'tools/.cache' --exclude 'tools/bin/.build' \
   --exclude promo --exclude '*.log' \
   --exclude 'capture.png' --exclude 'settings-capture.png' --exclude 'shot-*.png' \
   --exclude '*.md' --exclude '*.zip' --exclude '安装说明.txt' \

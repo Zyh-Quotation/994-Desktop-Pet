@@ -16,12 +16,12 @@ fi
 # 优先用 ~/Applications，没有就找 /Applications
 APP="${APP:-}"
 if [ -z "$APP" ]; then
-  for p in "$HOME/Applications/神奇宝贝.app" "/Applications/神奇宝贝.app"; do
+  for p in "$HOME/Applications/桌面宠物.app" "/Applications/桌面宠物.app" "$HOME/Applications/神奇宝贝.app"; do
     if [ -d "$p" ]; then APP="$p"; break; fi
   done
 fi
 if [ -z "$APP" ] || [ ! -d "$APP" ]; then
-  echo "❌ 找不到已安装的「神奇宝贝.app」"
+  echo "❌ 找不到已安装的「桌面宠物.app」"
   exit 1
 fi
 
@@ -42,10 +42,10 @@ NEW_APP=$(find "$TMP/unpack" -maxdepth 2 -name '*.app' -type d -print -quit)
 [ -n "$NEW_APP" ] || { echo "❌ 压缩包里没有 .app"; exit 1; }
 
 # 存档位置取决于旧包形态：
-#   自包含正式包 → ~/Library/Application Support/神奇宝贝
+#   自包含正式包 → ~/Library/Application Support/桌面宠物（旧版为「神奇宝贝」）
 #   开发链接版（Resources/app 软链到 ~/Applications/桌宠）→ 项目目录的 userdata/
 # 覆盖成自包含新包后存档位置会切换，这里把旧存档搬过去，避免"更新完数据没了"。
-NEW_SUPPORT="$HOME/Library/Application Support/神奇宝贝"
+NEW_SUPPORT="$HOME/Library/Application Support/桌面宠物"
 DEV_SAVE_DIR="$HOME/Applications/桌宠/userdata"
 migrate_save() {
   mkdir -p "$NEW_SUPPORT"
@@ -78,4 +78,4 @@ fi
 pkill -f "$APP/Contents/MacOS/" 2>/dev/null || true
 sleep 1
 open "$APP"
-echo "✅ 已更新到 $VER（旧版本备份在 $APP.bak）"
+echo "✅ 已更新到 ${VER}（旧版本备份在 ${APP}.bak）"

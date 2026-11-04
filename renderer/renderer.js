@@ -90,7 +90,16 @@ function applyForm(form, animate = false) {
   currentForm = form || null;
   const kind = form && form.kind ? form.kind : '';
   document.body.dataset.form = kind;
-  if (stage) stage.style.setProperty('--form-scale', kind === 'gmax' ? 1.75 : kind === 'mega' ? 1.22 : 1);
+  // 没有专属立绘的形态（Z-A 新超级进化）：放大更多 + 形态色描边/呼吸光环，
+  // 至少让「变身成功」一眼可见；图补进 assets/forms 后 noart 自动变 false。
+  const noart = !!(form && form.noart);
+  document.body.classList.toggle('form-noart', noart);
+  if (stage) {
+    const scale = kind === 'gmax' ? (noart ? 1.92 : 1.75) : kind === 'mega' ? (noart ? 1.34 : 1.22) : 1;
+    stage.style.setProperty('--form-scale', scale);
+    const c = (form && form.move && form.move.color) || (kind === 'gmax' ? '#ff5fa2' : '#ffd166');
+    stage.style.setProperty('--form-c', c);
+  }
   if (form && form.url) sprite.src = form.url;
   else if (!form && baseSpriteUrl) sprite.src = baseSpriteUrl;
   if (animate && form && (!prev || prev.file !== form.file)) playFormCutin(form);
@@ -318,6 +327,20 @@ window.pet.onPlayFx(() => {
     { transform: 'translate(-50%, -50px) scale(1.1)', opacity: 1, offset: .5 },
     { transform: 'translate(-50%, -90px) scale(.6)', opacity: 0 }
   ], { duration: 800, easing: 'ease-out' }), 600);
+});
+
+// 自定义提醒到点：跳一下 + 冒个铃铛
+window.pet.onReminderFx(() => {
+  popFx('🔔', [
+    { transform: 'translate(-50%, -10px) scale(.4)', opacity: 0 },
+    { transform: 'translate(-50%, -56px) scale(1.15)', opacity: 1, offset: .5 },
+    { transform: 'translate(-50%, -86px) scale(.7)', opacity: 0 }
+  ], { duration: 1100, easing: 'ease-out' });
+  sprite.animate([
+    { transform: 'translateY(0)' },
+    { transform: 'translateY(-12px)' },
+    { transform: 'translateY(0)' }
+  ], { duration: 380, iterations: 3, easing: 'ease-out' });
 });
 
 // 蛋：走够了会冒出来，点一下孵化

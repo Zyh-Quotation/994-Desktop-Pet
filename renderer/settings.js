@@ -22,6 +22,11 @@ const dexProgEl = document.getElementById('dex-prog');
 
 
 const guestSw = document.getElementById('guest');
+const roamCountEl = document.getElementById('roam-count');
+const customImportBtn = document.getElementById('custom-import');
+const customOnSw = document.getElementById('custom-on');
+const customPetsGrid = document.getElementById('custom-pets-grid');
+const customPetsCount = document.getElementById('custom-pets-count');
 const bagStones = document.getElementById('bag-stones');
 const bagEggs = document.getElementById('bag-eggs');
 const bagBar = document.getElementById('bag-bar');
@@ -829,6 +834,7 @@ function renderOpts(c) {
   if (sound) sound.checked = c.soundOn !== false;
   if (focusSw) focusSw.checked = !!c.focusMode;
   if (guestSw) guestSw.checked = c.guestEnabled !== false;
+  if (roamCountEl) roamCountEl.value = String(c.roamCount || 0);
   const nl = c.nature ? (uiLang() === 'ja' ? ({ cheer: 'ようき', lazy: 'のんき', timid: 'おくびょう', tsun: 'ツンデレ', greedy: 'くいしんぼう', sleepy: 'ねぼすけ' })[c.nature.key] : uiLang() === 'ko' ? ({ cheer: '명랑', lazy: '느긋', timid: '소심', tsun: '츤데레', greedy: '먹보', sleepy: '잠꾸러기' })[c.nature.key] : isEn() ? c.nature.en : c.nature.zh) : '–';
   if (natureEl) natureEl.textContent = nl || '–';
   if (lvlEl) lvlEl.textContent = `Lv.${c.level} · ${uiLang() === 'ja' ? '経験値' : uiLang() === 'ko' ? '경험치' : isEn() ? 'EXP' : '经验'} ${c.expInLevel ?? (c.exp % 100)}/${c.expNeed ?? 100}`;
@@ -837,6 +843,9 @@ function renderOpts(c) {
   renderTeam(c);
   renderTasks(c);
   renderNotices(c);
+  renderReminders(c);
+  renderHealth();
+  renderCustomPets(c);
   renderHeatmap(c);
   renderSkinAccess(c);
   if (bagStones) bagStones.textContent = c.stones || 0;
@@ -1104,6 +1113,11 @@ if (guestSw) {
     renderOpts(await window.cfg.setOpt('guest', guestSw.checked));
   });
 }
+if (roamCountEl) {
+  roamCountEl.addEventListener('change', async () => {
+    renderOpts(await window.cfg.setOpt('roam', Number(roamCountEl.value)));
+  });
+}
 
 const pomo25 = document.getElementById('pomo25');
 const pomo45 = document.getElementById('pomo45');
@@ -1236,6 +1250,173 @@ if (waterMin) waterMin.onchange = () => window.cfg.setOpt('water', Number(waterM
 if (sitMin) sitMin.onchange = () => window.cfg.setOpt('sit', Number(sitMin.value));
 
 document.getElementById('close').onclick = () => window.cfg.close();
+
+// ---- 自定义提醒事项 ----
+const remindList = document.getElementById('reminder-list');
+const remindLabel = document.getElementById('remind-label');
+const remindTime = document.getElementById('remind-time');
+const remindAddBtn = document.getElementById('remind-add');
+const remindWeek = document.getElementById('remind-week');
+const remindWeekHint = document.getElementById('remind-week-hint');
+let remindSelectedDays = new Set();
+
+function remindDaysText(days) {
+  if (!days || !days.length) return T('每天', 'Every day');
+  const labels = isEn() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['日','一','二','三','四','五','六'];
+  return days.slice().sort((a, b) => a - b).map(d => labels[d]).join(' ');
+}
+
+function renderReminders(c) {
+  if (!remindList) return;
+  const list = c.reminders || [];
+  if (!list.length) {
+    remindList.innerHTML = `<div class="reminder-empty">${T('还没有提醒，添加一个吧', 'No reminders yet — add one')}</div>`;
+    return;
+  }
+  remindList.innerHTML = list.map(r => `
+    <div class="reminder-item" data-id="${r.id}">
+      <span class="r-time">${r.time}</span>
+      <span class="r-label">${(r.label || T('提醒', 'Reminder')).replace(/</g, '&lt;')}</span>
+      <span class="r-days">${remindDaysText(r.days)}</span>
+      <span class="switch-wrap"><input type="checkbox" class="r-en" ${r.enabled ? 'checked' : ''}><i class="switch"></i></span>
+      <button class="r-del" title="${T('删除', 'Delete')}">✕</button>
+    </div>
+  `).join('');
+  remindList.querySelectorAll('.reminder-item').forEach(item => {
+    const id = Number(item.dataset.id);
+    item.querySelector('.r-en').onchange = async e => { await window.cfg.updateReminder(id, { enabled: e.target.checked }); };
+    item.querySelector('.r-del').onclick = async () => { await window.cfg.removeReminder(id); await reload(); };
+  });
+}
+
+if (remindWeek) {
+  remindWeek.querySelectorAll('.week-btn').forEach(b => {
+    b.onclick = () => {
+      const d = Number(b.dataset.d);
+      if (remindSelectedDays.has(d)) { remindSelectedDays.delete(d); b.classList.remove('active'); }
+      else { remindSelectedDays.add(d); b.classList.add('active'); }
+      if (remindWeekHint) remindWeekHint.textContent = remindSelectedDays.size ? T('已选 ' + remindSelectedDays.size + ' 天', remindSelectedDays.size + ' selected') : T('不选 = 每天', 'none = every day');
+    };
+  });
+}
+async function doAddReminder() {
+  const label = remindLabel ? remindLabel.value.trim() : '';
+  const time = remindTime ? remindTime.value : '09:00';
+  if (!label && remindLabel) { remindLabel.focus(); return; }
+  await window.cfg.addReminder({ label, time, days: [...remindSelectedDays] });
+  if (remindLabel) remindLabel.value = '';
+  remindSelectedDays.clear();
+  if (remindWeek) remindWeek.querySelectorAll('.week-btn').forEach(b => b.classList.remove('active'));
+  if (remindWeekHint) remindWeekHint.textContent = T('不选 = 每天', 'none = every day');
+  await reload();
+}
+if (remindAddBtn) remindAddBtn.onclick = doAddReminder;
+if (remindLabel) remindLabel.addEventListener('keydown', e => { if (e.key === 'Enter') doAddReminder(); });
+
+// ---- 健康曲线 / 仪表盘 ----
+const healthMood = document.getElementById('health-mood');
+const healthHunger = document.getElementById('health-hunger');
+const healthAvgMood = document.getElementById('health-avg-mood');
+const healthAvgHunger = document.getElementById('health-avg-hunger');
+const healthMoodBar = document.getElementById('health-mood-bar');
+const healthHungerBar = document.getElementById('health-hunger-bar');
+const healthSamples = document.getElementById('health-samples');
+const healthChart = document.getElementById('health-chart');
+
+async function renderHealth() {
+  if (!healthChart) return;
+  let data;
+  try { data = await window.cfg.health(); } catch (_) { return; }
+  if (!data) return;
+  if (healthMood) healthMood.textContent = data.currentMood;
+  if (healthHunger) healthHunger.textContent = data.currentHunger;
+  if (healthAvgMood) healthAvgMood.textContent = data.avgMood;
+  if (healthAvgHunger) healthAvgHunger.textContent = data.avgHunger;
+  if (healthMoodBar) healthMoodBar.style.width = data.currentMood + '%';
+  if (healthHungerBar) healthHungerBar.style.width = data.currentHunger + '%';
+  if (healthSamples) healthSamples.textContent = T('已记录 ' + data.totalSamples + ' 天', data.totalSamples + ' days logged');
+  drawHealthChart(data.series || []);
+}
+
+function drawHealthChart(series) {
+  if (!healthChart) return;
+  const ctx = healthChart.getContext('2d');
+  const W = healthChart.width, H = healthChart.height;
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  ctx.clearRect(0, 0, W, H);
+  // 背景网格
+  ctx.strokeStyle = dark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = (H - 30) * i / 4 + 10;
+    ctx.beginPath(); ctx.moveTo(36, y); ctx.lineTo(W - 10, y); ctx.stroke();
+  }
+  ctx.fillStyle = dark ? '#98989d' : '#8e8e93';
+  ctx.font = '10px -apple-system';
+  for (let i = 0; i <= 4; i++) ctx.fillText(String(100 - i * 25), 6, (H - 30) * i / 4 + 14);
+  if (!series.length) {
+    ctx.fillStyle = dark ? '#98989d' : '#8e8e93';
+    ctx.font = '13px -apple-system';
+    ctx.textAlign = 'center';
+    ctx.fillText(T('还没有数据，养几天就有了', 'No data yet — come back in a few days'), W / 2, H / 2);
+    ctx.textAlign = 'left';
+    return;
+  }
+  const n = series.length;
+  const xStep = (W - 46) / Math.max(1, n - 1);
+  const plot = (key, color) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    series.forEach((p, i) => {
+      const x = 36 + i * xStep;
+      const y = 10 + (1 - (p[key] || 0) / 100) * (H - 30);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    // 数据点
+    ctx.fillStyle = color;
+    series.forEach((p, i) => {
+      const x = 36 + i * xStep;
+      const y = 10 + (1 - (p[key] || 0) / 100) * (H - 30);
+      ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+    });
+  };
+  plot('mood', '#ff6b6b');
+  plot('hunger', '#ff9f43');
+}
+
+// ---- 照片伙伴 ----
+function renderCustomPets(c) {
+  if (!customPetsGrid) return;
+  const pets = (c && c.customPets) || [];
+  if (customOnSw) customOnSw.checked = c.customPetsOn !== false;
+  if (customPetsCount) customPetsCount.textContent = T(pets.length + ' 只', pets.length + '');
+  if (!pets.length) {
+    customPetsGrid.innerHTML = `<div class="reminder-empty">${T('还没有照片伙伴，点上面「导入照片」试试', 'No photo pets yet — tap Import photo above')}</div>`;
+    return;
+  }
+  customPetsGrid.innerHTML = pets.map(p => `
+    <div class="custom-pet-card" data-id="${p.id}">
+      <img src="${p.fileUrl}" alt="">
+      <span class="cp-name">${(p.name || '').replace(/</g, '&lt;')}</span>
+      <button class="cp-del" title="${T('删除', 'Delete')}">${T('删除', 'Delete')}</button>
+    </div>
+  `).join('');
+  customPetsGrid.querySelectorAll('.custom-pet-card').forEach(card => {
+    const id = Number(card.dataset.id);
+    card.querySelector('.cp-del').onclick = async () => { await window.cfg.removeCustomPet(id); await reload(); };
+  });
+}
+
+if (customImportBtn) {
+  customImportBtn.onclick = async () => {
+    customImportBtn.disabled = true;
+    try { await window.cfg.importCustomPet(); await reload(); }
+    finally { customImportBtn.disabled = false; }
+  };
+}
+if (customOnSw) {
+  customOnSw.onchange = async () => { await window.cfg.setOpt('customPetsOn', customOnSw.checked); await reload(); };
+}
 
 init().catch(err => {
   console.error('[settings] init 失败:', err && (err.stack || err.message || err));

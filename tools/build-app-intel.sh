@@ -6,14 +6,14 @@
 #
 # 用法：./tools/build-app-intel.sh [输出目录]
 #
-# 产物：release/intel/神奇宝贝.app（zip 里就是这个名，用户看到的是「神奇宝贝」）
+# 产物：release/intel/桌面宠物.app（zip 里就是这个名，用户看到的是「桌面宠物」）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 OUT_DIR="${1:-$ROOT/release}"
-OUT="$OUT_DIR/intel/神奇宝贝.app"
+OUT="$OUT_DIR/intel/桌面宠物.app"
 CACHE="$ROOT/tools/.cache/electron-x64"
 VER=$(node -p "require('./package.json').version")
 
@@ -41,8 +41,8 @@ cp -R "$CACHE/Electron.app" "$OUT"
 
 PLIST="$OUT/Contents/Info.plist"
 /usr/libexec/PlistBuddy \
-  -c "Set :CFBundleName 神奇宝贝" \
-  -c "Set :CFBundleDisplayName 神奇宝贝" \
+  -c "Set :CFBundleName 桌面宠物" \
+  -c "Set :CFBundleDisplayName 桌面宠物" \
   -c "Set :CFBundleIdentifier local.togepi.pet" \
   -c "Set :CFBundleShortVersionString $VER" \
   -c "Set :CFBundleVersion $VER" \
@@ -54,7 +54,7 @@ PLIST="$OUT/Contents/Info.plist"
 # 也不能排除 *.png —— assets/tray*.png 是托盘图标，缺了托盘就是空白。
 rsync -a \
   --exclude userdata --exclude node_modules --exclude release \
-  --exclude '.git' --exclude 'tools/.cache' --exclude 'promo/*.png' \
+  --exclude '.git' --exclude 'tools/bin/.build' --exclude 'tools/.cache' --exclude 'promo/*.png' \
   "$ROOT/" "$OUT/Contents/Resources/app/"
 
 xattr -cr "$OUT" 2>/dev/null || true
@@ -76,7 +76,7 @@ du -sh "$OUT" | awk '{print "   体积：" $1}'
 # ---------- 5. 打成发布用的 zip ----------
 ZIP="$OUT_DIR/pokepet-${VER}-mac-x64.zip"
 STAGE=$(mktemp -d)
-ditto "$OUT" "$STAGE/神奇宝贝.app"
+ditto "$OUT" "$STAGE/桌面宠物.app"
 [ -f "$ROOT/docs/使用说明.txt" ] && cp "$ROOT/docs/使用说明.txt" "$STAGE/使用说明.txt"
 rm -f "$ZIP"
 ditto -c -k --norsrc "$STAGE" "$ZIP"

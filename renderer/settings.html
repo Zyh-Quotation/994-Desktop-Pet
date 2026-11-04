@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file:; style-src 'self' 'unsafe-inline'">
-<title>神奇宝贝 · 设置</title>
+<title>桌面宠物 · 设置</title>
 <link rel="stylesheet" href="settings.css">
   <script src="i18n-extra.js"></script>
   <script src="i18n.js"></script>
@@ -21,6 +21,8 @@
   <button class="tab" data-pane="tasks" id="tab-tasks">任务</button>
   <button class="tab" data-pane="ach" id="tab-ach">成就</button>
   <button class="tab" data-pane="notify" id="tab-notify">通知<span class="tab-badge" id="notify-badge" hidden></span></button>
+  <button class="tab" data-pane="remind" id="tab-remind">提醒</button>
+  <button class="tab" data-pane="health" id="tab-health">健康</button>
   <button class="tab" data-pane="bag" id="tab-bag">背包</button>
   <button class="tab" data-pane="opts" id="tab-opts">设置</button>
 </nav>
@@ -103,6 +105,20 @@
   </div>
   <div class="team-grid" id="team-grid"></div>
   <p class="hint" id="team-hint">在图鉴里点任意一只就会切换并加入队伍，最多 12 只。</p>
+
+  <div class="custom-pets-head">
+    <b>照片伙伴</b>
+    <span class="muted" id="custom-pets-count">–</span>
+  </div>
+  <p class="hint">上传一张猫狗（或其他动物）的照片，本地抠图后它就会出现在桌面上陪你。照片不会上传到任何服务器。</p>
+  <div class="custom-pets-actions">
+    <button class="upd-btn" id="custom-import">导入照片 📷</button>
+    <label class="opt opt-tight custom-toggle">
+      <span class="opt-label">显示在桌面</span>
+      <span class="switch-wrap"><input type="checkbox" id="custom-on"><i class="switch"></i></span>
+    </label>
+  </div>
+  <div class="custom-pets-grid" id="custom-pets-grid"></div>
 </div>
 
 <div class="pane" id="pane-tasks" hidden>
@@ -136,6 +152,42 @@
     </span>
   </label>
   <div class="notice-list" id="notice-list"></div>
+</div>
+
+<div class="pane" id="pane-remind" hidden>
+  <div class="reminder-intro">
+    <p class="hint">到点会让桌宠冒气泡提醒你，同时记进通知中心。专注模式下不打扰。</p>
+  </div>
+  <div class="reminder-add">
+    <input id="remind-label" class="search" type="text" placeholder="提醒内容，例如 喝水、开会、站起来" maxlength="24">
+    <input id="remind-time" class="remind-time" type="time" value="09:00">
+    <button class="upd-btn" id="remind-add">+ 添加</button>
+  </div>
+  <div class="reminder-week" id="remind-week">
+    <span class="muted">重复</span>
+    <button class="week-btn" data-d="1">一</button>
+    <button class="week-btn" data-d="2">二</button>
+    <button class="week-btn" data-d="3">三</button>
+    <button class="week-btn" data-d="4">四</button>
+    <button class="week-btn" data-d="5">五</button>
+    <button class="week-btn" data-d="6">六</button>
+    <button class="week-btn" data-d="0">日</button>
+    <span class="muted remind-week-hint" id="remind-week-hint">不选 = 每天</span>
+  </div>
+  <div class="reminder-list" id="reminder-list"></div>
+</div>
+
+<div class="pane" id="pane-health" hidden>
+  <div class="health-stats">
+    <div class="health-cell"><span class="k">当前心情</span><span class="v" id="health-mood">–</span><i class="health-bar"><b id="health-mood-bar"></b></i></div>
+    <div class="health-cell"><span class="k">当前饱食度</span><span class="v" id="health-hunger">–</span><i class="health-bar"><b id="health-hunger-bar"></b></i></div>
+    <div class="health-cell"><span class="k">平均心情（近一年）</span><span class="v" id="health-avg-mood">–</span></div>
+    <div class="health-cell"><span class="k">平均饱食度（近一年）</span><span class="v" id="health-avg-hunger">–</span></div>
+  </div>
+  <div class="health-chart-head"><b>近 30 天心情 / 饱食度曲线</b><span class="muted" id="health-samples">–</span></div>
+  <canvas id="health-chart" width="720" height="200"></canvas>
+  <div class="health-legend"><i style="background:#ff6b6b"></i>心情<i style="background:#ff9f43"></i>饱食度</div>
+  <p class="hint" id="health-hint">每 30 秒采样一次，攒成当天的均值。养得越用心，曲线越好看。</p>
 </div>
 
 <div class="pane" id="pane-bag" hidden>
@@ -300,6 +352,16 @@
         <i class="switch"></i>
       </span>
     </label>
+
+    <div class="opt">
+      <span class="opt-label">同屏放养伙伴</span>
+      <select id="roam-count" class="gen-select">
+        <option value="0">只养当前一只</option>
+        <option value="1">再多放 1 只</option>
+        <option value="2">再多放 2 只</option>
+        <option value="3">再多放 3 只</option>
+      </select>
+    </div>
 
     <label class="opt">
       <span class="opt-label">专注模式（不跑不吵）</span>

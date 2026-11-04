@@ -465,3 +465,75 @@ body.high-contrast .card, body.high-contrast .opt, body.high-contrast .task-card
 
 /* 四种语言：按钮多，缩小一点内边距，窄窗口也不会溢出 */
 .lang-seg .size-btn { padding: 4px 8px; }
+
+/* ── 自定义提醒事项 ── */
+.reminder-intro { margin-bottom: 10px; }
+.reminder-add {
+  display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+}
+.reminder-add .search { flex: 1; }
+.remind-time {
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px;
+  font: inherit; font-size: 12px; background: var(--chip-bg, rgba(128,128,128,.08));
+  color: inherit; width: 88px;
+}
+.reminder-week {
+  display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-bottom: 14px;
+}
+.week-btn {
+  border: 1px solid var(--line); border-radius: 7px; background: var(--chip-bg, rgba(128,128,128,.08));
+  color: inherit; padding: 4px 9px; font: inherit; font-size: 12px; cursor: pointer; min-width: 30px;
+}
+.week-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.remind-week-hint { margin-left: 6px; font-size: 11px; }
+.reminder-list { display: flex; flex-direction: column; gap: 8px; }
+.reminder-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--chip-bg, rgba(128,128,128,.05));
+}
+.reminder-item .r-time { font-size: 16px; font-weight: 600; min-width: 54px; }
+.reminder-item .r-label { flex: 1; font-size: 13px; }
+.reminder-item .r-days { font-size: 11px; color: var(--muted, #8e8e93); }
+.reminder-item .r-del {
+  border: 0; background: none; color: var(--muted, #8e8e93); cursor: pointer; font-size: 16px; padding: 2px 6px;
+}
+.reminder-item .r-del:hover { color: var(--accent); }
+.reminder-empty { color: var(--muted, #8e8e93); font-size: 12px; padding: 20px; text-align: center; }
+
+/* ── 健康曲线 / 仪表盘 ── */
+.health-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 16px; }
+.health-cell {
+  background: var(--chip-bg, rgba(128,128,128,.05)); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;
+}
+.health-cell .k { font-size: 11px; color: var(--muted, #8e8e93); }
+.health-cell .v { font-size: 18px; font-weight: 600; }
+.health-bar { height: 5px; background: var(--line, #f0f0f4); border-radius: 3px; overflow: hidden; display: block; }
+.health-bar b { display: block; height: 100%; border-radius: 3px; }
+#health-mood-bar { background: linear-gradient(90deg, #ff6b6b, #ff9f43); }
+#health-hunger-bar { background: linear-gradient(90deg, #4fc3f7, #66bb6a); }
+.health-chart-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+#health-chart { width: 100%; max-width: 720px; height: 200px; border: 1px solid var(--line); border-radius: 10px; background: var(--chip-bg, rgba(128,128,128,.03)); }
+.health-legend { display: flex; gap: 14px; align-items: center; margin-top: 8px; font-size: 12px; }
+.health-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+
+/* ── 照片伙伴 ── */
+.custom-pets-head { display: flex; justify-content: space-between; align-items: baseline; margin: 22px 0 6px; }
+.custom-pets-actions { display: flex; align-items: center; gap: 16px; margin: 10px 0; }
+.custom-toggle { flex-direction: row; align-items: center; gap: 8px; }
+.custom-pets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+.custom-pet-card {
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px;
+  background: var(--chip-bg, rgba(128,128,128,.05)); display: flex; flex-direction: column;
+  align-items: center; gap: 6px;
+}
+.custom-pet-card img {
+  max-width: 100%; max-height: 80px; object-fit: contain; image-rendering: auto;
+}
+.custom-pet-card .cp-name { font-size: 11px; color: var(--muted, #8e8e93); }
+.custom-pet-card .cp-del {
+  border: 0; background: none; color: var(--muted, #8e8e93); cursor: pointer; font-size: 12px; padding: 2px 6px;
+}
+.custom-pet-card .cp-del:hover { color: var(--accent); }
+/* 照片伙伴空状态：占满整行 */
+.custom-pets-grid .reminder-empty { grid-column: 1 / -1; }

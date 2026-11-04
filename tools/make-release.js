@@ -1,5 +1,5 @@
 // 打包自包含 app 为 zip，并生成 update.json
-// 前置：先跑 ./tools/build-app.sh 生成 release/神奇宝贝.app
+// 前置：先跑 ./tools/build-app.sh 生成 release/桌面宠物.app
 // 用法：node tools/make-release.js
 // 生成：release/pokepet-<version>.zip、release/update.json
 
@@ -10,7 +10,7 @@ const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const OUT_DIR = path.join(ROOT, 'release');
-const APP = path.join(OUT_DIR, '神奇宝贝.app');
+const APP = path.join(OUT_DIR, '桌面宠物.app');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 let changelog = {};
 try { changelog = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'changelog.json'), 'utf8')); } catch (_) {}
@@ -18,17 +18,17 @@ const NAME = `pokepet-${pkg.version}.zip`;
 const ZIP = path.join(OUT_DIR, NAME);
 
 if (!fs.existsSync(APP)) {
-  console.error('找不到 release/神奇宝贝.app，请先运行 ./tools/build-app.sh');
+  console.error('找不到 release/桌面宠物.app，请先运行 ./tools/build-app.sh');
   process.exit(1);
 }
 
 // 解压后要能直接看到说明书，所以先摊到一个临时目录再压：
-//   神奇宝贝.app
+//   桌面宠物.app
 //   使用说明.txt
 const DOC = path.join(ROOT, 'docs', '使用说明.txt');
 const os = require('os');
 const STAGE = fs.mkdtempSync(path.join(os.tmpdir(), 'pokezip-'));
-execFileSync('ditto', [APP, path.join(STAGE, '神奇宝贝.app')]);
+execFileSync('ditto', [APP, path.join(STAGE, '桌面宠物.app')]);
 if (fs.existsSync(DOC)) fs.copyFileSync(DOC, path.join(STAGE, '使用说明.txt'));
 fs.rmSync(ZIP, { force: true });
 execFileSync('ditto', ['-c', '-k', '--norsrc', STAGE, ZIP]);

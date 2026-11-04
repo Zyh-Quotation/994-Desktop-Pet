@@ -40,8 +40,30 @@ function isBundledApp() {
 }
 const IN_BUNDLE = isBundledApp();
 app.setPath('userData', IN_BUNDLE
-  ? path.join(app.getPath('appData'), '神奇宝贝')
+  ? path.join(app.getPath('appData'), '桌面宠物')
   : path.join(__dirname, 'userdata'));
+
+// 0.7.0 把数据目录从「神奇宝贝」改名为「桌面宠物」。
+// 老用户升级后新目录还是空的，这里把旧目录的存档/图鉴等整份搬过来，进度不丢。
+if (IN_BUNDLE) {
+  try {
+    const newDir = app.getPath('userData');
+    const oldDir = path.join(app.getPath('appData'), '神奇宝贝');
+    const newState = path.join(newDir, 'pet-state.json');
+    const oldState = path.join(oldDir, 'pet-state.json');
+    if (!fs.existsSync(newState) && fs.existsSync(oldState)) {
+      fs.mkdirSync(newDir, { recursive: true });
+      for (const f of fs.readdirSync(oldDir)) {
+        const src = path.join(oldDir, f);
+        const dst = path.join(newDir, f);
+        try {
+          if (fs.statSync(src).isFile() && !fs.existsSync(dst)) fs.copyFileSync(src, dst);
+        } catch (_) { /* 单个文件失败不影响其它 */ }
+      }
+      console.log('[migrate] 已把「神奇宝贝」数据目录迁移到「桌面宠物」');
+    }
+  } catch (_) { /* 迁移失败就用全新存档，不影响启动 */ }
+}
 
 // 全新安装（尤其 Intel 版）第一次启动时这个目录还不存在，
 // 而日志、单实例锁、存档都要往里写——不先建出来，requestSingleInstanceLock()
@@ -97,7 +119,7 @@ function scanOtherInstances() {
       if (pid === process.pid) continue;
       const cmd = m[2];
       // 本应用的两种可执行文件名，AppTranslocation 路径也包含这一段
-      if (/\/MacOS\/(Electron|TogepiPet)$/.test(cmd) && /神奇宝贝|togepi/i.test(cmd)) hits.push(pid);
+      if (/\/MacOS\/(Electron|TogepiPet)$/.test(cmd) && /桌面宠物|神奇宝贝|togepi/i.test(cmd)) hits.push(pid);
     }
     return hits;
   } catch (_) { return []; }
@@ -179,6 +201,84 @@ let starWin = null;
 let starAsked = false;   // 只在第一次打开时问一次要不要去点 Star
 let focusMode = false;   // 专注模式：不跑、不冒泡、不打扰
 let pomo = null;         // 番茄钟 { phase: 'work' | 'rest', until, workMin, restMin }
+
+// ---------- 自定义提醒 / 闹钟 ----------
+// { id, label, time:'HH:MM', days:[0..6] 周日=0，空数组=每天, enabled, lastFired:'YYYY-MM-DD HH:MM' }
+let reminders = [];
+let reminderSeq = 0;
+const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
+const WEEKDAY_LABELS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function reminderDaysLabel(r) {
+  if (!r.days || !r.days.length) return lang === 'en' ? 'Every day' : '每天';
+  const labels = lang === 'en' ? WEEKDAY_LABELS_EN : WEEKDAY_LABELS;
+  return r.days.slice().sort((a, b) => a - b).map(d => labels[d]).join(' ');
+}
+
+function checkReminders() {
+  if (focusMode) return;
+  const t = new Date();
+  const hh = String(t.getHours()).padStart(2, '0');
+  const mm = String(t.getMinutes()).padStart(2, '0');
+  const nowHM = `${hh}:${mm}`;
+  const dow = t.getDay();
+  const todayKey = dayKey();
+  for (const r of reminders) {
+    if (!r.enabled || r.time !== nowHM) continue;
+    if (r.days && r.days.length && !r.days.includes(dow)) continue;
+    const fireKey = `${todayKey} ${nowHM}`;
+    if (r.lastFired === fireKey) continue;
+    r.lastFired = fireKey;
+    const label = r.label || (lang === 'en' ? 'Reminder' : '提醒');
+    bubble(`⏰ ${label}`, 5000, true);
+    pushNotice({
+      kind: 'reminder',
+      title: lang === 'en' ? 'Reminder' : '提醒事项',
+      body: label,
+      titleEn: 'Reminder', bodyEn: label,
+      titleJa: 'リマインダー', bodyJa: label,
+      titleKo: '알림', bodyKo: label
+    });
+    if (win && !win.isDestroyed()) {
+      try { win.webContents.send('reminder-fx', { label }); } catch (_) {}
+    }
+  }
+  saveState();
+}
+
+function addReminder({ label, time, days }) {
+  const r = {
+    id: ++reminderSeq,
+    label: String(label || '').slice(0, 24),
+    time: /^\d{2}:\d{2}$/.test(time) ? time : '09:00',
+    days: Array.isArray(days) ? days.filter(d => d >= 0 && d <= 6) : [],
+    enabled: true,
+    lastFired: ''
+  };
+  reminders.push(r);
+  saveState();
+  return r;
+}
+
+function updateReminder(id, patch) {
+  const r = reminders.find(x => x.id === id);
+  if (!r) return null;
+  if (patch.label !== undefined) r.label = String(patch.label).slice(0, 24);
+  if (patch.time !== undefined && /^\d{2}:\d{2}$/.test(patch.time)) r.time = patch.time;
+  if (patch.days !== undefined) r.days = Array.isArray(patch.days) ? patch.days.filter(d => d >= 0 && d <= 6) : [];
+  if (patch.enabled !== undefined) r.enabled = !!patch.enabled;
+  r.lastFired = '';
+  saveState();
+  return r;
+}
+
+function removeReminder(id) {
+  const i = reminders.findIndex(x => x.id === id);
+  if (i < 0) return false;
+  reminders.splice(i, 1);
+  saveState();
+  return true;
+}
 
 // ---------- 收集 / 成就 ----------
 let dexMet = [];                     // 遇见过的图鉴编号
@@ -416,6 +516,14 @@ let guestWin = null;     // 串门的另一只
 let guest = null;        // { dex, x, dir, until, phase: 'in'|'stay'|'out' }
 let nextGuestAt = 0;
 let guestEnabled = true;
+let roamCount = 0;         // 同屏放养数量（额外在桌面上溜达的伙伴数）
+let roamers = [];          // [{ dex, win, x, y, dir, until, state, size }]
+const MAX_ROAM = 3;        // 最多同时放养 3 只
+let nextRoamInteractAt = 0; // 下次检测伙伴间互动的时间
+// ---------- 健康 / 心情曲线 ----------
+// 每天采样心情 / 饱食度均值，存 { day: { moodSum, hungerSum, n, moodAvg, hungerAvg, feed, play } }
+let healthLog = {};
+let lastHealthSampleAt = 0;
 let favorites = [];       // 收藏的图鉴编号
 let roster = [];          // 伙伴队伍 [{ dex, nickname, hat, scarf }]
 let nickname = '';        // 当前伙伴的昵称
@@ -423,6 +531,12 @@ let hat = 'none';         // none | cap | tophat | crown
 let scarf = 'none';       // none | red | blue | green
 let battleForm = null;    // { kind: 'mega'|'gmax', entry, until } 仅本次运行有效
 const MAX_ROSTER = 12;
+// 自定义精灵（照片导入） { id, name, file(绝对路径), w, h }
+let customPets = [];
+let customSeq = 0;
+const CUSTOM_DIR = () => path.join(app.getPath('userData'), 'custom-sprites');
+let customRoamers = [];    // [{ id, win, x, y, dir, until, state, w, h }]
+let customPetsOn = true;   // 是否让照片伙伴出现在桌面上
 function activeRosterEntry() { return roster.find(p => p.dex === speciesDex); }
 function syncRosterEntry() {
   if (!SPECIES.some(sp => sp.dex === speciesDex)) return;
@@ -632,7 +746,7 @@ function guestSprite(url) {
 
 function spawnGuest() {
   if (guestWin || !guestEnabled || focusMode || inBall) return;
-  const pool = SPECIES.filter(sp => sp.dex !== speciesDex);
+  const pool = weatherGuestPool();
   const target = pool[Math.floor(Math.random() * pool.length)];
   const wa = waFor(x + winW / 2, y + winH / 2);
   const size = 110;
@@ -663,7 +777,26 @@ function spawnGuest() {
     size
   };
   nextGuestAt = now() + (12 + Math.random() * 18) * 60000;
-  bubble(lang === 'en' ? `${nameOf(target.dex)} came by!` : `${nameOf(target.dex)} 跑过来串门了`, 3000, true);
+  // 天气联动气泡：下雨来水系、夜晚来幽灵系……
+  const wk = weather && weather.kind;
+  const night = isNight();
+  const weatherWord = wk ? (lang === 'en' ? wk : wk) : '';
+  let msg;
+  if (wk === '雨' && target.types.includes('水')) msg = lang === 'en' ? `Raining — a wild ${nameOf(target.dex)} came by!` : `下雨天，野生 ${nameOf(target.dex)} 跑来串门了！`;
+  else if (wk === '雷' && target.types.includes('电')) msg = lang === 'en' ? `Stormy — a wild ${nameOf(target.dex)} appeared!` : `雷雨天，野生 ${nameOf(target.dex)} 冒出来了！`;
+  else if (wk === '雪' && target.types.includes('冰')) msg = lang === 'en' ? `Snowy — a wild ${nameOf(target.dex)} came by!` : `下雪天，野生 ${nameOf(target.dex)} 跑来串门了！`;
+  else if (night && (target.types.includes('幽灵') || target.types.includes('恶'))) msg = lang === 'en' ? `At night — a wild ${nameOf(target.dex)} lurked by!` : `夜深了，野生 ${nameOf(target.dex)} 悄悄靠近……`;
+  else msg = lang === 'en' ? `${nameOf(target.dex)} came by!` : `${nameOf(target.dex)} 跑过来串门了`;
+  bubble(msg, 3000, true);
+  markMet(target.dex);   // 串门也算遇见，计入图鉴
+  pushNotice({
+    kind: 'guest',
+    title: lang === 'en' ? 'Wild visitor' : '野生访客',
+    body: msg,
+    titleEn: 'Wild visitor', bodyEn: msg,
+    titleJa: '野生の訪問者', bodyJa: msg,
+    titleKo: '야생 방문객', bodyKo: msg
+  });
 }
 
 function updateGuest(t, dt) {
@@ -692,6 +825,197 @@ function updateGuest(t, dt) {
     return;
   }
   try { guestWin.setBounds({ x: Math.round(guest.x), y: Math.round(groundY), width: guest.size, height: guest.size }); } catch (_) {}
+}
+
+// ---------- 多宠物同屏放养 ----------
+// 把队伍里除当前伙伴以外的宝可梦放几只到桌面上溜达，彼此会靠近、打招呼、一起玩耍
+function syncRoamers() {
+  // 清掉多余的 / 已不在队伍的
+  roamers = roamers.filter(r => {
+    const stillIn = roster.some(p => p.dex === r.dex) && r.dex !== speciesDex;
+    if (!stillIn || roamers.indexOf(r) >= roamCount) {
+      if (r.win && !r.win.isDestroyed()) try { r.win.destroy(); } catch (_) {}
+      return false;
+    }
+    return true;
+  });
+  if (focusMode || inBall) {
+    for (const r of roamers) { if (r.win && !r.win.isDestroyed()) r.win.hide(); }
+    return;
+  }
+  // 需要补几只
+  const candidates = roster
+    .filter(p => p.dex !== speciesDex && !roamers.some(r => r.dex === p.dex))
+    .slice(0, Math.max(0, roamCount - roamers.length));
+  for (const p of candidates) {
+    if (roamers.length >= roamCount) break;
+    spawnRoamer(p.dex);
+  }
+  for (const r of roamers) { if (r.win && !r.win.isDestroyed()) r.win.showInactive(); }
+}
+
+function spawnRoamer(dex) {
+  if (roamers.length >= MAX_ROAM) return;
+  const size = 96;
+  const wa = waFor(x + winW / 2, y + winH / 2);
+  const fromLeft = Math.random() < 0.5;
+  const groundY = wa.y + wa.height - size;
+  const w = new BrowserWindow({
+    width: size, height: size,
+    x: Math.round(fromLeft ? wa.x + 40 : wa.x + wa.width - 40 - size),
+    y: Math.round(groundY),
+    frame: false, transparent: true, resizable: false, movable: false,
+    alwaysOnTop: true, skipTaskbar: true, focusable: false, hasShadow: false,
+    show: false,
+    webPreferences: { contextIsolation: true, nodeIntegration: false }
+  });
+  w.setIgnoreMouseEvents(true);
+  w.loadFile(path.join(__dirname, 'renderer', 'guest.html'));
+  w.once('ready-to-show', () => {
+    if (w.isDestroyed()) return;
+    w.showInactive();
+    try { w.webContents.executeJavaScript(`document.getElementById('s').src = ${JSON.stringify(spriteUrlFor(dex, shinyFor(dex)))}`); } catch (_) {}
+  });
+  roamers.push({
+    dex, win: w,
+    x: fromLeft ? wa.x + 40 : wa.x + wa.width - 40 - size,
+    y: groundY, dir: fromLeft ? 1 : -1,
+    until: now() + 5000 + Math.random() * 6000,
+    state: 'walk', size
+  });
+}
+
+function updateRoamers(t, dt) {
+  if (!roamers.length) return;
+  const wa = waFor(x + winW / 2, y + winH / 2);
+  const groundY = wa.y + wa.height - 96;
+  for (const r of roamers) {
+    if (!r.win || r.win.isDestroyed()) continue;
+    r.y = groundY;
+    // 简单溜达：走到方向时限就反向
+    if (t > r.until) {
+      r.dir = -r.dir;
+      r.until = t + 4000 + Math.random() * 6000;
+      r.state = Math.random() < 0.3 ? 'idle' : 'walk';
+      if (r.state === 'idle') r.until = t + 2000 + Math.random() * 3000;
+    }
+    if (r.state === 'walk') {
+      r.x += r.dir * 38 * dt;
+      // 限制在当前屏幕内
+      const minX = wa.x + 10, maxX = wa.x + wa.width - r.size - 10;
+      if (r.x < minX) { r.x = minX; r.dir = 1; }
+      if (r.x > maxX) { r.x = maxX; r.dir = -1; }
+    }
+    try { r.win.setBounds({ x: Math.round(r.x), y: Math.round(r.y), width: r.size, height: r.size }); } catch (_) {}
+  }
+  // 伙伴间 / 与访客 / 与主角的互动检测
+  if (t > nextRoamInteractAt) {
+    nextRoamInteractAt = t + 8000 + Math.random() * 12000;
+    checkRoamerInteraction(t);
+  }
+}
+
+// ---------- 自定义照片伙伴：同屏溜达 ----------
+function syncCustomRoamers() {
+  const want = (customPetsOn && !focusMode && !inBall) ? Math.min(customPets.length, 2) : 0;
+  // 关掉多余的
+  while (customRoamers.length > want) {
+    const r = customRoamers.pop();
+    if (r.win && !r.win.isDestroyed()) try { r.win.destroy(); } catch (_) {}
+  }
+  // 补上需要的（按 customPets 顺序）
+  for (const p of customPets) {
+    if (customRoamers.length >= want) break;
+    if (customRoamers.some(r => r.id === p.id)) continue;
+    spawnCustomRoamer(p);
+  }
+  for (const r of customRoamers) { if (r.win && !r.win.isDestroyed()) r.win.showInactive(); }
+}
+
+function spawnCustomRoamer(p) {
+  const wa = waFor(x + winW / 2, y + winH / 2);
+  // 照片宠物按原始比例算显示尺寸，最大 140 高
+  const ratio = (p.w && p.h) ? p.w / p.h : 1;
+  const dispH = 120;
+  const dispW = Math.round(dispH * ratio);
+  const w = new BrowserWindow({
+    width: dispW, height: dispH,
+    x: Math.round(wa.x + wa.width * 0.2),
+    y: Math.round(wa.y + wa.height - dispH),
+    frame: false, transparent: true, resizable: false, movable: false,
+    alwaysOnTop: true, skipTaskbar: true, focusable: false, hasShadow: false,
+    show: false,
+    webPreferences: { contextIsolation: true, nodeIntegration: false }
+  });
+  w.setIgnoreMouseEvents(true);
+  w.loadFile(path.join(__dirname, 'renderer', 'guest.html'));
+  const fileUrl = require('url').pathToFileURL(p.file).href;
+  w.once('ready-to-show', () => {
+    if (w.isDestroyed()) return;
+    w.showInactive();
+    try { w.webContents.executeJavaScript(`document.getElementById('s').src = ${JSON.stringify(fileUrl)}; document.getElementById('s').style.imageRendering='auto';`); } catch (_) {}
+  });
+  customRoamers.push({
+    id: p.id, win: w,
+    x: wa.x + wa.width * (0.15 + Math.random() * 0.5),
+    y: wa.y + wa.height - dispH,
+    dir: Math.random() < 0.5 ? 1 : -1,
+    until: now() + 4000 + Math.random() * 5000,
+    state: 'walk', w: dispW, h: dispH
+  });
+}
+
+function updateCustomRoamers(t, dt) {
+  if (!customRoamers.length) return;
+  const wa = waFor(x + winW / 2, y + winH / 2);
+  for (const r of customRoamers) {
+    if (!r.win || r.win.isDestroyed()) continue;
+    r.y = wa.y + wa.height - r.h;
+    if (t > r.until) {
+      r.dir = -r.dir;
+      r.until = t + 4000 + Math.random() * 6000;
+      r.state = Math.random() < 0.3 ? 'idle' : 'walk';
+      if (r.state === 'idle') r.until = t + 2000 + Math.random() * 3000;
+    }
+    if (r.state === 'walk') {
+      r.x += r.dir * 34 * dt;
+      const minX = wa.x + 10, maxX = wa.x + wa.width - r.w - 10;
+      if (r.x < minX) { r.x = minX; r.dir = 1; }
+      if (r.x > maxX) { r.x = maxX; r.dir = -1; }
+    }
+    try { r.win.setBounds({ x: Math.round(r.x), y: Math.round(r.y), width: r.w, height: r.h }); } catch (_) {}
+  }
+}
+
+function checkRoamerInteraction(t) {
+  if (focusMode) return;
+  // 收集所有"在场"的 x 坐标：主角、访客、放养的伙伴
+  const actors = [];
+  if (!inBall) actors.push({ kind: 'main', dex: speciesDex, x: x + winW / 2, name: petName() });
+  if (guest && guest.phase === 'stay') actors.push({ kind: 'guest', dex: guest.dex, x: guest.x + guest.size / 2, name: nameOf(guest.dex) });
+  for (const r of roamers) {
+    if (r.win && !r.win.isDestroyed()) actors.push({ kind: 'roamer', dex: r.dex, x: r.x + r.size / 2, name: nameOf(r.dex) });
+  }
+  // 找最近的一对（距离 < 220px 视为靠近）
+  for (let i = 0; i < actors.length; i++) {
+    for (let j = i + 1; j < actors.length; j++) {
+      if (Math.abs(actors[i].x - actors[j].x) < 220) {
+        const a = actors[i], b = actors[j];
+        const greetings = lang === 'en'
+          ? [`${a.name} and ${b.name} are playing together!`, `${a.name} greeted ${b.name}!`, `${a.name} and ${b.name} are chasing each other!`]
+          : [`${a.name} 和 ${b.name} 玩到了一起！`, `${a.name} 跟 ${b.name} 打了个招呼！`, `${a.name} 和 ${b.name} 追来追去！`];
+        bubble(pick(greetings), 3000, true);
+        // 双方都跳一下：让放养伙伴朝对方走一步
+        if (a.kind === 'roamer') { const rr = roamers.find(r => r.dex === a.dex); if (rr) rr.dir = b.x > a.x ? 1 : -1; }
+        if (b.kind === 'roamer') { const rr = roamers.find(r => r.dex === b.dex); if (rr) rr.dir = a.x > b.x ? 1 : -1; }
+        if (a.kind === 'main' || b.kind === 'main') {
+          stats.mood = Math.min(100, stats.mood + 5);
+          addExp(8);
+        }
+        return;   // 一次只触发一对
+      }
+    }
+  }
 }
 
 function spawnEgg() {
@@ -761,6 +1085,67 @@ function doHatch() {
 
 ipcMain.on('hatch', () => { doHatch(); });
 
+// ---------- 自定义精灵：照片导入 ----------
+const CUTOUT_BIN = path.join(__dirname, 'tools', 'bin', 'cutout');
+function cutoutAvailable() { return IS_MAC && fs.existsSync(CUTOUT_BIN); }
+
+// 用 Vision 抠图，返回 { ok, file, w, h }
+function runCutout(inputPath, outPath) {
+  return new Promise((resolve) => {
+    const { execFile } = require('child_process');
+    const json = outPath + '.json';
+    execFile(CUTOUT_BIN, [inputPath, outPath, json], { timeout: 30000 }, (err) => {
+      if (err) { resolve({ ok: false, reason: err.message }); return; }
+      let meta = { w: 0, h: 0 };
+      try { const m = JSON.parse(fs.readFileSync(json, 'utf8')); meta = { w: m.width || 0, h: m.height || 0 }; } catch (_) {}
+      try { fs.unlinkSync(json); } catch (_) {}
+      resolve({ ok: true, file: outPath, w: meta.w, h: meta.h });
+    });
+  });
+}
+
+// 让用户选一张照片，抠图后注册为自定义精灵
+async function importCustomPet() {
+  if (!cutoutAvailable()) {
+    bubble(uiLang === 'ja' ? 'この機能はmacOS 14+でのみ使えます' : uiLang === 'ko' ? '이 기능은 macOS 14+에서만 사용할 수 있어요' : lang === 'en' ? 'This needs macOS 14+' : '这个功能需要 macOS 14+', 3000, true);
+    return { ok: false, reason: 'unsupported' };
+  }
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: lang === 'en' ? 'Choose a photo for your pet' : '选一张照片做你的桌宠',
+    properties: ['openFile'],
+    filters: [{ name: lang === 'en' ? 'Images' : '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'heic'] }]
+  });
+  if (canceled || !filePaths || !filePaths.length) return { ok: false, reason: 'canceled' };
+  fs.mkdirSync(CUSTOM_DIR(), { recursive: true });
+  const id = ++customSeq;
+  const out = path.join(CUSTOM_DIR(), `custom-${id}.png`);
+  bubble(lang === 'en' ? 'Cutting out the photo…' : '正在抠图…', 4000, true);
+  const r = await runCutout(filePaths[0], out);
+  if (!r.ok) {
+    bubble(lang === 'en' ? 'Cutout failed' : '抠图失败了', 2600, true);
+    return { ok: false, reason: r.reason };
+  }
+  const p = { id, name: `伙伴 ${id}`, file: out, w: r.w, h: r.h };
+  customPets.push(p);
+  saveState();
+  bubble(lang === 'en' ? `Added your photo pet!` : '你的照片伙伴来了！', 2600, true);
+  pushNotice({
+    kind: 'custom', title: lang === 'en' ? 'New photo pet' : '新的照片伙伴',
+    body: lang === 'en' ? 'Your photo is now a desktop pet' : '照片已经变成桌宠啦'
+  });
+  refreshTray();
+  return { ok: true, pet: p, all: customPets };
+}
+
+function removeCustomPet(id) {
+  const i = customPets.findIndex(p => p.id === id);
+  if (i < 0) return false;
+  try { fs.unlinkSync(customPets[i].file); } catch (_) {}
+  customPets.splice(i, 1);
+  saveState();
+  refreshTray();
+  return true;
+}
 function checkSitWater() {
   if (focusMode) return;
   const nowMs = Date.now();
@@ -1044,20 +1429,50 @@ function playCry(dex = speciesDex, force = false) {
 }
 
 // ---------- 专属动作 ----------
-let moveCooldown = 0;
+// 以前「自动动作」和「手动点击」共用一个 40–80s 冷却：宠物自己放完招之后，
+// 用户在这段时间里点「专属动作 / 形态专属招式」都会被静默拦掉——界面上
+// 一点反馈都没有，看起来就是"点了没反应"。而且这个冷却还是全局的，换宠物、
+// 超级进化都不会重置，所以很容易误以为"有的宠物坏了"。
+// 现在拆成三道闸：
+//   manualGate   1.2s，仅挡住上一条演出还没放完时的连点（画面本来就在动）
+//   manualReward 6s，只限制经验/计数结算，避免连点刷经验
+//   autoMoveAt   40–80s，只约束自动动作自己，绝不再拦手动点击
+let manualGate = 0;
+let manualRewardAt = 0;
+let autoMoveAt = 0;
+const MANUAL_MOVE_MS = 1200;
+const MANUAL_REWARD_MS = 6000;
+const AUTO_MOVE_MS = 40000;
+// 变身 / 换宠物后让专属招式立刻可用（不重置经验结算，防止变身连点刷经验）
+function resetMoveGate() {
+  manualGate = 0;
+  autoMoveAt = 0;
+}
+
 function playSignature(reason = 'manual') {
   const t = now();
-  if (t < moveCooldown) return false;
+  if (reason === 'auto') {
+    if (t < autoMoveAt) return false;          // 自动动作自己的冷却
+    if (t < manualGate + 3000) return false;   // 用户刚点过，别抢戏
+  } else if (t < manualGate) {
+    return false;                              // 上一条演出还没放完，画面已经在动
+  }
   if (state === 'drag' || state === 'fall' || state === 'ball') return false;
-  counters.sig++;
-  bumpTask('sig', 1);
-  bumpActivity(1);
-  addExp(25);
+  // 手动连点也照常放招，只是经验/计数最多 6 秒结算一次
+  const rewarded = reason === 'auto' || t >= manualRewardAt;
+  if (rewarded) {
+    counters.sig++;
+    bumpTask('sig', 1);
+    bumpActivity(1);
+    addExp(25);
+    manualRewardAt = t + MANUAL_REWARD_MS;
+  }
   const formMove = battleForm ? formMoveFor(battleForm.entry) : null;
   const spec = formMove || signatureFor(speciesDex);
   console.log('[move] ' + (battleForm ? formLabel(battleForm.entry) : spec.name) + ' 使用 ' + spec.move + '（' + spec.kind + '/' + spec.motion + '）' +
-    ' bounds=' + JSON.stringify(win ? win.getBounds() : null));
-  moveCooldown = t + (reason === 'auto' ? 40000 + Math.random() * 40000 : 6000);
+    ' bounds=' + JSON.stringify(win ? win.getBounds() : null) + (rewarded ? '' : ' [repeat]'));
+  if (reason === 'auto') autoMoveAt = t + AUTO_MOVE_MS + Math.random() * 40000;
+  else manualGate = t + MANUAL_MOVE_MS;
   setState('move', 1200);
   if (win && !win.isDestroyed()) win.webContents.send('fx', { ...spec, form: !!battleForm, moveText: formMove ? formMoveLabel(spec) : '' });
   bubble(formMove ? `${formMoveLabel(spec)}！` : ((lang === 'en' ? (spec.moveEn || spec.move) : spec.move) + (lang === 'en' ? '!' : '！')), 1700);
@@ -1107,6 +1522,34 @@ function httpGetText(url, timeoutMs = 10000) {
 let weather = null;          // { kind: '晴'|'云'|'雨'|'雪'|'雷', temp, desc }
 let weatherAt = 0;
 const WEATHER_ICON = { 晴: '☀️', 云: '☁️', 雨: '🌧️', 雪: '❄️', 雷: '⛈️' };
+
+// 天气 / 时段 → 偏好属性：串门时优先抽这些属性的宝可梦，模拟"野外遭遇"
+const WEATHER_TYPE_PREF = {
+  雨: ['水', '虫', '草'],
+  雪: ['冰', '妖精', '水'],
+  雷: ['电', '飞行', '龙'],
+  晴: ['火', '草', '地面', '妖精'],
+  云: ['一般', '飞行', '超能力']
+};
+const NIGHT_TYPE_PREF = ['幽灵', '恶', '虫'];   // 夜晚额外偏好
+
+function weatherGuestPool() {
+  const exclude = new Set([speciesDex, ...(roster.map(p => p.dex))]);
+  let pool = SPECIES.filter(sp => !exclude.has(sp.dex));
+  const prefs = [];
+  const wk = weather && weather.kind;
+  if (wk && WEATHER_TYPE_PREF[wk]) prefs.push(...WEATHER_TYPE_PREF[wk]);
+  if (isNight()) prefs.push(...NIGHT_TYPE_PREF);
+  if (!prefs.length) return pool;
+  // 把偏好属性的宝可梦在池里复制几份（提高被抽中概率），但保留全池兜底
+  const boosted = [];
+  for (const sp of pool) {
+    const hit = sp.types.some(t => prefs.includes(t));
+    boosted.push(sp);
+    if (hit) { boosted.push(sp); boosted.push(sp); }   // 偏好属性权重 ×3
+  }
+  return boosted;
+}
 
 const isNight = () => { const h = new Date().getHours(); return h >= 22 || h < 5; };
 
@@ -1204,9 +1647,14 @@ function formPayload() {
   if (!battleForm) return null;
   const e = battleForm.entry;
   const move = formMoveFor(e);
+  // 有少数新形态（Z-A 的超级进化）官方素材库还没出图。这里显式告诉渲染端，
+  // 让它用「本体图 + 形态色描边 / 呼吸光环」顶替，避免变身后看起来没变化。
+  // 等 tools/fetch-forms.js 把图补进 assets/forms 后，这里会自动变回 false。
+  const noart = !fs.existsSync(path.join(FORM_DIR, e.file + '.gif'));
   return {
     kind: battleForm.kind, file: e.file, name: e.name, nameZh: e.nameZh,
     nameJa: formLabelFor(e, 'ja'), nameKo: formLabelFor(e, 'ko'), types: e.types, until: battleForm.until,
+    noart,
     move: { zh: move.move, en: move.moveEn, ja: move.moveJa || '', ko: move.moveKo || '', type: move.type, color: move.color },
     url: formSpriteUrl(e, shiny)
   };
@@ -1236,6 +1684,8 @@ function transformForm(kind, file) {
   const entry = list.find(e => e.file === file) || list[0];
   const move = formMoveFor(entry);
   battleForm = { kind, entry, until: Date.now() + (FORM_MS[kind] || 60000) };
+  resetMoveGate();   // 变身完成，专属招式立刻能放
+  if (!fs.existsSync(path.join(FORM_DIR, entry.file + '.gif'))) console.log('[form] 无立绘，使用本体图+替代特效:', entry.file);
   sendForm();
   refreshTray();
   saveState();
@@ -1439,6 +1889,20 @@ function loadState() {
     if (d.starAsked === true) starAsked = true;
     if (d.focusMode === true) focusMode = true;
     if (d.guestEnabled === false) guestEnabled = false;
+    if (Number.isFinite(d.roamCount)) roamCount = clamp(Number(d.roamCount), 0, MAX_ROAM);
+    if (d.customPetsOn === false) customPetsOn = false;
+    if (d.healthLog && typeof d.healthLog === 'object') {
+      healthLog = {};
+      for (const [k, v] of Object.entries(d.healthLog)) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(k) && v && typeof v === 'object') {
+          healthLog[k] = {
+            moodSum: Number(v.moodSum) || 0, hungerSum: Number(v.hungerSum) || 0,
+            n: Number(v.n) || 0, moodAvg: Number(v.moodAvg) || 0, hungerAvg: Number(v.hungerAvg) || 0,
+            feed: Number(v.feed) || 0, play: Number(v.play) || 0
+          };
+        }
+      }
+    }
     if (Array.isArray(d.favorites)) favorites = d.favorites.filter(n => Number.isFinite(n));
     if (Array.isArray(d.roster)) {
       roster = d.roster
@@ -1452,6 +1916,18 @@ function loadState() {
         .slice(0, 12);
     }
     if (typeof d.nickname === 'string') nickname = d.nickname.slice(0, 12);
+    if (Array.isArray(d.customPets)) {
+      customPets = d.customPets
+        .filter(p => p && typeof p.file === 'string')
+        .map(p => ({
+          id: Number(p.id) || 0,
+          name: typeof p.name === 'string' ? p.name.slice(0, 16) : '伙伴',
+          file: p.file,
+          w: Number(p.w) || 0, h: Number(p.h) || 0
+        }))
+        .slice(0, 20);
+      customSeq = customPets.reduce((m, p) => Math.max(m, p.id), 0);
+    }
     if (['none','cap','tophat','crown'].includes(d.hat)) hat = d.hat;
     if (['none','red','blue','green'].includes(d.scarf)) scarf = d.scarf;
     if (Number.isFinite(d.eggTarget) && d.eggTarget > 1000) eggTarget = d.eggTarget;
@@ -1527,6 +2003,21 @@ function loadState() {
       }
     }
     ensureTasks();
+    // 自定义提醒事项
+    if (Array.isArray(d.reminders)) {
+      reminders = d.reminders
+        .filter(r => r && typeof r === 'object')
+        .map(r => ({
+          id: Number(r.id) || 0,
+          label: typeof r.label === 'string' ? r.label.slice(0, 24) : '',
+          time: /^\d{2}:\d{2}$/.test(r.time) ? r.time : '09:00',
+          days: Array.isArray(r.days) ? r.days.filter(x => x >= 0 && x <= 6) : [],
+          enabled: r.enabled !== false,
+          lastFired: typeof r.lastFired === 'string' ? r.lastFired : ''
+        }))
+        .slice(0, 50);
+      reminderSeq = reminders.reduce((m, r) => Math.max(m, r.id), 0);
+    }
     if (Number.isFinite(d.rotateMin)) rotateMin = d.rotateMin;
     if (Number.isFinite(d.level)) level = d.level;
     if (Number.isFinite(d.exp)) exp = d.exp;
@@ -1562,9 +2053,9 @@ function saveState() {
     }
     stateRev = diskRev + 1;
     fs.writeFileSync(tmp, JSON.stringify({
-      stats, sizeKey, soundOn, species: speciesDex, shinyMode, shinyLocked, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang: uiLang, rotateMin, guestEnabled, favorites, firstLaunch, sitWarnMin, waterWarnMin, eggTarget, walkedPx, hasEgg, eggRarity, theme: themeMode,
-      roster, nickname, hat, scarf, skin, festivalAuto, access,
-      notifications, notifySystem, checkins, activity, tasks: tasksState,
+      stats, sizeKey, soundOn, species: speciesDex, shinyMode, shinyLocked, starAsked, focusMode, dexMet, shinyMet, counters, unlocked, level, exp, lang: uiLang, rotateMin, guestEnabled, roamCount, favorites, firstLaunch, sitWarnMin, waterWarnMin, eggTarget, walkedPx, hasEgg, eggRarity, theme: themeMode,
+      roster, nickname, hat, scarf, skin, festivalAuto, access, customPets, customPetsOn,
+      notifications, notifySystem, checkins, activity, tasks: tasksState, reminders, healthLog,
       lastSeenVersion, pendingUpdate, updateSnoozeUntil,
       lastSitAt, lastWaterAt,
       pomo: pomo ? { phase: pomo.phase, until: pomo.until, restMin: pomo.restMin, workMin: pomo.workMin } : null,
@@ -1795,6 +2286,51 @@ function decayAndNag(t, dt) {
   }
 }
 
+// 每 30 秒采样一次心情 / 饱食度，攒成当天的均值；跨天时自动滚动
+function sampleHealth() {
+  const t = now();
+  if (t - lastHealthSampleAt < 30000) return;
+  lastHealthSampleAt = t;
+  const dk = dayKey();
+  if (!healthLog[dk]) healthLog[dk] = { moodSum: 0, hungerSum: 0, n: 0, feed: counters.feed || 0, play: counters.play || 0 };
+  const e = healthLog[dk];
+  e.moodSum += stats.mood; e.hungerSum += stats.hunger; e.n++;
+  e.moodAvg = Math.round(e.moodSum / e.n);
+  e.hungerAvg = Math.round(e.hungerSum / e.n);
+  e.feed = counters.feed || 0;
+  e.play = counters.play || 0;
+  // 只保留最近 366 天
+  const keys = Object.keys(healthLog).sort();
+  if (keys.length > 366) for (let i = 0; i < keys.length - 366; i++) delete healthLog[keys[i]];
+  saveSoon();
+}
+
+// 年度仪表盘数据
+function healthDashboard() {
+  const days = firstLaunch ? Math.max(1, Math.floor((Date.now() - firstLaunch) / 86400000) + 1) : 1;
+  const keys = Object.keys(healthLog).sort();
+  const series = keys.slice(-30).map(k => ({ day: k, mood: healthLog[k].moodAvg ?? 0, hunger: healthLog[k].hungerAvg ?? 0 }));
+  // 年度统计
+  const year = keys.slice(-365);
+  let moodSum = 0, hungerSum = 0, n = 0;
+  for (const k of year) { moodSum += healthLog[k].moodAvg ?? 0; hungerSum += healthLog[k].hungerAvg ?? 0; n++; }
+  const avgMood = n ? Math.round(moodSum / n) : Math.round(stats.mood);
+  const avgHunger = n ? Math.round(hungerSum / n) : Math.round(stats.hunger);
+  // 最常养的前 5 只（按出现次数）
+  const petCount = {};
+  for (const k of year) {
+    // healthLog 不存 species，用 roster + dexMet 近似：取已解锁里前 5
+  }
+  const topPets = (dexMet.length ? dexMet : [speciesDex]).slice(-5).map(d => ({ dex: d, name: nameOf(d) }));
+  return {
+    days, avgMood, avgHunger,
+    currentMood: Math.round(stats.mood), currentHunger: Math.round(stats.hunger),
+    series, totalSamples: keys.length,
+    topPets,
+    feed: counters.feed || 0, play: counters.play || 0, pet: counters.pet || 0
+  };
+}
+
 function land() {
   alt = 0;
   altTarget = 0;
@@ -1835,8 +2371,14 @@ function tickStep() {
   if (t > expAt) { expAt = t + 60000; if (!focusMode) addExp(10); }
   if (rotateMin > 0 && t > rotateAt) { rotateAt = t + rotateMin * 60000; if (dexMet.length > 1) randomSpecies(); }
   checkSitWater();
+  checkReminders();
+  sampleHealth();
   if (guestEnabled && !guest && t > nextGuestAt) spawnGuest();
   updateGuest(t, dt);
+  syncRoamers();
+  updateRoamers(t, dt);
+  syncCustomRoamers();
+  updateCustomRoamers(t, dt);
   const groundY = groundYFor();
 
   if (state === 'drag') {
@@ -2198,7 +2740,7 @@ function createTray() {
   const icon = nativeImage.createFromPath(iconPath);
   console.log('[main] tray icon 空?', icon.isEmpty(), JSON.stringify(icon.getSize()));
   tray = new Tray(icon);
-  tray.setToolTip('神奇宝贝桌宠');
+  tray.setToolTip('桌面宠物');
   refreshTray();
   // 部分 macOS 版本首次创建状态栏项不渲染，延迟重设一次
   setTimeout(() => {
@@ -2241,7 +2783,7 @@ async function makeShareCard(savePath) {
     const dir = app.getPath('pictures') || app.getPath('desktop');
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: '保存图鉴卡',
-      defaultPath: path.join(dir, `神奇宝贝-${sp.name}.png`),
+      defaultPath: path.join(dir, `桌面宠物-${sp.name}.png`),
       filters: [{ name: 'PNG 图片', extensions: ['png'] }]
     });
     if (canceled || !filePath) return;
@@ -2382,14 +2924,14 @@ const MENU_JA = {
   '伙伴队伍': 'なかま', '喂食 🍞': 'ごはん 🍞', '玩耍 🎾': '遊ぶ 🎾', '打盹 😴': 'うたた寝 😴',
   '飞一飞 🕊️': '飛ぶ 🕊️', '放出来 ⚪': '出す ⚪', '收进球 ⚪': 'ボールに戻す ⚪',
   '专属动作 ✨': '専用技 ✨', '形态专属招式 ✨': '形態専用技 ✨', '随机一只 🎲': 'ランダム 🎲', '看介绍 📖': '図鑑 📖',
-  '通知中心': '通知センター', '设置…': '設定…', '退出': '終了',
+  '通知中心': '通知センター', '提醒事项': 'リマインダー', '导入照片伙伴 📷': '写真の仲間を読み込む 📷', '设置…': '設定…', '退出': '終了',
   '饱食度': '満腹度', '心情': 'きもち', '超级进化': 'メガシンカ', '超极巨化': 'キョダイマックス'
 };
 const MENU_KO = {
   '伙伴队伍': '파트너', '喂食 🍞': '먹이 🍞', '玩耍 🎾': '놀기 🎾', '打盹 😴': '낮잠 😴',
   '飞一飞 🕊️': '날기 🕊️', '放出来 ⚪': '꺼내기 ⚪', '收进球 ⚪': '볼에 넣기 ⚪',
   '专属动作 ✨': '전용 기술 ✨', '形态专属招式 ✨': '형태 전용 기술 ✨', '随机一只 🎲': '랜덤 🎲', '看介绍 📖': '도감 📖',
-  '通知中心': '알림 센터', '设置…': '설정…', '退出': '종료',
+  '通知中心': '알림 센터', '提醒事项': '알림', '导入照片伙伴 📷': '사진 동료 가져오기 📷', '设置…': '설정…', '退出': '종료',
   '饱食度': '포만감', '心情': '기분', '超级进化': '메가진화', '超极巨化': '거대맥스'
 };
 function natureLabel(n) {
@@ -2424,8 +2966,10 @@ function petMenuTemplate() {
     ...formMenuItems(L),
     { label: L('随机一只 🎲', 'Random 🎲'), click: () => randomSpecies() },
     { label: L('看介绍 📖', 'Profile 📖'), click: () => showLore() },
+    { label: L('导入照片伙伴 📷', 'Import photo pet 📷'), click: async () => { await importCustomPet(); } },
     { type: 'separator' },
     { label: L('通知中心', 'Notification center') + (notifications.some(n => !n.read) ? ` (${notifications.filter(n => !n.read).length})` : ''), click: () => openSettingsTab('notify') },
+    { label: L('提醒事项', 'Reminders'), click: () => openSettingsTab('remind') },
     { label: L('设置…', 'Settings…'), click: createSettingsWindow },
     { label: L('退出', 'Quit'), click: () => { saveState(); app.quit(); } }
   ];
@@ -2448,7 +2992,7 @@ function rosterSnapshot() {
 
 function refreshTray() {
   if (!tray) return;
-  tray.setToolTip(uiLang === 'ja' ? 'ポケパル デスクトップペット' : uiLang === 'ko' ? '포케팔 데스크톱 펫' : uiLang === 'en' ? 'PokéPal desktop pet' : '神奇宝贝桌宠');
+  tray.setToolTip(uiLang === 'ja' ? 'デスクトップペット' : uiLang === 'ko' ? '데스크톱 펫' : uiLang === 'en' ? 'Desktop Pet' : '桌面宠物');
   tray.setContextMenu(Menu.buildFromTemplate(petMenuTemplate()));
   // Dock 右键菜单是启动时拍的一张快照，换精灵/喂食后要一起刷新
   if (IS_MAC && app.dock) {
@@ -3013,6 +3557,9 @@ ipcMain.on('click', () => {
 
 // ---------- 设置 / 开机自启 / 切换宝可梦 ----------
 const launchAgentPath = () => path.join(app.getPath('home'), 'Library', 'LaunchAgents', 'local.togepi.pet.autostart.plist');
+const LOGIN_ITEM_NAME = '桌面宠物';
+// 旧名字：改名之前的登录项会留在系统里，得能认出来并顺手清掉
+const LOGIN_ITEM_ALIASES = ['神奇宝贝', 'PokéPal', 'Pokepal', 'Desktop Pet', 'デスクトップペット', '데스크톱 펫'];
 
 function loginItemSystemEnabled() {
   try { return !!app.getLoginItemSettings().openAtLogin; } catch (_) { return false; }
@@ -3020,11 +3567,143 @@ function loginItemSystemEnabled() {
 function loginAgentExists() {
   try { return fs.existsSync(launchAgentPath()); } catch (_) { return false; }
 }
-function loginAtStartEnabled() { return loginItemSystemEnabled() || loginAgentExists(); }
-
 function bundlePath() {
   const m = String(process.execPath).match(/^(.*\.app)\/Contents\/MacOS\//);
   return m ? m[1] : null;
+}
+
+// ── 系统登录项（System Events）──
+// 为什么需要这条路：macOS 13+ 的 app.setLoginItemSettings 走 SMAppService，
+// 对 ad-hoc 签名 / 开发目录里的 app 经常注册不上（getLoginItemSettings 返回
+// status:"not-found"）；而 ~/Library/LaunchAgents 在有些机器上不是用户可写的
+// （比如被 root 拥有），LaunchAgent 兜底也会 EACCES。这两条都断了以后，
+// 唯一还能用的就是 System Events 的用户登录项。
+const OSA_READ_LOGIN_ITEMS = `set __o to ""
+tell application "System Events"
+  try
+    repeat with __li in login items
+      try
+        set __o to __o & (name of __li) & "," & (path of __li) & linefeed
+      end try
+    end repeat
+  end try
+end tell
+return __o`;
+
+function osa(script, timeout = 8000) {
+  try {
+    return require('child_process').execFileSync('/usr/bin/osascript', ['-e', script], {
+      timeout, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+  } catch (_) { return null; }
+}
+
+function parseLoginItems(text) {
+  if (!text) return [];
+  return String(text).split(/[\r\n]+/).filter(Boolean).map(line => {
+    const i = line.lastIndexOf(',');
+    return i < 0 ? { name: line, path: '' } : { name: line.slice(0, i), path: line.slice(i + 1) };
+  });
+}
+
+// 同步读系统登录项；读不到（没授权 / 非 mac）返回 null，和"空列表"区分开
+function systemLoginItemsSync() {
+  if (!IS_MAC) return null;
+  const out = osa(OSA_READ_LOGIN_ITEMS);
+  return out === null ? null : parseLoginItems(out);
+}
+
+const samePath = (a, b) => {
+  if (!a || !b) return false;
+  try { return path.resolve(a) === path.resolve(b); } catch (_) { return a === b; }
+};
+
+function isOurLoginItem(it, b) {
+  if (!it) return false;
+  if (samePath(it.path, b)) return true;
+  const n = String(it.name || '').trim();
+  return n === LOGIN_ITEM_NAME || LOGIN_ITEM_ALIASES.includes(n);
+}
+
+// 已经失效的登录项：指向被删的旧 app，或指向开发期的裸 Electron
+function isStaleLoginItem(it, b) {
+  if (!it || !it.path) return true;
+  if (/node_modules[\\/]electron[\\/]dist[\\/]Electron\.app$/i.test(it.path)) return true;
+  if (samePath(it.path, b)) return false;
+  try { return !fs.existsSync(it.path); } catch (_) { return true; }
+}
+
+const quoteOsa = s => String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+function addSystemLoginItem() {
+  const b = bundlePath();
+  if (!IS_MAC || !b) return false;
+  osa(`tell application "System Events" to make login item at end with properties {name:"${quoteOsa(LOGIN_ITEM_NAME)}", path:"${quoteOsa(b)}", hidden:false}`);
+  const items = systemLoginItemsSync() || [];
+  return items.some(it => samePath(it.path, b));
+}
+
+function removeSystemLoginItems() {
+  if (!IS_MAC) return false;
+  const b = bundlePath();
+  for (let pass = 0; pass < 6; pass++) {
+    const left = (systemLoginItemsSync() || []).filter(it => isOurLoginItem(it, b));
+    if (!left.length) return true;
+    for (const it of left) {
+      osa(`tell application "System Events" to delete login item "${quoteOsa(it.name)}"`);
+    }
+  }
+  return (systemLoginItemsSync() || []).filter(it => isOurLoginItem(it, bundlePath())).length === 0;
+}
+
+// 清掉改名/搬目录留下的死项（指向已删除的旧 app、或开发期的裸 Electron）
+function cleanupStaleLoginItems() {
+  if (!IS_MAC) return 0;
+  const b = bundlePath();
+  const stale = (systemLoginItemsSync() || []).filter(it => isOurLoginItem(it, b) && isStaleLoginItem(it, b));
+  for (const it of stale) {
+    osa(`tell application "System Events" to delete login item "${quoteOsa(it.name)}"`);
+    console.log('[main] 已清除失效登录项:', it.name, it.path);
+  }
+  return stale.length;
+}
+
+// 状态缓存：cfgSnapshot 调用非常频繁，不能每次都起一个 osascript
+let loginStateCache = null;
+
+function computeLoginAtStart(syncItems) {
+  if (loginItemSystemEnabled()) return true;
+  if (loginAgentExists()) return true;
+  const items = syncItems !== undefined ? syncItems : systemLoginItemsSync();
+  if (items) {
+    const b = bundlePath();
+    return items.some(it => samePath(it.path, b));
+  }
+  return false;
+}
+
+function loginAtStartEnabled() {
+  if (loginStateCache === null) loginStateCache = computeLoginAtStart();
+  return loginStateCache;
+}
+
+// 异步刷新（打开设置页时调用，避免开机就弹自动化授权框）
+function refreshLoginState(cb) {
+  if (!IS_MAC) {
+    loginStateCache = loginItemSystemEnabled() || loginAgentExists();
+    if (cb) cb(loginStateCache);
+    return;
+  }
+  require('child_process').execFile('/usr/bin/osascript', ['-e', OSA_READ_LOGIN_ITEMS],
+    { timeout: 8000, encoding: 'utf8' }, (err, stdout) => {
+      if (err) {
+        // 读不到（没给自动化授权）：退回不需要授权的那两个来源
+        loginStateCache = loginItemSystemEnabled() || loginAgentExists();
+      } else {
+        loginStateCache = computeLoginAtStart(parseLoginItems(stdout));
+      }
+      if (cb) cb(loginStateCache);
+    });
 }
 
 function writeLaunchAgent(on) {
@@ -3051,18 +3730,55 @@ function writeLaunchAgent(on) {
 
 function setLoginAtStart(on) {
   on = !!on;
-  // 1) 系统登录项（macOS 13+ SMAppService，推荐）
+  // 1) 原生 API（macOS 13+ SMAppService；在正式签名包里这是最干净的路）
   try {
     app.setLoginItemSettings({ openAtLogin: on });
-    const st = app.getLoginItemSettings();
-    console.log('[main] 系统登录项状态:', JSON.stringify(st));
-    if (!!st.openAtLogin === on) return on;
+    console.log('[main] 系统登录项状态:', JSON.stringify(app.getLoginItemSettings()));
   } catch (e) {
     console.error('[main] setLoginItemSettings 失败:', e.message);
   }
-  // 2) 回退：LaunchAgent（~/Library/LaunchAgents 可写时）
-  try { writeLaunchAgent(on); } catch (e) { console.error('[main] LaunchAgent 写入失败:', e.message); }
-  return loginAtStartEnabled();
+  // 2) System Events 用户登录项（原生 API 注册不上时用这条）
+  let viaSystem = false;
+  try {
+    if (on) {
+      // 先清掉同名的旧项（可能指向改名前的路径/开发期的裸 Electron/另一个安装位置），
+      // 保证系统里只剩一条、且指向当前这个 app
+      removeSystemLoginItems();
+      viaSystem = addSystemLoginItem();
+    } else {
+      viaSystem = removeSystemLoginItems();
+    }
+  } catch (e) {
+    console.error('[main] 登录项操作失败:', e.message);
+  }
+  // 3) 最后兜底：LaunchAgent（目录可写时才成功）
+  try {
+    if (!on) writeLaunchAgent(false);
+    else if (!viaSystem && !loginItemSystemEnabled()) writeLaunchAgent(true);
+  } catch (e) {
+    console.error('[main] LaunchAgent 写入失败:', e.message);
+  }
+  if (on) { try { cleanupStaleLoginItems(); } catch (_) {} }
+  loginStateCache = null;
+  const now = computeLoginAtStart(systemLoginItemsSync());
+  loginStateCache = now;
+  console.log('[main] 开机自启 ->', on, '实际:', now, 'viaSystem:', viaSystem);
+  return now;
+}
+
+// 调试钩子：PET_LOGIN_TEST=1 时把开机自启走一遍并打印结果
+function runLoginTest() {
+  const before = loginAtStartEnabled();
+  console.log('[login-test] bundlePath:', String(bundlePath()));
+  console.log('[login-test] 原生状态:', JSON.stringify(app.getLoginItemSettings()));
+  console.log('[login-test] 系统登录项:', JSON.stringify(systemLoginItemsSync()));
+  const on = setLoginAtStart(true);
+  console.log('[login-test] 打开后:', on, '| 登录项:', JSON.stringify(systemLoginItemsSync()));
+  const off = setLoginAtStart(false);
+  console.log('[login-test] 关掉后:', off, '| 登录项:', JSON.stringify(systemLoginItemsSync()));
+  const back = setLoginAtStart(true);
+  console.log('[login-test] 再打开:', back, '| 登录项:', JSON.stringify(systemLoginItemsSync()));
+  console.log('[login-test] 初始值:', before);
 }
 
 function switchSpecies(dex, opts = {}) {
@@ -3076,6 +3792,7 @@ function switchSpecies(dex, opts = {}) {
   if (opts.shiny) shinyLocked = true;
   else if (speciesDex !== dex) shinyLocked = false;
   speciesDex = dex;
+  resetMoveGate();   // 换宠物后专属招式立即可用，不继承上一只的冷却
   if (alt > 1 && !canFlyNow()) { alt = 0; altTarget = 0; y = groundYFor(); }
   sentFace = 0;
   shiny = shinyFor(dex);
@@ -3228,6 +3945,9 @@ ipcMain.handle('report:save', async () => {
 });
 ipcMain.on('report:close', () => { if (reportWin && !reportWin.isDestroyed()) reportWin.close(); });
 
+// ── 健康仪表盘 ──
+ipcMain.handle('cfg:health', () => healthDashboard());
+
 function createStarWindow() {
   if (starWin && !starWin.isDestroyed()) { starWin.show(); return; }
   starWin = new BrowserWindow({
@@ -3278,6 +3998,8 @@ function openSettingsTab(tab) {
 }
 
 function createSettingsWindow() {
+  // 打开设置页时刷新一次开机自启的真实状态（异步，不卡窗口）
+  try { refreshLoginState(() => { try { notifySettings(); } catch (_) {} }); } catch (_) {}
   if (settingsWin && !settingsWin.isDestroyed()) {
     settingsWin.show();
     settingsWin.focus();
@@ -3287,7 +4009,7 @@ function createSettingsWindow() {
   settingsWin = new BrowserWindow({
     width: Math.min(820, wa.width - 80), height: Math.min(840, wa.height - 80),
     resizable: false, minimizable: false, maximizable: false,
-    title: '神奇宝贝 · 设置',
+    title: '桌面宠物 · 设置',
     backgroundColor: shellBg(),
     show: false,
     webPreferences: {
@@ -3371,7 +4093,17 @@ function createSettingsWindow() {
         } catch (_) {}
         await new Promise(r => setTimeout(r, 900));
       }
-      captureTo(settingsWin, 'settings-capture.png');
+      if (process.env.PET_SCROLL) {
+        try {
+          await settingsWin.webContents.executeJavaScript(`(() => {
+            const pane = [...document.querySelectorAll('.pane')].find(p => !p.hidden);
+            if (pane) pane.scrollTop = pane.scrollHeight;
+            window.scrollTo(0, document.body.scrollHeight);
+          })()`);
+        } catch (_) {}
+        await new Promise(r => setTimeout(r, 700));
+      }
+      captureTo(settingsWin, process.env.PET_TAB ? `settings-${process.env.PET_TAB}.png` : 'settings-capture.png');
     });
   }
   settingsWin.webContents.on('console-message', (_e, _level, message) => {
@@ -3388,7 +4120,9 @@ function cfgSnapshot() {
     forms: formOptions(speciesDex), battleForm: formPayload(),
     sizeKey, soundOn,
     loginAtStart: loginAtStartEnabled(),
-    shinyMode, rotateMin, lang: uiLang, focusMode, guestEnabled, favorites,
+    shinyMode, rotateMin, lang: uiLang, focusMode, guestEnabled, roamCount, favorites,
+    customPets: customPets.map(p => ({ id: p.id, name: p.name, w: p.w, h: p.h, fileUrl: require('url').pathToFileURL(p.file).href })),
+    customPetsOn,
     nature: { key: (currentNature || NATURES[0]).key, zh: (currentNature || NATURES[0]).zh, en: (currentNature || NATURES[0]).en },
     dexMet: dexMet.slice(),
     stones: counters.stones || 0,
@@ -3431,6 +4165,7 @@ function cfgSnapshot() {
     checkins: checkins.slice(-420),
     activity,
     heatmapDays,
+    reminders: reminders.map(r => ({ ...r, daysLabel: reminderDaysLabel(r) })),
     version: app.getVersion()
   };
 }
@@ -3455,6 +4190,8 @@ ipcMain.handle('cfg:setOpt', (_e, key, value) => {
     else if (key === 'lang') setLang(value);
     else if (key === 'focus') setFocus(!!value);
     else if (key === 'guest') { guestEnabled = !!value; nextGuestAt = now() + 5 * 60000; saveState(); }
+    else if (key === 'roam') { roamCount = clamp(Number(value) || 0, 0, MAX_ROAM); saveState(); syncRoamers(); }
+    else if (key === 'customPetsOn') { customPetsOn = !!value; saveState(); syncCustomRoamers(); }
     else if (key === 'sound') { soundOn = !!value; saveState(); refreshTray(); }
     else if (key === 'login') setLoginAtStart(!!value);
     else if (key === 'theme') { themeMode = ['auto','light','dark'].includes(value) ? value : 'auto'; applyTheme(); saveState(); }
@@ -3504,7 +4241,16 @@ ipcMain.handle('update-notes:install', () => {
   return { ok: true };
 });
 ipcMain.handle('cfg:setSound', (_e, on) => { soundOn = !!on; saveState(); if (soundOn) playCry(speciesDex, true); refreshTray(); return { soundOn }; });
-ipcMain.handle('cfg:setLogin', (_e, on) => ({ loginAtStart: setLoginAtStart(!!on) }));
+ipcMain.handle('cfg:setLogin', (_e, on) => {
+  const loginAtStart = setLoginAtStart(!!on);
+  // 用户在系统里被拒了权限时给个明确提示，而不是让开关默默弹回去
+  if (!!on && !loginAtStart) {
+    bubble(lang === 'en'
+      ? 'macOS blocked it — allow it in System Settings › General › Login Items'
+      : '系统没放行，可到「系统设置 › 通用 › 登录项」手动打开', 5000, true);
+  }
+  return { loginAtStart };
+});
 ipcMain.handle('cfg:setSize', (_e, k) => { setSize(k); return { sizeKey }; });
 ipcMain.handle('cfg:setFav', (_e, dex, on) => {
   const d = Number(dex);
@@ -3534,6 +4280,28 @@ ipcMain.handle('cfg:clearNotices', () => {
 ipcMain.handle('cfg:claimTask', (_e, freq, id) => {
   const ok = claimTask(String(freq), String(id));
   return { ok, ...cfgSnapshot() };
+});
+// ── 自定义提醒事项 ──
+ipcMain.handle('cfg:addReminder', (_e, data) => {
+  addReminder(data || {});
+  return cfgSnapshot();
+});
+ipcMain.handle('cfg:updateReminder', (_e, id, patch) => {
+  updateReminder(Number(id), patch || {});
+  return cfgSnapshot();
+});
+ipcMain.handle('cfg:removeReminder', (_e, id) => {
+  removeReminder(Number(id));
+  return cfgSnapshot();
+});
+// ── 自定义照片伙伴 ──
+ipcMain.handle('cfg:importCustomPet', async () => {
+  const r = await importCustomPet();
+  return { ...r, ...cfgSnapshot() };
+});
+ipcMain.handle('cfg:removeCustomPet', (_e, id) => {
+  removeCustomPet(Number(id));
+  return cfgSnapshot();
 });
 ipcMain.handle('cfg:rename', (_e, name) => {
   nickname = String(name || '').trim().slice(0, 12);
@@ -3593,6 +4361,11 @@ app.on('activate', () => {
 });
 app.on('before-quit', () => {
   saveState();
+  // 关掉所有放养伙伴窗口
+  for (const r of roamers) { if (r.win && !r.win.isDestroyed()) try { r.win.destroy(); } catch (_) {} }
+  roamers = [];
+  for (const r of customRoamers) { if (r.win && !r.win.isDestroyed()) try { r.win.destroy(); } catch (_) {} }
+  customRoamers = [];
   try {
     const pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10);
     if (pid === process.pid) fs.unlinkSync(PID_FILE);   // 只删自己写的
@@ -3607,6 +4380,10 @@ app.whenReady().then(() => {
     try { app.dock.setIcon(path.join(__dirname, 'assets', 'app-icon.png')); } catch (_) {}
   }
   console.log('[debug] whenReady 已触发', JSON.stringify(process.argv));
+  // 开机自启的初始状态只用不需要授权的来源算，避免一启动就弹「控制 System Events」授权框；
+  // 用户真正打开设置页时再用 refreshLoginState() 补上系统登录项的真实状态。
+  loginStateCache = loginItemSystemEnabled() || loginAgentExists();
+  if (process.env.PET_LOGIN_TEST) setTimeout(() => runLoginTest(), 2500);
   loadState();
   if (process.env.PET_SKIN && SKINS.includes(process.env.PET_SKIN)) skin = process.env.PET_SKIN;
   if (process.env.PET_LOOK && ['cap','tophat','crown'].includes(process.env.PET_LOOK)) hat = process.env.PET_LOOK;

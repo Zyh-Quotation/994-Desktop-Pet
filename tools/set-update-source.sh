@@ -1,6 +1,6 @@
 #!/bin/bash
 # 配置更新源（只需一次）。之后 publish.sh 打包时会自动把这个地址写进 app。
-# 用法：./tools/set-update-source.sh https://你的地址/神奇宝贝/
+# 用法：./tools/set-update-source.sh https://你的地址/pokepet/
 #       ./tools/set-update-source.sh ""     # 清空（关闭自动更新检查）
 set -euo pipefail
 cd "$(dirname "$0")/.."

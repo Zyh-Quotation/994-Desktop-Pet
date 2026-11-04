@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>神奇宝贝桌宠 · 把宝可梦养在桌面上</title>
+<title>桌面宠物 · 把宝可梦养在桌面上</title>
 <meta name="description" content="1025 只宝可梦桌面宠物，会走会飞，能摸能扔。免费开源，支持 Apple 芯片 / Intel 芯片 Mac 与 Windows。">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -232,14 +232,14 @@ function apply() {
   if (OS === 'win') {
     $('note-body').innerHTML = '解压后双击 <code>TogepiPet.exe</code> 就行。放在固定文件夹里，别直接放桌面。';
   } else if (OS === 'mac-x64') {
-    $('note-body').innerHTML = '解开 zip，把「神奇宝贝.app」拖进「应用程序」。首次打开会被系统拦一下（没买苹果签名）：到「系统设置 → 隐私与安全性」点「仍要打开」，或在终端执行 <code>xattr -dr com.apple.quarantine /Applications/神奇宝贝.app</code>。 这是 <b>Intel 芯片</b>专用版。';
+    $('note-body').innerHTML = '解开 zip，把「桌面宠物.app」拖进「应用程序」。首次打开会被系统拦一下（没买苹果签名）：到「系统设置 → 隐私与安全性」点「仍要打开」，或在终端执行 <code>xattr -dr com.apple.quarantine /Applications/桌面宠物.app</code>。 这是 <b>Intel 芯片</b>专用版。';
   } else if (OS === 'mac-arm64') {
-    $('note-body').innerHTML = '解开 zip，把「神奇宝贝.app」拖进「应用程序」。首次打开会被系统拦一下（没买苹果签名）：到「系统设置 → 隐私与安全性」点「仍要打开」，或在终端执行 <code>xattr -dr com.apple.quarantine /Applications/神奇宝贝.app</code>。 这是 <b>Apple 芯片</b>版。';
+    $('note-body').innerHTML = '解开 zip，把「桌面宠物.app」拖进「应用程序」。首次打开会被系统拦一下（没买苹果签名）：到「系统设置 → 隐私与安全性」点「仍要打开」，或在终端执行 <code>xattr -dr com.apple.quarantine /Applications/桌面宠物.app</code>。 这是 <b>Apple 芯片</b>版。';
   } else if (OS === 'mac') {
     const intel = assets.macX64
       ? ` 如果是 <b>Intel 芯片</b>的 Mac，请下 <a href="${assets.macX64.browser_download_url}">Intel 版</a>。`
       : '';
-    $('note-body').innerHTML = '解开 zip，把「神奇宝贝.app」拖进「应用程序」。首次打开会被系统拦一下（没买苹果签名）：到「系统设置 → 隐私与安全性」点「仍要打开」，或在终端执行 <code>xattr -dr com.apple.quarantine /Applications/神奇宝贝.app</code>。' + intel;
+    $('note-body').innerHTML = '解开 zip，把「桌面宠物.app」拖进「应用程序」。首次打开会被系统拦一下（没买苹果签名）：到「系统设置 → 隐私与安全性」点「仍要打开」，或在终端执行 <code>xattr -dr com.apple.quarantine /Applications/桌面宠物.app</code>。' + intel;
   } else {
     $('note-body').innerHTML = 'Mac 版右键 → 打开；Windows 版解压后双击 exe。';
   }

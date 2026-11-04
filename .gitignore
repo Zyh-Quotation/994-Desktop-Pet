@@ -7,6 +7,7 @@ userdata/
 release/
 .pokepet-cache/
 tools/.cache/
+tools/bin/
 
 # 大体积素材，用 tools/fetch-*.js 补
 assets/pokemon/
@@ -24,6 +25,7 @@ promo/page-*.png
 capture.png
 settings-capture.png
 star-capture.png
+update-shot.png
 
 # 发布脚本只在维护者本地，不进公开仓库
 tools/publish.sh

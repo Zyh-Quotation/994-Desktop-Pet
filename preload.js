@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('pet', {
   onEvolve: cb => ipcRenderer.on('evolve', (_e, d) => cb(d)),
   onFeedFx: cb => ipcRenderer.on('feed-fx', () => cb()),
   onPlayFx: cb => ipcRenderer.on('play-fx', () => cb()),
+  onReminderFx: cb => ipcRenderer.on('reminder-fx', (_e, d) => cb(d)),
   contextMenu: () => ipcRenderer.send('context-menu'),
   onEgg: cb => ipcRenderer.on('egg', (_e, d) => cb(d)),
   onEggGone: cb => ipcRenderer.on('egg-gone', () => cb()),

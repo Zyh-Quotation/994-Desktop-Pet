@@ -53,6 +53,30 @@ body[data-form="gmax"] #form-aura {
 body[data-form] #sprite { filter: drop-shadow(0 0 10px rgba(255, 190, 70, .55)); }
 body[data-form="gmax"] #sprite { filter: drop-shadow(0 0 16px rgba(255, 60, 120, .65)); }
 
+/* 少数新形态（Z-A 的超级进化）官方素材库还没出图：用本体图 + 形态色描边 /
+   呼吸光环 / 轻微调色顶替，至少让「变身成功」一眼可见。
+   等 tools/fetch-forms.js 把图补进 assets/forms 后，noart 自动变 false，这里自然失效。 */
+body.form-noart #sprite {
+  filter:
+    drop-shadow(0 0 1.5px var(--form-c, #ffd166))
+    drop-shadow(0 0 7px var(--form-c, #ffd166))
+    drop-shadow(0 0 20px var(--form-c, #ffd166))
+    saturate(1.35) brightness(1.06) hue-rotate(-6deg);
+}
+body.form-noart #form-aura {
+  opacity: 1;
+  filter: blur(13px);
+  background: radial-gradient(ellipse at 50% 62%,
+    color-mix(in srgb, var(--form-c, #ffd166) 82%, #fff) 0%,
+    color-mix(in srgb, var(--form-c, #ffd166) 40%, transparent) 44%,
+    transparent 72%);
+  animation: formNoArtPulse 1.35s ease-in-out infinite;
+}
+@keyframes formNoArtPulse {
+  0%, 100% { transform: translateX(-50%) scale(.9); opacity: .6; }
+  50% { transform: translateX(-50%) scale(1.18); opacity: 1; }
+}
+
 #sprite {
   position: absolute;
   z-index: 1;
