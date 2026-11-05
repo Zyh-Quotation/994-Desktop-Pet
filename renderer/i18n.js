@@ -144,8 +144,13 @@
       'Sampled every 30s into a daily average. The more you care, the nicer the curve.',
     // ── 照片伙伴 ──
     '照片伙伴': 'Photo pets', '导入照片 📷': 'Import photo 📷', '显示在桌面': 'Show on desktop',
-    '上传一张猫狗（或其他动物）的照片，本地抠图后它就会出现在桌面上陪你。照片不会上传到任何服务器。':
-      'Upload a photo of a cat, dog or other animal — it is cut out locally and appears on your desktop. Photos never leave your computer.',
+    '抠图中…': 'Cutting out…',
+    '抠图失败了，换一张背景干净点的照片试试': 'Cutout failed — try a photo with a cleaner background',
+    'HEIC 照片读不出来，先在手机上转成 JPG 再导入': 'HEIC photos cannot be read here — convert to JPG first',
+    '照片太小了，换一张大一点的': 'That photo is too small — pick a bigger one',
+    '照片太大了解不出来，先缩小再导入': 'That photo is too large — shrink it and try again',
+    '上传一张猫狗（或其他动物）的照片，本地抠图后它就会出现在桌面上陪你。macOS 和 Windows 都支持，照片不会上传到任何服务器。':
+      'Upload a photo of a cat, dog or other animal — it is cut out locally and appears on your desktop. Works on macOS and Windows; photos never leave your computer.',
     '还没有照片伙伴，点上面「导入照片」试试': 'No photo pets yet — tap Import photo above',
     ' 只': '', '只': '',
 
@@ -263,7 +268,14 @@
     '常在': 'Often found in', '出没': 'habitat', '种子宝可梦': 'Seed Pokémon',
     '妙蛙种子': 'Bulbasaur', '通信': 'Trade', '亲密度': 'Friendship',
     '学会特定招式': 'Level up knowing a move', '特殊条件': 'Special condition',
-    '使用': 'Use'
+    '使用': 'Use',
+
+    // ── 提醒 / 健康 / 图鉴工具条 ──
+    '保存': 'Save', '添加': 'Add', '+ 添加': '+ Add',
+    '心情': 'Mood', '饱食度': 'Fullness',
+    '按世代筛选': 'Filter by generation', '随机来一只': 'Random', '排序': 'Sort',
+    '一': 'Mon', '二': 'Tue', '三': 'Wed', '四': 'Thu', '五': 'Fri', '六': 'Sat', '日': 'Sun',
+    '每天': 'Every day', '还没有提醒，添加一个吧': 'No reminders yet — add one'
   };
 
   const JA = (typeof window !== 'undefined' && window.I18N_JA) || {};

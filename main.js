@@ -918,17 +918,24 @@ function updateRoamers(t, dt) {
 // ---------- 自定义照片伙伴：同屏溜达 ----------
 function syncCustomRoamers() {
   const want = (customPetsOn && !focusMode && !inBall) ? Math.min(customPets.length, 2) : 0;
-  // 关掉多余的
-  while (customRoamers.length > want) {
-    const r = customRoamers.pop();
+  const desired = customPets.slice(0, want);
+  const desiredIdx = new Map(desired.map((p, i) => [p.id, i]));
+  // 先关掉不在名单里的（被删掉的照片伙伴，或者数量超了）。
+  // 不能只从末尾 pop：删第一只时末尾是第二只，会把还在的那只关掉，
+  // 让已经删掉的照片继续在桌面上走（旧图还留在窗口缓存里）。
+  for (let i = customRoamers.length - 1; i >= 0; i--) {
+    const r = customRoamers[i];
+    if (desiredIdx.has(r.id)) continue;
+    customRoamers.splice(i, 1);
     if (r.win && !r.win.isDestroyed()) try { r.win.destroy(); } catch (_) {}
   }
-  // 补上需要的（按 customPets 顺序）
-  for (const p of customPets) {
-    if (customRoamers.length >= want) break;
+  // 补上缺的（按 customPets 顺序）
+  for (const p of desired) {
     if (customRoamers.some(r => r.id === p.id)) continue;
     spawnCustomRoamer(p);
   }
+  // 顺序跟 customPets 对齐，后面的增删才不会错位
+  customRoamers.sort((a, b) => (desiredIdx.get(a.id) ?? 99) - (desiredIdx.get(b.id) ?? 99));
   for (const r of customRoamers) { if (r.win && !r.win.isDestroyed()) r.win.showInactive(); }
 }
 
@@ -1086,28 +1093,70 @@ function doHatch() {
 ipcMain.on('hatch', () => { doHatch(); });
 
 // ---------- 自定义精灵：照片导入 ----------
-const CUTOUT_BIN = path.join(__dirname, 'tools', 'bin', 'cutout');
-function cutoutAvailable() { return IS_MAC && fs.existsSync(CUTOUT_BIN); }
+// 抠图引擎见 cutout.js：macOS 14+ 用系统 Vision，其余平台（含 Windows）用
+// tools/bin/ort 里的本地小模型，全程离线，照片不出本机。
+const photoCutout = require('./cutout');
 
-// 用 Vision 抠图，返回 { ok, file, w, h }
-function runCutout(inputPath, outPath) {
-  return new Promise((resolve) => {
-    const { execFile } = require('child_process');
-    const json = outPath + '.json';
-    execFile(CUTOUT_BIN, [inputPath, outPath, json], { timeout: 30000 }, (err) => {
-      if (err) { resolve({ ok: false, reason: err.message }); return; }
-      let meta = { w: 0, h: 0 };
-      try { const m = JSON.parse(fs.readFileSync(json, 'utf8')); meta = { w: m.width || 0, h: m.height || 0 }; } catch (_) {}
-      try { fs.unlinkSync(json); } catch (_) {}
-      resolve({ ok: true, file: outPath, w: meta.w, h: meta.h });
-    });
-  });
+const PHOTO_TEXT = {
+  missing: {
+    zh: '抠图组件缺失，请重新安装',
+    en: 'Cutout engine is missing — reinstall the app',
+    ja: '切り抜き機能が見つかりません。再インストールしてください',
+    ko: '누끼 엔진이 없습니다. 앱을 다시 설치해 주세요'
+  },
+  failed: {
+    zh: '抠图失败了，换一张背景干净点的照片试试',
+    en: 'Cutout failed — try a photo with a cleaner background',
+    ja: '切り抜けませんでした。背景がシンプルな写真で試してください',
+    ko: '누끼에 실패했어요. 배경이 단순한 사진으로 다시 시도해 주세요'
+  },
+  heic: {
+    zh: 'HEIC 照片读不出来，先转成 JPG 再导入',
+    en: 'HEIC photos cannot be read here — convert to JPG first',
+    ja: 'HEIC 写真は読み込めません。JPG に変換してから読み込んでください',
+    ko: 'HEIC 사진은 읽을 수 없습니다. JPG로 변환한 뒤 가져와 주세요'
+  },
+  tooSmall: {
+    zh: '照片太小了，换一张大一点的',
+    en: 'That photo is too small — pick a bigger one',
+    ja: '写真が小さすぎます。大きい写真を選んでください',
+    ko: '사진이 너무 작아요. 더 큰 사진을 골라 주세요'
+  },
+  tooBig: {
+    zh: '照片太大了解不出来，先缩小再导入',
+    en: 'That photo is too large — shrink it and try again',
+    ja: '写真が大きすぎて読み込めません。縮小してから読み込んでください',
+    ko: '사진이 너무 커서 읽을 수 없어요. 줄여서 다시 시도해 주세요'
+  },
+  noSubject: {
+    zh: '没认出主体，先用整张照片顶上',
+    en: 'No clear subject — using the whole photo',
+    ja: '被写体が見つからず、写真全体を使います',
+    ko: '주 피사체를 찾지 못해 사진 전체를 사용해요'
+  },
+  cutting: {
+    zh: '正在抠图…',
+    en: 'Cutting out the photo…',
+    ja: '切り抜いています…',
+    ko: '누끼 따는 중…'
+  },
+  added: {
+    zh: '你的照片伙伴来了！',
+    en: 'Added your photo pet!',
+    ja: '写真の仲間がやってきました！',
+    ko: '사진 동료가 왔어요!'
+  }
+};
+function photoText(key) {
+  const bag = PHOTO_TEXT[key];
+  if (!bag) return key;
+  return uiLang === 'ja' ? bag.ja : uiLang === 'ko' ? bag.ko : lang === 'en' ? bag.en : bag.zh;
 }
 
 // 让用户选一张照片，抠图后注册为自定义精灵
 async function importCustomPet() {
-  if (!cutoutAvailable()) {
-    bubble(uiLang === 'ja' ? 'この機能はmacOS 14+でのみ使えます' : uiLang === 'ko' ? '이 기능은 macOS 14+에서만 사용할 수 있어요' : lang === 'en' ? 'This needs macOS 14+' : '这个功能需要 macOS 14+', 3000, true);
+  if (!photoCutout.available()) {
+    bubble(photoText('missing'), 3000, true);
     return { ok: false, reason: 'unsupported' };
   }
   const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -1119,16 +1168,22 @@ async function importCustomPet() {
   fs.mkdirSync(CUSTOM_DIR(), { recursive: true });
   const id = ++customSeq;
   const out = path.join(CUSTOM_DIR(), `custom-${id}.png`);
-  bubble(lang === 'en' ? 'Cutting out the photo…' : '正在抠图…', 4000, true);
-  const r = await runCutout(filePaths[0], out);
+  bubble(photoText('cutting'), 6000, true);
+  console.log('[photo] 抠图开始', filePaths[0], '| 引擎', photoCutout.engineName());
+  const r = await photoCutout.cutout(filePaths[0], out, { maxSide: 1600 });
   if (!r.ok) {
-    bubble(lang === 'en' ? 'Cutout failed' : '抠图失败了', 2600, true);
+    try { fs.unlinkSync(out); } catch (_) {}
+    console.warn('[photo] 抠图失败:', r.reason);
+    const failKey = r.reason === 'heic' ? 'heic' : r.reason === 'too-small' ? 'tooSmall' : r.reason === 'too-big' ? 'tooBig' : 'failed';
+    bubble(photoText(failKey), 3200, true);
     return { ok: false, reason: r.reason };
   }
+  console.log('[photo] 抠图完成', r.engine, r.w + 'x' + r.h, r.fallback ? '(整图兜底)' : '');
+  if (r.fallback) bubble(photoText('noSubject'), 3000, true);
   const p = { id, name: `伙伴 ${id}`, file: out, w: r.w, h: r.h };
   customPets.push(p);
   saveState();
-  bubble(lang === 'en' ? `Added your photo pet!` : '你的照片伙伴来了！', 2600, true);
+  bubble(photoText('added'), 2600, true);
   pushNotice({
     kind: 'custom', title: lang === 'en' ? 'New photo pet' : '新的照片伙伴',
     body: lang === 'en' ? 'Your photo is now a desktop pet' : '照片已经变成桌宠啦'
@@ -4296,8 +4351,14 @@ ipcMain.handle('cfg:removeReminder', (_e, id) => {
 });
 // ── 自定义照片伙伴 ──
 ipcMain.handle('cfg:importCustomPet', async () => {
-  const r = await importCustomPet();
-  return { ...r, ...cfgSnapshot() };
+  try {
+    const r = await importCustomPet();
+    return { ...r, ...cfgSnapshot() };
+  } catch (e) {
+    // 引擎里万一抛了没兜住的异常，别让设置页拿到一个 rejected promise
+    console.error('[photo] 导入异常:', e);
+    return { ok: false, reason: 'exception: ' + (e && (e.message || e)), ...cfgSnapshot() };
+  }
 });
 ipcMain.handle('cfg:removeCustomPet', (_e, id) => {
   removeCustomPet(Number(id));
@@ -4361,6 +4422,8 @@ app.on('activate', () => {
 });
 app.on('before-quit', () => {
   saveState();
+  // 关掉抠图用的隐藏窗口
+  try { photoCutout.destroy(); } catch (_) {}
   // 关掉所有放养伙伴窗口
   for (const r of roamers) { if (r.win && !r.win.isDestroyed()) try { r.win.destroy(); } catch (_) {} }
   roamers = [];

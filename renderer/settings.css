@@ -537,3 +537,4 @@ body.high-contrast .card, body.high-contrast .opt, body.high-contrast .task-card
 .custom-pet-card .cp-del:hover { color: var(--accent); }
 /* 照片伙伴空状态：占满整行 */
 .custom-pets-grid .reminder-empty { grid-column: 1 / -1; }
+.custom-msg { color: var(--accent); margin: 2px 0 8px; }

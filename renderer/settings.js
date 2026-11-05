@@ -27,6 +27,12 @@ const customImportBtn = document.getElementById('custom-import');
 const customOnSw = document.getElementById('custom-on');
 const customPetsGrid = document.getElementById('custom-pets-grid');
 const customPetsCount = document.getElementById('custom-pets-count');
+const customMsg = document.getElementById('custom-msg');
+function setCustomMsg(text) {
+  if (!customMsg) return;
+  customMsg.textContent = text || '';
+  customMsg.hidden = !text;
+}
 const bagStones = document.getElementById('bag-stones');
 const bagEggs = document.getElementById('bag-eggs');
 const bagBar = document.getElementById('bag-bar');
@@ -935,9 +941,10 @@ async function init() {
   window.cfg.onLang && window.cfg.onLang(async l => {
     if (window.I18N) window.I18N.setLang(l);
     markSeg(langSeg, ['zh', 'en', 'ja', 'ko'].includes(l) ? l : 'zh');
-    syncCards();
-    applyFilter();
     await reload();
+    // 进化条件、类型标签这些是主进程按语言拼好后下发的，切语言要整块重建
+    build();
+    applyFilter();
   });
 
   // 兜底：万一推送丢了，靠轮询也能追上进度
@@ -1334,7 +1341,12 @@ async function renderHealth() {
   if (healthAvgHunger) healthAvgHunger.textContent = data.avgHunger;
   if (healthMoodBar) healthMoodBar.style.width = data.currentMood + '%';
   if (healthHungerBar) healthHungerBar.style.width = data.currentHunger + '%';
-  if (healthSamples) healthSamples.textContent = T('已记录 ' + data.totalSamples + ' 天', data.totalSamples + ' days logged');
+  if (healthSamples) {
+    const n = data.totalSamples;
+    healthSamples.textContent = uiLang() === 'ja' ? `${n}日分を記録`
+      : uiLang() === 'ko' ? `${n}일 기록`
+      : T('已记录 ' + n + ' 天', n + (n === 1 ? ' day logged' : ' days logged'));
+  }
   drawHealthChart(data.series || []);
 }
 
@@ -1385,6 +1397,12 @@ function drawHealthChart(series) {
 }
 
 // ---- 照片伙伴 ----
+// 照片伙伴的名字是建号时写死的「伙伴 N」，切换语言时按当前语言显示前缀
+function customPetLabel(p) {
+  const m = String((p && p.name) || '').match(/^伙伴\s*(\d+)$/);
+  return m ? `${T('伙伴', 'Buddy')} ${m[1]}` : String((p && p.name) || '');
+}
+
 function renderCustomPets(c) {
   if (!customPetsGrid) return;
   const pets = (c && c.customPets) || [];
@@ -1397,7 +1415,7 @@ function renderCustomPets(c) {
   customPetsGrid.innerHTML = pets.map(p => `
     <div class="custom-pet-card" data-id="${p.id}">
       <img src="${p.fileUrl}" alt="">
-      <span class="cp-name">${(p.name || '').replace(/</g, '&lt;')}</span>
+      <span class="cp-name">${customPetLabel(p).replace(/</g, '&lt;')}</span>
       <button class="cp-del" title="${T('删除', 'Delete')}">${T('删除', 'Delete')}</button>
     </div>
   `).join('');
@@ -1408,10 +1426,32 @@ function renderCustomPets(c) {
 }
 
 if (customImportBtn) {
+  const CUSTOM_FAIL = {
+    heic: ['HEIC 照片读不出来，先在手机上转成 JPG 再导入', 'HEIC photos cannot be read here — convert to JPG first'],
+    'too-small': ['照片太小了，换一张大一点的', 'That photo is too small — pick a bigger one'],
+    'too-big': ['照片太大了解不出来，先缩小再导入', 'That photo is too large — shrink it and try again']
+  };
+  const CUSTOM_FAIL_DEFAULT = ['抠图失败了，换一张背景干净点的照片试试', 'Cutout failed — try a photo with a cleaner background'];
   customImportBtn.onclick = async () => {
+    const label = customImportBtn.textContent;
     customImportBtn.disabled = true;
-    try { await window.cfg.importCustomPet(); await reload(); }
-    finally { customImportBtn.disabled = false; }
+    customImportBtn.textContent = T('抠图中…', 'Cutting out…');
+    setCustomMsg('');
+    try {
+      const r = await window.cfg.importCustomPet();
+      if (r && !r.ok && r.reason !== 'canceled' && r.reason !== 'unsupported') {
+        const pair = CUSTOM_FAIL[r.reason] || CUSTOM_FAIL_DEFAULT;
+        setCustomMsg(T(pair[0], pair[1]));
+      }
+      await reload();
+    } catch (e) {
+      // 主进程意外出错时也要给个说法，而不是让按钮悄悄恢复原样
+      console.error('[custom] import failed', e);
+      setCustomMsg(T(CUSTOM_FAIL_DEFAULT[0], CUSTOM_FAIL_DEFAULT[1]));
+    } finally {
+      customImportBtn.disabled = false;
+      customImportBtn.textContent = label;
+    }
   };
 }
 if (customOnSw) {

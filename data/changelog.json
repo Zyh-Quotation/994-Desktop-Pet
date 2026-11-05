@@ -1,4 +1,47 @@
 {
+  "0.7.2": {
+    "date": "2026-11-05",
+    "title": {
+      "zh": "照片伙伴支持 Windows，抠图不再只限 macOS 14+",
+      "en": "Photo pets now work on Windows — no more macOS 14+ requirement",
+      "ja": "写真の仲間が Windows に対応、切り抜きは macOS 14+ 限定ではなくなりました",
+      "ko": "사진 동료가 Windows를 지원, 누끼가 더 이상 macOS 14+ 전용이 아닙니다"
+    },
+    "new": [
+      {
+        "zh": "照片伙伴全面三端可用：Windows、Linux 和 macOS 13 及以下现在也能导入照片。没有系统 Vision 的平台改用内置的 U²-Net 轻量抠图模型（ONNX Runtime 的 wasm 后端），在本机跑，第一次大约 1–2 秒，之后更快；照片依旧只在本机处理，不上传任何服务器。macOS 14+ 仍然优先用系统 Vision，边缘更细。",
+        "en": "Photo pets now work everywhere: Windows, Linux and macOS 13 and older can import photos too. Where the system Vision API is unavailable, the app falls back to a bundled U²-Net cutout model running on ONNX Runtime (wasm) entirely on your machine — roughly 1–2s the first time, faster after. Photos still never leave your computer. macOS 14+ keeps using Vision, which gives finer edges.",
+        "ja": "写真の仲間がどこでも使えるようになりました。Windows、Linux、macOS 13 以前でも写真を読み込めます。システムの Vision が使えない環境では、同梱の U²-Net 軽量モデル（ONNX Runtime の wasm）をローカルで実行します。初回は 1〜2 秒ほど、2 回目以降はもっと速くなります。写真はこれまで通り端末内だけで処理され、どこにも送信されません。macOS 14+ では引き続き Vision を使うため、輪郭がより繊細になります。",
+        "ko": "사진 동료를 이제 어디서나 쓸 수 있습니다. Windows, Linux, macOS 13 이하에서도 사진을 가져올 수 있어요. 시스템 Vision을 쓸 수 없는 환경에서는 내장된 U²-Net 경량 모델(ONNX Runtime wasm)을 로컬에서 실행합니다. 처음엔 1~2초 정도, 그다음부터는 더 빨라요. 사진은 여전히 기기 안에서만 처리되며 어디에도 전송되지 않습니다. macOS 14+에서는 계속 Vision을 사용해 윤곽이 더 정교합니다."
+      },
+      {
+        "zh": "导入体验补全：点「导入照片」后按钮会变成「抠图中…」，失败会在下面直接说明原因；认不出主体的照片（比如纯风景）先用整张图顶上，不再直接报错。",
+        "en": "Import got friendlier: the button shows “Cutting out…” while working, failures explain themselves right below, and photos with no clear subject (a landscape, say) fall back to the whole image instead of failing.",
+        "ja": "読み込み体験を改善。「写真を読み込む」を押すとボタンが「切り抜いています…」になり、失敗したときは下に理由が出ます。被写体が見つからない写真（風景など）はエラーにせず、写真全体をそのまま使います。",
+        "ko": "가져오기 경험이 좋아졌어요. 사진을 가져오는 동안 버튼이 \"누끼 따는 중…\"으로 바뀌고, 실패하면 아래에 이유가 표시됩니다. 주 피사체가 없는 사진(풍경 등)은 오류 대신 사진 전체를 그대로 사용합니다."
+      }
+    ],
+    "fix": [
+      {
+        "zh": "修好删除照片伙伴后桌面上还留着它的问题：删掉第一张时，被收起来的可能是另一只。现在按编号一一对应，删谁收谁。",
+        "en": "Fixed deleting the wrong photo pet: removing the first one could leave the deleted image on your desktop and put the other one away. Pets are now matched by id, so the one you delete is the one that goes.",
+        "ja": "写真の仲間を削除したときに別の1匹が消えてしまう問題を修正しました。番号で対応づけるので、削除した子がちゃんと消えます。",
+        "ko": "사진 동료를 삭제할 때 다른 아이가 사라지던 문제를 고쳤습니다. 이제 번호로 짝을 맞춰서 삭제한 아이가 정확히 사라집니다."
+      },
+      {
+        "zh": "1×1、8×8 这类过小的图片会直接提示「照片太小了」，不再生成一只看不见的桌宠。",
+        "en": "Tiny images (1×1, 8×8) now say the photo is too small instead of creating an invisible pet.",
+        "ja": "1×1 や 8×8 のような小さすぎる画像は「写真が小さすぎます」と表示し、見えない仲間を作らないようにしました。",
+        "ko": "1×1, 8×8처럼 너무 작은 사진은 \"사진이 너무 작아요\"라고 알려 주고, 보이지 않는 동료를 만들지 않습니다."
+      },
+      {
+        "zh": "导入失败时（文件损坏或格式不支持）一定会给出提示，不会再出现点了没反应的情况。",
+        "en": "Failed imports (corrupt or unsupported files) always show a message now instead of silently doing nothing.",
+        "ja": "読み込みに失敗したとき（ファイル破損・非対応形式）は必ずメッセージを出すようにしました。",
+        "ko": "가져오기에 실패하면(파일 손상·지원하지 않는 형식) 반드시 안내 문구를 표시합니다."
+      }
+    ]
+  },
   "0.7.1": {
     "date": "2026-11-04",
     "title": {

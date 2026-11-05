@@ -17,6 +17,8 @@ echo "目标：$OUT"
 
 # 先把抠图工具编出来（照片伙伴功能要用）
 "$SRC_ROOT/tools/build-cutout.sh" || true
+# 老 macOS（< 14）走本地 ONNX 模型，资源缺了自动补
+"${NODE:-node}" "$SRC_ROOT/tools/fetch-ort.js"
 
 rm -rf "$OUT"
 mkdir -p "$OUT_DIR"

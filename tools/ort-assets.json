@@ -1,0 +1,22 @@
+{
+  "_comment": "照片伙伴跨平台抠图用到的第三方资源（版本和 sha256 都在这里钉死，换版本请同时改 tools/bin/ort 的用法）",
+  "onnxruntime-web": {
+    "version": "1.22.0",
+    "tarball": "https://registry.npmmirror.com/onnxruntime-web/-/onnxruntime-web-1.22.0.tgz",
+    "fallback": "https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.22.0.tgz",
+    "sha256": "e293551f9d36d003e293d0f2937fee7b3dfdcef76d71d1449b55e2d4157c7aea",
+    "files": [
+      "package/dist/ort.wasm.min.js",
+      "package/dist/ort-wasm-simd-threaded.mjs",
+      "package/dist/ort-wasm-simd-threaded.wasm"
+    ]
+  },
+  "models": [
+    {
+      "name": "u2netp.onnx",
+      "url": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx",
+      "sha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+      "note": "U^2-Net 轻量版（4.4MB），Apache-2.0，rembg 同款模型"
+    }
+  ]
+}

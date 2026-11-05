@@ -75,8 +75,10 @@ Electron 写的，免费开源，**macOS / Windows 都能装**。
   当前值进度条、近一年平均心情 / 饱食度
 - **天气联动野外遭遇**：下雨更容易遇到水 / 虫 / 草系，雷雨遇电系，下雪遇冰系，晴天遇火 / 草系，
   夜里遇幽灵 / 恶系；串门气泡也会提到天气（"下雨天，野生 XX 跑来串门了！"）
-- **照片自定义伙伴**：设置 →「伙伴」→「导入照片」，选一张猫狗照片，本地用 macOS Vision 抠图后
-  它就出现在桌面上陪你一起溜达（最多 2 只）。**照片只在本机处理，不会上传到任何服务器**
+- **照片自定义伙伴**：设置 →「伙伴」→「导入照片」，选一张猫狗照片，本地抠掉背景后
+  它就出现在桌面上陪你一起溜达（最多 2 只）。macOS 14+ 用系统 Vision 抠图，
+  Windows / Linux / 老版本 macOS 用内置的本地 U²-Net 轻量模型（ONNX Runtime wasm），
+  三端都不需要联网。**照片只在本机处理，不会上传到任何服务器**
 - **每日签到**：每天首次打开 +50 经验，连续 7 天解锁成就
 - **会累**：内存吃紧时走得慢、冒汗；下雪喊冷、打雷吓一跳
 - **异色**：1025 只全都有异色版。托盘 →「异色 ✨」可以选「自动（1/128 彩蛋）」
@@ -164,6 +166,7 @@ GH_RELEASE=1 ./tools/publish.sh patch "…"    # 带上这个变量就会顺手�
 
 ```
 main.js              主进程：窗口、托盘、状态机、物理（33ms 一帧）、更新
+cutout.js            照片伙伴抠图：优先 macOS Vision，其余平台走本地 ONNX 模型
 preload.js           宠物窗口的安全桥
 settings-preload.js  设置窗口的安全桥
 renderer/            显示层：宠物窗口 + 设置页 + 故事卡
@@ -181,6 +184,7 @@ assets/forms/        超级进化 / 超极巨化动画图（普通 + 异色，�
 assets/cries/        1025 条叫声（16MB，不进仓库）
 docs/                GitHub Pages 下载页（latest.json 是页面读的版本清单）
 tools/               打包、素材抓取脚本
+tools/fetch-ort.js   下载抠图用的 ONNX Runtime(wasm) + u2netp 模型到 tools/bin/ort
 tools/signature-moves.json  招式名数据源（可手工改，改完重跑 build-signatures）
 promo/               宣传图和文案
 ```
@@ -189,6 +193,7 @@ promo/               宣传图和文案
 
 ```bash
 node tools/fetch-sprites.js     # 下载精灵图
+node tools/fetch-ort.js         # 下载跨平台抠图运行时（照片伙伴要用，约 15MB）
 node tools/fetch-cries.js       # 下载叫声
 node tools/fetch-forms.js       # 下载超级进化 / 超极巨化形态图
 node tools/build-form-moves.js  # 重新生成形态专属招式表（保留已有日 / 韩译名）

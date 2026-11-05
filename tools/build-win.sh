@@ -26,11 +26,15 @@ unzip -q "$ZIP" -d "$APP"
 rm -f "$APP/default_app.asar" "$APP/resources/default_app.asar"
 mv "$APP/electron.exe" "$APP/TogepiPet.exe"
 
+echo "▶ 准备抠图运行时（照片伙伴要用，缺了自动下载）…"
+"$NODE" tools/fetch-ort.js
+
 echo "▶ 复制应用文件…"
 rsync -a ./ "$APP/resources/app/" \
   --exclude '.git' --exclude '.*' \
   --exclude node_modules --exclude userdata --exclude release \
   --exclude 'tools/.cache' --exclude 'tools/bin/.build' \
+  --exclude 'tools/bin/cutout' \
   --exclude promo --exclude '*.log' \
   --exclude 'capture.png' --exclude 'settings-capture.png' --exclude 'shot-*.png' \
   --exclude '*.md' --exclude '*.zip' --exclude '安装说明.txt' \
