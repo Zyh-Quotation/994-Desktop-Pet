@@ -39,6 +39,15 @@ if [ -f "$SRC_ROOT/assets/app-icon.icns" ]; then
   echo "已替换应用图标"
 fi
 
+# Info.plist 的版本号要跟 package.json 对齐：打包后 app.getVersion() 读的是这里，
+# 更新检查也拿它跟远端清单比。留着 Electron 自己的 38.x 会永远判定「已是最新」，
+# 设置页显示的版本也会是 38.x（Intel 版一直是单独设置的，这里补上同款逻辑）。
+VER=$("${NODE:-node}" -p "require('$SRC_ROOT/package.json').version")
+PLIST="$OUT/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VER" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VER" "$PLIST"
+echo "版本号写入 Info.plist：$VER"
+
 xattr -cr "$OUT" 2>/dev/null || true
 
 IDENTITY="${DEVID:--}"
