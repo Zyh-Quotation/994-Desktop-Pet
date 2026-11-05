@@ -18,7 +18,11 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      # release 事件默认 checkout 的是 tag，HEAD 处于游离状态，最后 git push 会报
+      # "You are not currently on a branch"，所以显式检出 main
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: 生成 docs/latest.json
         env:

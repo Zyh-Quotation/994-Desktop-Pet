@@ -1,13 +1,8 @@
 {
   "version": "0.7.2",
   "tag": "v0.7.2",
-  "publishedAt": "2026-11-05T08:38:31.092Z",
+  "publishedAt": "2026-11-05T08:48:32Z",
   "assets": {
-    "mac-arm64": {
-      "file": "pokepet-0.7.2.zip",
-      "size": 273493254,
-      "url": "https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/download/v0.7.2/pokepet-0.7.2.zip"
-    },
     "mac-x64": {
       "file": "pokepet-0.7.2-mac-x64.zip",
       "size": 280479866,
@@ -17,6 +12,11 @@
       "file": "pokepet-0.7.2-win-x64.zip",
       "size": 300160854,
       "url": "https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/download/v0.7.2/pokepet-0.7.2-win-x64.zip"
+    },
+    "mac-arm64": {
+      "file": "pokepet-0.7.2.zip",
+      "size": 273493254,
+      "url": "https://github.com/Zyh-Quotation/994-Desktop-Pet/releases/download/v0.7.2/pokepet-0.7.2.zip"
     }
   }
 }
